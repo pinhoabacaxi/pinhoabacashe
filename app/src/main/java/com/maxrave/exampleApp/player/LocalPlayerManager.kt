@@ -232,13 +232,16 @@ object LocalPlayerManager {
             songList = originalList
         }
         currentIndex = songList.indexOf(current)
+        saveCurrentState()
     }
+
     
     fun toggleRepeat() {
         repeatMode = when (repeatMode) {
             RepeatMode.NONE -> RepeatMode.ALL
             RepeatMode.ALL -> RepeatMode.ONE
             RepeatMode.ONE -> RepeatMode.NONE
+            saveCurrentState()
         }
     }
 
