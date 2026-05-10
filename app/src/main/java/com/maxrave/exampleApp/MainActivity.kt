@@ -30,14 +30,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var songAdapter: SongAdapter
     private lateinit var musicLoader: MusicLoader
     
-    // Gestores de Dados
     private lateinit var recentManager: RecentSongsManager
     private lateinit var favoriteManager: FavoriteManager
     private lateinit var playlistManager: PlaylistManager
     
     private var currentList: List<Song> = emptyList()
 
-    // Launcher para múltiplas permissões
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -54,7 +52,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 1. Inicialização dos Managers
         recentManager = RecentSongsManager(this)
         favoriteManager = FavoriteManager(this)
         playlistManager = PlaylistManager(this)
@@ -62,24 +59,20 @@ class MainActivity : AppCompatActivity() {
         
         LocalPlayerManager.initRecentManager(this)
 
-        // 2. Configuração da UI
         setupRecyclerView()
         setupFilters()
         setupSearch()
         setupPlayerListeners()
 
-        // 3. Cliques de botões fixos
         binding.btnScan.setOnClickListener {
             Toast.makeText(this, "Atualizando biblioteca...", Toast.LENGTH_SHORT).show()
             loadSongs()
         }
 
-        // 4. Verificação de permissões e carga inicial
         checkPermissionsAndLoad()
     }
 
     private fun setupSearch() {
-        // Se estiver usando SearchView (recomendado pelo XML anterior)
         binding.searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = false
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -100,7 +93,6 @@ class MainActivity : AppCompatActivity() {
                 R.id.chipRecent -> {
                     val recentIds = recentManager.getRecentIds()
                     val recents = currentList.filter { recentIds.contains(it.id.toString()) }
-                    // Ordenar pela ordem de reprodução (mais recente primeiro)
                     val sortedRecents = recents.sortedBy { recentIds.indexOf(it.id.toString()) }
                     songAdapter.updateList(sortedRecents)
                 }
@@ -109,13 +101,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        songAdapter = SongAdapter(mutableListOf()) { selectedSong ->
-    // Encontra a posição da música clicada na lista atual
-            if (position != -1) {
-        // Agora 'startPlaying' e 'position' existem!
-                LocalPlayerManager.startPlaying(this, currentList, position)
-                updateMiniPlayerUI(selectedSong)
-    }
+        // CORREÇÃO: Estrutura do Adapter corrigida e variável 'position' definida
+        songAdapter = SongAdapter(
+            mutableListOf(),
+            onSongClick = { selectedSong ->
+                val position = currentList.indexOf(selectedSong)
+                if (position != -1) {
+                    LocalPlayerManager.startPlaying(this, currentList, position)
+                    updateMiniPlayerUI(selectedSong)
+                }
             },
             onFavClick = { song ->
                 favoriteManager.toggleFavorite(song.id)
@@ -192,14 +186,13 @@ class MainActivity : AppCompatActivity() {
             LocalPlayerManager.previous(this)
         }
 
-        // Abre o player em tela cheia ao clicar no mini player
-        binding.includeMiniPlayer.miniPlayerContainer.setOnClickListener {
+        binding.includeMiniPlayer.root.setOnClickListener {
             startActivity(Intent(this, FullPlayerActivity::class.java))
         }
     }
 
     private fun updateMiniPlayerUI(song: Song) {
-        binding.includeMiniPlayer.miniPlayerContainer.visibility = View.VISIBLE
+        binding.includeMiniPlayer.root.visibility = View.VISIBLE
         binding.includeMiniPlayer.tvMiniTitle.text = song.title
         binding.includeMiniPlayer.tvMiniArtist.text = song.artist
         val icon = if (LocalPlayerManager.isPlaying()) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
