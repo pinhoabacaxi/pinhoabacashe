@@ -1,9 +1,12 @@
 package com.maxrave.exampleApp.player
 
 import android.content.Context
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.os.Build
 import com.maxrave.exampleApp.model.Song
+import com.maxrave.exampleApp.service.PlaybackService
 
 object LocalPlayerManager {
     private var mediaPlayer: MediaPlayer? = null
@@ -22,9 +25,9 @@ object LocalPlayerManager {
     private fun updateService(context: Context) {
         val intent = Intent(context, PlaybackService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.startForegroundService(intent)
+            context.startForegroundService(intent)
         } else {
-        context.startService(intent)
+            context.startService(intent)
         }
     }
 
@@ -48,40 +51,17 @@ object LocalPlayerManager {
             setOnPreparedListener { 
                 start()
                 onPlaybackStatusChanged?.invoke(true)
+                // Atualiza a notificação do serviço assim que o áudio começa
+                updateService(context)
             }
-            setOnCompletionListener { next(context) }
+            setOnCompletionListener { 
+                next(context) 
+            }
         }
         onTrackChanged?.invoke(song)
-        private fun playCurrent(context: Context) {
-        if (currentIndex !in currentQueue.indices) return
-
-        val song = currentQueue[currentIndex]
-    
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-
-        mediaPlayer = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .build()
-            )
-            setDataSource(context, song.uri)
-            prepareAsync()
-            setOnPreparedListener { 
-                start()
-                onPlaybackStatusChanged?.invoke(true)
-            // CHAMADA AQUI: Notifica o serviço que a música começou
-                updateService(context) 
-        }
-        setOnCompletionListener { next(context) }
-    }
-    onTrackChanged?.invoke(song)
-}
     }
 
-    fun togglePlayPause() {
+    fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
             if (it.isPlaying) {
                 it.pause()
@@ -90,6 +70,8 @@ object LocalPlayerManager {
                 it.start()
                 onPlaybackStatusChanged?.invoke(true)
             }
+            // Atualiza a notificação para mudar o ícone de Play/Pause
+            updateService(context)
         }
     }
 
