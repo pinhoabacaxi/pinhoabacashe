@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         // Nota: Usei um recurso nativo acima apenas para exemplo, ideal é ic_media_pause
             binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
     // Agora passamos o 'this' (contexto da Activity)
-            LocalPlayerManager.togglePlayPause(this) 
+                LocalPlayerManager.togglePlayPause(this) 
             }
         }
     LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
