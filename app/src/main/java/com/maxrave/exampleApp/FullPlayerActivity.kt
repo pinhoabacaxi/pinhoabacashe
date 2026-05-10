@@ -103,19 +103,27 @@ class FullPlayerActivity : AppCompatActivity() {
         binding.ivAlbumArt.setImageResource(android.R.drawable.ic_menu_report_image)
     }
 
+    }
+    
+
     private fun updateShuffleUI() {
-        val color = if (LocalPlayerManager.isShuffleEnabled) 0xFF00FF00.toInt() else 0xFFFFFFFF.toInt()
+    // Corrigido de isShuffleEnabled para isShuffle
+        val color = if (LocalPlayerManager.isShuffle) 0xFF00FF00.toInt() else 0xFFFFFFFF.toInt()
         binding.btnShuffle.setColorFilter(color)
     }
 
     private fun updateRepeatUI() {
-        // Exemplo simples de alternância de ícones nativos
         val icon = when (LocalPlayerManager.repeatMode) {
             LocalPlayerManager.RepeatMode.ALL -> android.R.drawable.ic_menu_revert
             LocalPlayerManager.RepeatMode.ONE -> android.R.drawable.ic_menu_today
-            LocalPlayerManager.RepeatMode.OFF -> android.R.drawable.ic_menu_close_clear_cancel
+            LocalPlayerManager.RepeatMode.NONE -> android.R.drawable.ic_menu_close_clear_cancel 
         }
         binding.btnRepeat.setImageResource(icon)
+    
+    // Feedback visual de cor
+        val color = if (LocalPlayerManager.repeatMode == LocalPlayerManager.RepeatMode.NONE) 
+            0xFFFFFFFF.toInt() else 0xFF00FF00.toInt()
+        binding.btnRepeat.setColorFilter(color)
     }
 
     private fun formatTime(ms: Int): String {
