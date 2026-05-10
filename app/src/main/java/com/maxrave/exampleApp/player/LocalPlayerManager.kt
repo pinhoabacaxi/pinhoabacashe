@@ -13,6 +13,7 @@ import android.os.Looper
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.service.PlaybackService
 import com.maxrave.exampleApp.repository.RecentSongsManager
+import com.maxrave.exampleApp.repository.PlayerPrefs
 
 object LocalPlayerManager {
     private var recentManager: RecentSongsManager? = null
