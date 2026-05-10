@@ -24,6 +24,24 @@ class FullPlayerActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
+        // No setupUI() ou initListeners():
+
+    binding.btnShuffle.setOnClickListener {
+        LocalPlayerManager.toggleShuffle()
+        val tint = if (LocalPlayerManager.isShuffle) R.color.purple_500 else R.color.black
+        binding.btnShuffle.setColorFilter(ContextCompat.getColor(this, tint))
+    }
+
+    binding.btnRepeat.setOnClickListener {
+        LocalPlayerManager.toggleRepeat()
+    // Atualizar ícone baseado no RepeatMode (NONE, ONE, ALL)
+        when(LocalPlayerManager.repeatMode) {
+            LocalPlayerManager.RepeatMode.ALL -> binding.btnRepeat.setImageResource(R.drawable.ic_repeat_all)
+            LocalPlayerManager.RepeatMode.ONE -> binding.btnRepeat.setImageResource(R.drawable.ic_repeat_one)
+            else -> binding.btnRepeat.setImageResource(R.drawable.ic_repeat_off)
+        }
+    }
+
         val song = LocalPlayerManager.currentSong ?: return
         binding.tvFullTitle.text = song.title
         binding.tvFullArtist.text = song.artist
