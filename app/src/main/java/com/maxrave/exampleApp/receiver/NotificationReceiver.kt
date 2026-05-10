@@ -9,13 +9,16 @@ class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             "ACTION_PLAY_PAUSE" -> {
-                // Passamos o context recebido no onReceive
                 LocalPlayerManager.togglePlayPause(context)
             }
-            "ACTION_NEXT" -> LocalPlayerManager.next(context)
-            "ACTION_PREVIOUS" -> LocalPlayerManager.previous(context)
+            "ACTION_NEXT" -> {
+                LocalPlayerManager.next(context)
+            }
+            "ACTION_PREVIOUS" -> {
+                LocalPlayerManager.previous(context)
+            }
             "ACTION_STOP" -> {
-                // Opcional: parar o serviço
+                // Lógica opcional para encerrar o serviço
             }
         }
     }
