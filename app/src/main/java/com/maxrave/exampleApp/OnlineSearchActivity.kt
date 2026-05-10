@@ -48,13 +48,31 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        adapter = OnlineSongAdapter(emptyList()) { onlineSong ->
-            // Abre o link no navegador ou app do YouTube por padrão
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(onlineSong.videoUrl))
-            startActivity(intent)
+        // Dentro do setupRecyclerView da OnlineSearchActivity
+        adapter = OnlineSongAdapter(results) { selectedSong ->
+            lifecycleScope.launch {
+                binding.progressBar.visibility = View.VISIBLE
+        
+                val repository = YouTubeRepository(this@OnlineSearchActivity)
+                val extracted = repository.extractMusicInfo(selectedSong.videoId)
+
+                binding.progressBar.visibility = View.GONE
+
+                if (extracted?.streamUrl != null) {
+            // TOCA A MÚSICA ONLINE
+                    LocalPlayerManager.playOnline(extracted, this@OnlineSearchActivity)
+            
+            // Opcional: Mostrar um aviso que está a carregar o stream
+                    Toast.makeText(this@OnlineSearchActivity, "A iniciar stream...", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@OnlineSearchActivity, "Erro ao obter link de áudio", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
-        binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)
-        binding.rvOnlineResults.adapter = adapter
+
+                
+            binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)
+            binding.rvOnlineResults.adapter = adapter
     }
 
     private fun performSearch(query: String) {
