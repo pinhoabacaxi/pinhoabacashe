@@ -116,7 +116,14 @@ class MainActivity : AppCompatActivity() {
                     showBrowsePlaylistsDialog()
                     // Desmarca o chip para permitir clicar novamente
                     binding.chipGroupFilters.clearCheck()
+                
                 }
+                
+                R.id.chipOnline -> {
+                    startActivity(Intent(this, OnlineSearchActivity::class.java))
+                    binding.chipGroupFilters.clearCheck()
+                }
+
             }
         }
     }
