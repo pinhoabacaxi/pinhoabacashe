@@ -18,6 +18,19 @@ import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
+    private var currentList: List<Song> = emptyList()
+
+    private fun setupRecyclerView() {
+        songAdapter = SongAdapter(emptyList()) { song ->
+        // Ao clicar, toca a música passando a lista atual e a posição
+            val index = currentList.indexOf(song)
+            LocalPlayerManager.playList(currentList, index, this)
+        }
+        binding.rvSongs.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = songAdapter
+        }
+    }
     private lateinit var binding: ActivityMainBinding
     private lateinit var songAdapter: SongAdapter
     private val musicLoader by lazy { MusicLoader(this) }
