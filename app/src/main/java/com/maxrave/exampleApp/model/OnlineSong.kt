@@ -1,10 +1,9 @@
 package com.maxrave.exampleApp.model
 
 data class OnlineSong(
-    val id: String,
+    val videoId: String,
     val title: String,
     val artist: String,
     val thumbnailUrl: String,
-    val duration: String,
-    val videoUrl: String
+    var streamUrl: String? = null // O link extraído virá para aqui
 )
