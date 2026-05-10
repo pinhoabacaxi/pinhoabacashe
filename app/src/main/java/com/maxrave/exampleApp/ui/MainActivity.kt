@@ -1,89 +1,55 @@
-package com.maxrave.exampleApp.ui
+package com.maxrave.exampleApp
 
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
-import android.widget.ImageButton
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.card.MaterialCardView
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.maxrave.exampleApp.R
-import com.maxrave.exampleApp.data.LocalPlayerManager
-import com.maxrave.exampleApp.data.MusicLoader
-import com.maxrave.exampleApp.model.Song
-import kotlinx.coroutines.Dispatchers
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.maxrave.exampleApp.adapter.SongAdapter
+import com.maxrave.exampleApp.databinding.ActivityMainBinding
+import com.maxrave.exampleApp.repository.MusicLoader
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var binding: ActivityMainBinding
     private lateinit var songAdapter: SongAdapter
-    private val PERMISSION_REQUEST_CODE = 100
+    private val musicLoader by lazy { MusicLoader(this) }
 
-    // Mini Player Views
-    private lateinit var miniPlayerCard: MaterialCardView
-    private lateinit var tvMiniTitle: TextView
-    private lateinit var tvMiniArtist: TextView
-    private lateinit var btnPlayPause: ImageButton
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) loadSongs()
+        else Toast.makeText(this, "Acesso negado às músicas.", Toast.LENGTH_SHORT).show()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        initViews()
         setupRecyclerView()
-        setupPlayerListeners()
-        setupFab()
-        checkPermissionsAndLoad()
-    }
-
-    private fun initViews() {
-        miniPlayerCard = findViewById(R.id.miniPlayerCard)
-        tvMiniTitle = findViewById(R.id.tvMiniTitle)
-        tvMiniArtist = findViewById(R.id.tvMiniArtist)
-        btnPlayPause = findViewById(R.id.btnPlayPause)
-
-        btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayback() }
-        findViewById<ImageButton>(R.id.btnNext).setOnClickListener { LocalPlayerManager.playNext(this) }
-        findViewById<ImageButton>(R.id.btnPrev).setOnClickListener { LocalPlayerManager.playPrevious(this) }
+        checkPermissions()
     }
 
     private fun setupRecyclerView() {
-        val rv = findViewById<RecyclerView>(R.id.rvSongs)
         songAdapter = SongAdapter(emptyList()) { song ->
-            LocalPlayerManager.play(this, song)
+            // Ação de clique: será conectada ao Player na Fase 2
+            Toast.makeText(this, "Tocando: ${song.title}", Toast.LENGTH_SHORT).show()
         }
-        rv.adapter = songAdapter
-    }
-
-    private fun setupPlayerListeners() {
-        LocalPlayerManager.onTrackChanged = { song ->
-            miniPlayerCard.visibility = View.VISIBLE
-            tvMiniTitle.text = song.title
-            tvMiniArtist.text = song.artist
-        }
-
-        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
-            val icon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-            btnPlayPause.setImageResource(icon)
+        binding.rvSongs.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = songAdapter
         }
     }
 
-    private fun setupFab() {
-        findViewById<FloatingActionButton>(R.id.fabScan).setOnClickListener {
-            checkPermissionsAndLoad()
-        }
-    }
-
-    private fun checkPermissionsAndLoad() {
+    private fun checkPermissions() {
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_AUDIO
         } else {
@@ -93,37 +59,21 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
             loadSongs()
         } else {
-            ActivityCompat.requestPermissions(this, arrayOf(permission), PERMISSION_REQUEST_CODE)
+            permissionLauncher.launch(permission)
         }
     }
 
     private fun loadSongs() {
         lifecycleScope.launch {
-            val songs = withContext(Dispatchers.IO) {
-                MusicLoader.fetchLocalSongs(this@MainActivity)
+            val list = musicLoader.loadLocalSongs()
+            if (list.isEmpty()) {
+                binding.tvEmptyState.visibility = View.VISIBLE
+                binding.rvSongs.visibility = View.GONE
+            } else {
+                binding.tvEmptyState.visibility = View.GONE
+                binding.rvSongs.visibility = View.VISIBLE
+                songAdapter.updateList(list)
             }
-            songAdapter.updateSongs(songs)
-            // Atualiza a fila do player
-            if (songs.isNotEmpty()) {
-                // Passamos a lista atual para o gerenciador de fila
-                // Sem tocar automaticamente
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        // Nesta fase, o player morre com a Activity. 
-        // No passo 3 (Service), isso será resolvido.
-        if (isFinishing) {
-            LocalPlayerManager.release()
-        }
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            loadSongs()
         }
     }
 }
