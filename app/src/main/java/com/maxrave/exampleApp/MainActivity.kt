@@ -115,7 +115,9 @@ class MainActivity : AppCompatActivity() {
             onSongClick = { song ->
                 val index = currentList.indexOf(song)
                 if (index != -1) {
-                    LocalPlayerManager.playList(currentList, index, this)
+                    // Verifique se o nome da variável é currentList ou songList
+                    LocalPlayerManager.startPlaying(this, currentList, position) 
+
                     updateMiniPlayerUI(song)
                 }
             },
