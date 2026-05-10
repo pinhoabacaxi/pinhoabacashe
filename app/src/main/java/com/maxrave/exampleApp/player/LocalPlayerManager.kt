@@ -100,20 +100,22 @@ object LocalPlayerManager {
         }
     } 
    
+    // No LocalPlayerManager.kt, adiciona:
     fun playOnline(onlineSong: OnlineSong, context: Context) {
-    // Convertemos OnlineSong em um objeto Song temporário
-        val tempSong = Song(
-            id = -1, // ID negativo para indicar que não é local
+        if (onlineSong.streamUrl == null) return
+
+        val webSong = Song(
+            id = -1, // ID fictício para músicas online
             title = onlineSong.title,
             artist = onlineSong.artist,
-            album = "Web Stream",
+            album = "YouTube Stream",
             duration = 0,
-            uri = onlineSong.videoUrl, // Aqui entra a URL direta extraída pelo seu código antigo
+            uri = onlineSong.streamUrl!!, // O link direto do YTExtractor
             albumId = -1
         )
-    
         currentSong = tempSong
-        play(context)
+        play(context) // Aproveita a lógica de play que já tens
+        playList(listOf(webSong), 0, context)
     }
 
     fun initRecentManager(context: Context) {
