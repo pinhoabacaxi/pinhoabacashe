@@ -96,4 +96,4 @@ class FullPlayerActivity : AppCompatActivity() {
         val minutes = (ms / (1000 * 60)) % 60
         return String.format("%02d:%02d", minutes, seconds)
     }
-} // <--- Certifique-se que esta chave fecha a classe
+} 
