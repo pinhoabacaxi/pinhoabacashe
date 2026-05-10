@@ -2,8 +2,12 @@ package com.maxrave.exampleApp.player
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import com.maxrave.exampleApp.model.Song
@@ -17,46 +21,38 @@ object LocalPlayerManager {
     private var originalList: List<Song> = emptyList()
     private var currentIndex: Int = -1
     private var currentVolume: Float = 1.0f
-    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-        when (focusChange) {
-            AudioManager.AUDIOFOCUS_GAIN -> {
-            // Recuperou o foco (ex: a chamada terminou)
-                if (wasPlayingBeforeLoss) {
-                    mediaPlayer?.setVolume(currentVolume, currentVolume)
-                    mediaPlayer?.start()
-                    onPlaybackStatusChanged?.invoke(true)
-                }
-            }
-            AudioManager.AUDIOFOCUS_LOSS -> {
-            // Perda permanente (ex: outro app de música começou a tocar)
-                pause(contextForFocus) // Pausa e não volta sozinho
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-            // Perda temporária (ex: toque de notificação curto)
-                wasPlayingBeforeLoss = mediaPlayer?.isPlaying ?: false
-                mediaPlayer?.pause()
-                onPlaybackStatusChanged?.invoke(false)
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-            // "Ducking": baixar o volume enquanto outro som toca ao fundo
-                if (mediaPlayer?.isPlaying == true) {
-                    mediaPlayer?.setVolume(0.2f, 0.2f)
-                }
-            }
-        }
-    }
-    import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
-import android.os.Build
 
-object LocalPlayerManager {
-    // ... propriedades existentes ...
+    // Propriedades para Audio Focus
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var wasPlayingBeforeLoss = false
 
-    // 1. O Listener que reage às mudanças de foco
+    var isShuffle: Boolean = false
+    var repeatMode: RepeatMode = RepeatMode.NONE
+
+    enum class RepeatMode { NONE, ONE, ALL }
+
+    var currentSong: Song? = null
+        private set
+
+    // Callbacks para a UI
+    var onTrackChanged: ((Song) -> Unit)? = null
+    var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
+    var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val updateProgressRunnable = object : Runnable {
+        override fun run() {
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    onProgressChanged?.invoke(it.currentPosition, it.duration)
+                }
+            }
+            handler.postDelayed(this, 1000)
+        }
+    }
+
+    // 1. Listener de Foco de Áudio
     private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
             AudioManager.AUDIOFOCUS_GAIN -> {
@@ -67,17 +63,17 @@ object LocalPlayerManager {
                 }
             }
             AudioManager.AUDIOFOCUS_LOSS -> {
-                // Perda total (ex: abriu Spotify). Pausamos e não voltamos.
-                pauseWithoutAbandon() 
+                // Perda total: pausamos e não voltamos automaticamente
+                pauseInternal()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                // Perda temporária (ex: áudio de WhatsApp). Pausamos para voltar depois.
+                // Perda temporária: pausamos para voltar depois
                 wasPlayingBeforeLoss = mediaPlayer?.isPlaying ?: false
                 mediaPlayer?.pause()
                 onPlaybackStatusChanged?.invoke(false)
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                // Diminuir volume (ex: som de notificação ou GPS)
+                // Diminuir volume (notificações)
                 if (mediaPlayer?.isPlaying == true) {
                     mediaPlayer?.setVolume(0.1f, 0.1f)
                 }
@@ -85,7 +81,12 @@ object LocalPlayerManager {
         }
     }
 
-    // 2. Função para solicitar o foco
+    fun initRecentManager(context: Context) {
+        recentManager = RecentSongsManager(context)
+        handler.post(updateProgressRunnable)
+    }
+
+    // 2. Solicitação de Foco
     private fun requestAudioFocus(context: Context): Boolean {
         audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         
@@ -112,8 +113,8 @@ object LocalPlayerManager {
         }
     }
 
-    // 3. Função para libertar o foco
-    private fun abandonAudioFocus() {
+    // 3. Liberação de Foco
+    fun abandonAudioFocus() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
         } else {
@@ -122,128 +123,30 @@ object LocalPlayerManager {
         }
     }
 
-    // Modifique o seu método play para incluir a solicitação
-    private fun play(context: Context) {
-        if (currentIndex !in songList.indices) return
-
-        // SOLICITA FOCO ANTES DE TOCAR
-        if (!requestAudioFocus(context)) return 
-
-        val song = songList[currentIndex]
-        // ... resto da sua lógica de inicialização do MediaPlayer ...
-        mediaPlayer?.start()
-        onPlaybackStatusChanged?.invoke(true)
-    }
-
-    // Método para pausar internamente sem largar o foco (usado pelo listener)
-    private fun pauseWithoutAbandon() {
-        mediaPlayer?.pause()
-        onPlaybackStatusChanged?.invoke(false)
-        // Aqui não chamamos abandonAudioFocus pois a perda pode ser temporária
-    }
-}
-
-    private var wasPlayingBeforeLoss = false
-    private lateinit var contextForFocus: Context
-
-    var isShuffle: Boolean = false // Nome correto usado na Activity
-    var repeatMode: RepeatMode = RepeatMode.NONE
-
-    enum class RepeatMode { NONE, ONE, ALL }
-
-    var currentSong: Song? = null
-        private set
-
-    // Callbacks para a UI
-    var onTrackChanged: ((Song) -> Unit)? = null
-    var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
-    var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
-
-    // Handler para atualizar o progresso continuamente
-    private val handler = Handler(Looper.getMainLooper())
-    private val updateProgressRunnable = object : Runnable {
-        override fun run() {
-            mediaPlayer?.let {
-                if (it.isPlaying) {
-                    onProgressChanged?.invoke(it.currentPosition, it.duration)
-                }
-            }
-            handler.postDelayed(this, 1000)
-        }
-    }
-
-    fun initRecentManager(context: Context) {
-        recentManager = RecentSongsManager(context)
-        handler.post(updateProgressRunnable) // Inicia a atualização de progresso
-    }
-    private fun requestAudioFocus(context: Context): Boolean {
-        contextForFocus = context
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build()
-                )
-                .setAcceptsDelayedFocusGain(true)
-                .setOnAudioFocusChangeListener(audioFocusChangeListener)
-                .build()
-            
-        // Armazene o focusRequest para poder abandonar depois
-            currentFocusRequest = focusRequest
-            audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
-                audioFocusChangeListener,
-                AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN
-            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        }
-    }
-
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
+    fun getDuration(): Int = mediaPlayer?.duration ?: 0
+    fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
     fun seekTo(position: Int) { mediaPlayer?.seekTo(position) }
+    
     fun setVolume(volume: Float) {
         currentVolume = volume
         mediaPlayer?.setVolume(volume, volume)
     }
+
+    fun getVolume(): Float = currentVolume
+
     fun startPlaying(context: Context, playlist: List<Song>, index: Int) {
         this.songList = playlist
         this.originalList = playlist.toList()
         this.currentIndex = index
         play(context)
     }
-    fun toggleShuffle() {
-        isShuffle = !isShuffle
-        val current = currentSong
-        if (isShuffle) {
-            originalList = songList.toList()
-            songList = songList.shuffled()
-        } else {
-            songList = originalList
-        }
-        currentIndex = songList.indexOf(current)
-    }
-    
-    fun toggleRepeat() {
-        repeatMode = when (repeatMode) {
-            RepeatMode.NONE -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.NONE
-        }
-    }
 
     private fun play(context: Context) {
         if (songList.isEmpty() || currentIndex !in songList.indices) return
     
-    // Solicita o foco antes de começar
-        if (!requestAudioFocus(context)) {
-            return // Se não conseguir o foco, não toca
-        }
+        // Solicita o foco antes de iniciar o som
+        if (!requestAudioFocus(context)) return
 
         val song = songList[currentIndex]
         currentSong = song
@@ -268,6 +171,26 @@ object LocalPlayerManager {
         updateService(context, "ACTION_UPDATE_NOTIFICATION")
     }
 
+    fun togglePlayPause(context: Context) {
+        mediaPlayer?.let {
+            if (it.isPlaying) {
+                it.pause()
+                abandonAudioFocus()
+            } else {
+                if (requestAudioFocus(context)) {
+                    it.start()
+                }
+            }
+            onPlaybackStatusChanged?.invoke(it.isPlaying)
+            updateService(context, "ACTION_UPDATE_NOTIFICATION")
+        }
+    }
+
+    private fun pauseInternal() {
+        mediaPlayer?.pause()
+        onPlaybackStatusChanged?.invoke(false)
+    }
+
     fun next(context: Context) {
         if (songList.isEmpty()) return
         currentIndex = (currentIndex + 1) % songList.size
@@ -280,26 +203,29 @@ object LocalPlayerManager {
         play(context)
     }
 
-    fun togglePlayPause(context: Context) {
-        mediaPlayer?.let {
-            if (it.isPlaying) it.pause() else it.start()
-            onPlaybackStatusChanged?.invoke(it.isPlaying)
-            updateService(context, "ACTION_UPDATE_NOTIFICATION")
-        }
-    }
-    fun abandonAudioFocus(context: Context) {
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            currentFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+    fun toggleShuffle() {
+        isShuffle = !isShuffle
+        val current = currentSong
+        if (isShuffle) {
+            originalList = songList.toList()
+            songList = songList.shuffled()
         } else {
-            @Suppress("DEPRECATION")
-            audioManager.abandonAudioFocus(audioFocusChangeListener)
+            songList = originalList
+        }
+        currentIndex = songList.indexOf(current)
+    }
+    
+    fun toggleRepeat() {
+        repeatMode = when (repeatMode) {
+            RepeatMode.NONE -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.NONE
         }
     }
 
     private fun updateService(context: Context, action: String) {
         val intent = Intent(context, PlaybackService::class.java).apply { this.action = action }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent)
         } else {
             context.startService(intent)
