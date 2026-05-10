@@ -105,14 +105,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadSongs() {
         lifecycleScope.launch {
-            val list = musicLoader.loadLocalSongs()
-            if (list.isEmpty()) {
+            currentList = musicLoader.loadLocalSongs()
+            if (currentList.isEmpty()) {
                 binding.tvEmptyState.visibility = View.VISIBLE
-                binding.rvSongs.visibility = View.GONE
             } else {
                 binding.tvEmptyState.visibility = View.GONE
-                binding.rvSongs.visibility = View.VISIBLE
-                songAdapter.updateList(list)
+                songAdapter.updateList(currentList)
+                setupPlayerListeners() // Inicializa os cliques do mini player
             }
         }
     }
