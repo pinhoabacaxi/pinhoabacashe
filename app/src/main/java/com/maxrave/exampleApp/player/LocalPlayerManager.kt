@@ -6,20 +6,50 @@ import android.media.MediaPlayer
 import android.net.Uri
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.service.PlaybackService
+import java.util.*
 
 object LocalPlayerManager {
     // ... no topo do objeto ...
     private var recentManager: RecentSongsManager? = null
     private var mediaPlayer: MediaPlayer? = null
     private var songList: List<Song> = emptyList()
+    private var originalList: List<Song> = emptyList() // Para desativar o shuffle
     private var currentIndex: Int = -1
     private var currentVolume: Float = 1.0f
 
+    var isShuffle: Boolean = false
+    var repeatMode: RepeatMode = RepeatMode.NONE
+
+    enum class RepeatMode { NONE, ONE, ALL }
+    
     var currentSong: Song? = null
         private set
 
     var onTrackChanged: ((Song) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
+
+    fun toggleRepeat() {
+        repeatMode = when (repeatMode) {
+            RepeatMode.NONE -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.NONE
+        }
+    }
+    fun toggleShuffle() {
+        isShuffle = !isShuffle
+        if (isShuffle) {
+            originalList = songList.toList()
+            val current = currentSong
+            val shuffled = songList.shuffled()
+            songList = shuffled
+            currentIndex = songList.indexOf(current)
+        } else {
+            val current = currentSong
+            songList = originalList
+            currentIndex = songList.indexOf(current)
+        }
+    }
+
 
     fun initRecentManager(context: Context) {
         recentManager = RecentSongsManager(context)
@@ -51,10 +81,16 @@ object LocalPlayerManager {
     
         mediaPlayer?.stop()
         mediaPlayer?.release()
-
         mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
         mediaPlayer?.setVolume(currentVolume, currentVolume) // Aplica volume atual
         mediaPlayer?.start()
+        mediaPlayer?.setOnCompletionListener {
+            next(context)
+            when(repeatMode) {
+                RepeatMode.ONE -> play(context)
+                RepeatMode.ALL, RepeatMode.NONE -> next(context)
+            }
+        }
         // REGISTRO DE RECENTES
         recentManager?.addRecent(song.id)
     
@@ -62,11 +98,6 @@ object LocalPlayerManager {
         onPlaybackStatusChanged?.invoke(true)
         
         updateService(context, "ACTION_UPDATE_NOTIFICATION")
-
-        mediaPlayer?.setOnCompletionListener {
-            next(context)
-        }
-    }
 
     fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
@@ -103,4 +134,5 @@ object LocalPlayerManager {
             context.startService(intent)
         }
     }
+}
 }
