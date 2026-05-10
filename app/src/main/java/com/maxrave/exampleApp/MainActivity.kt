@@ -139,6 +139,8 @@ class MainActivity : AppCompatActivity() {
             }
             songAdapter.updateList(recentSongs)
         }
+            R.id.chipPlaylists -> showBrowsePlaylistsDialog()
+        
     }
 
     private fun setupClickListeners() {
