@@ -55,7 +55,12 @@ object LocalPlayerManager {
         currentVolume = volume
         mediaPlayer?.setVolume(volume, volume)
     }
-
+    fun startPlaying(context: Context, playlist: List<Song>, index: Int) {
+        this.songList = playlist
+        this.originalList = playlist.toList()
+        this.currentIndex = index
+        play(context)
+    }
     fun toggleShuffle() {
         isShuffle = !isShuffle
         val current = currentSong
@@ -67,7 +72,7 @@ object LocalPlayerManager {
         }
         currentIndex = songList.indexOf(current)
     }
-
+    
     fun toggleRepeat() {
         repeatMode = when (repeatMode) {
             RepeatMode.NONE -> RepeatMode.ALL
