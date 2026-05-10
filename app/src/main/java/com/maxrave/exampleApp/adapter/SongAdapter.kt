@@ -11,7 +11,8 @@ class SongAdapter(
     private var songs: List<Song>,
     private val favoriteManager: FavoriteManager,
     private val onSongClick: (Song) -> Unit,
-    private val onFavClick: (Song) -> Unit
+    private val onFavClick: (Song) -> Unit,
+    private val onLongClick: (Song) -> Unit // Novo parâmetro
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
     
     private var songsFull: List<Song> = songs
