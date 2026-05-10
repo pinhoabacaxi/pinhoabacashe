@@ -54,6 +54,16 @@ class MainActivity : AppCompatActivity() {
         setupClickListeners()
         checkPermissions()
     }
+    binding.searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
+        override fun onQueryTextSubmit(query: String?): Boolean {
+            return false
+        }
+
+        override fun onQueryTextChange(newText: String?): Boolean {
+            songAdapter.filter(newText ?: "")
+            return true
+        }
+    })
 
     private fun initRepositories() {
         musicLoader = MusicLoader(this)
