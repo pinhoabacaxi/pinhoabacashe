@@ -11,6 +11,7 @@ object LocalPlayerManager {
     private var mediaPlayer: MediaPlayer? = null
     private var songList: List<Song> = emptyList()
     private var currentIndex: Int = -1
+    private var currentVolume: Float = 1.0f
 
     var currentSong: Song? = null
         private set
@@ -19,6 +20,20 @@ object LocalPlayerManager {
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
 
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
+
+    fun getDuration(): Int = mediaPlayer?.duration ?: 0
+    fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
+
+    fun seekTo(position: Int) {
+        mediaPlayer?.seekTo(position)
+    }
+
+    fun setVolume(volume: Float) {
+        currentVolume = volume
+        mediaPlayer?.setVolume(volume, volume)
+    }
+
+    fun getVolume(): Float = currentVolume
 
     fun playList(songs: List<Song>, index: Int, context: Context) {
         songList = songs
@@ -36,12 +51,12 @@ object LocalPlayerManager {
         mediaPlayer?.release()
 
         mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
+        mediaPlayer?.setVolume(currentVolume, currentVolume) // Aplica volume atual
         mediaPlayer?.start()
 
         onTrackChanged?.invoke(song)
         onPlaybackStatusChanged?.invoke(true)
         
-        // Comando para o serviço atualizar a notificação
         updateService(context, "ACTION_UPDATE_NOTIFICATION")
 
         mediaPlayer?.setOnCompletionListener {
