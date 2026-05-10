@@ -83,8 +83,7 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
 
-                groupId = 'com
-                .github.maxrave-dev'
+                groupId = 'com.github.maxrave-dev'
                 artifactId = 'kotlin-youtubeExtractor'
                 version = '0.0.7'
             }
