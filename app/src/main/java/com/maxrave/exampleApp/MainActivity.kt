@@ -109,17 +109,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        songAdapter = SongAdapter(
-            songs = emptyList(),
-            favoriteManager = favoriteManager,
-            onSongClick = { song ->
-                val index = currentList.indexOf(song)
-                if (index != -1) {
-                    // Verifique se o nome da variável é currentList ou songList
-                    LocalPlayerManager.startPlaying(this, currentList, position) 
-
-                    updateMiniPlayerUI(song)
-                }
+        songAdapter = SongAdapter(mutableListOf()) { selectedSong ->
+    // Encontra a posição da música clicada na lista atual
+            if (position != -1) {
+        // Agora 'startPlaying' e 'position' existem!
+                LocalPlayerManager.startPlaying(this, currentList, position)
+                updateMiniPlayerUI(selectedSong)
+    }
             },
             onFavClick = { song ->
                 favoriteManager.toggleFavorite(song.id)
