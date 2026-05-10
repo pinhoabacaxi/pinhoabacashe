@@ -149,6 +149,19 @@ private fun setupSearch() {
         options.addAll(playlists)
         val favManager = FavoriteManager(this)
             playlistManager = PlaylistManager(this) // Inicializa o gestor
+        val playlistNames = playlistManager.getPlaylistNames().toList()
+    
+    // Aqui podes usar um ArrayAdapter simples ou um adaptador pequeno
+        rv.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+    // Exemplo simplificado:
+        btnNew.setOnClickListener {
+        // Lógica de EditText para novo nome e playlistManager.createPlaylist(nome)
+            dialog.dismiss()
+        }
+    
+        dialog.setContentView(view)
+        dialog.show()
+    }
 
         val builder = androidx.appcompat.app.AlertDialog.Builder(this)
         builder.setTitle("Adicionar '${song.title}' a:")
