@@ -23,23 +23,20 @@ class SongAdapter(
         val binding = ItemSongBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return SongViewHolder(binding)
     }
-
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songs[position]
         holder.binding.tvSongTitle.text = song.title
         holder.binding.tvSongArtist.text = song.artist
         
-        // Atualiza o ícone de favorito (Supondo que existe um ImageView chamado ivFavorite no seu XML)
-        val isFav = favoriteManager.isFavorite(song.id)
-        // Exemplo de troca de ícone (ajuste para os seus recursos):
-        // holder.binding.ivFavorite.setImageResource(if (isFav) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-
         holder.binding.root.setOnClickListener { onSongClick(song) }
         
-        // Se houver um botão de favorito no item_song.xml:
-        // holder.binding.btnFavorite.setOnClickListener { onFavClick(song) }
+        // Adicionando suporte ao clique longo para abrir o menu de playlists
+        holder.binding.root.setOnLongClickListener {
+            onLongClick(song)
+            true
+        }
     }
-
+    
     override fun getItemCount(): Int = songs.size
    
     fun updateList(newSongs: List<Song>) {
