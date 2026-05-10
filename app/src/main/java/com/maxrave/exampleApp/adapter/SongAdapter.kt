@@ -25,6 +25,14 @@ class SongAdapter(
     }
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
+        
+        val albumArtUri = getAlbumArtUri(song.albumId)
+        Glide.with(holder.itemView.context)
+            .load(albumArtUri)
+            .placeholder(android.R.drawable.ic_media_play) // Imagem padrão enquanto carrega
+            .error(android.R.drawable.ic_media_play)       // Imagem caso não exista capa
+            .into(holder.binding.ivAlbumArt) // Certifique-se que o ID no XML é este
+
         val song = songs[position]
         holder.binding.apply {
             tvSongTitle.text = song.title
