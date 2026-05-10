@@ -5,13 +5,16 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.maxrave.exampleApp.databinding.ItemSongBinding
 import com.maxrave.exampleApp.model.Song
+import com.maxrave.exampleApp.repository.FavoriteManager
 
 class SongAdapter(
     private var songs: List<Song>,
-
-    private val onSongClick: (Song) -> Unit
+    private val favoriteManager: FavoriteManager,
+    private val onSongClick: (Song) -> Unit,
+    private val onFavClick: (Song) -> Unit
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
-    private var songsFull: List<Song> = songs // Cópia da lista completa
+    
+    private var songsFull: List<Song> = songs
 
     class SongViewHolder(val binding: ItemSongBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -25,8 +28,15 @@ class SongAdapter(
         holder.binding.tvSongTitle.text = song.title
         holder.binding.tvSongArtist.text = song.artist
         
-        // CORREÇÃO AQUI: Use holder.binding.root para o clique
+        // Atualiza o ícone de favorito (Supondo que existe um ImageView chamado ivFavorite no seu XML)
+        val isFav = favoriteManager.isFavorite(song.id)
+        // Exemplo de troca de ícone (ajuste para os seus recursos):
+        // holder.binding.ivFavorite.setImageResource(if (isFav) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
+
         holder.binding.root.setOnClickListener { onSongClick(song) }
+        
+        // Se houver um botão de favorito no item_song.xml:
+        // holder.binding.btnFavorite.setOnClickListener { onFavClick(song) }
     }
 
     override fun getItemCount(): Int = songs.size
@@ -42,7 +52,7 @@ class SongAdapter(
             songsFull
         } else {
             songsFull.filter { 
-                it.title.contains(query, ignoreCase = true) || 
+                it.title.contains(query, ignoreCase = true) ||
                 it.artist.contains(query, ignoreCase = true) 
             }
         }
