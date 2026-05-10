@@ -8,14 +8,16 @@ import kotlinx.coroutines.withContext
 
 class MusicLoader(private val context: Context) {
 
-    // Certifique-se de que o nome é EXATAMENTE loadLocalSongs
     suspend fun loadLocalSongs(): List<Song> = withContext(Dispatchers.IO) {
         val songList = mutableListOf<Song>()
         val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.ALBUM_ID
         )
@@ -24,7 +26,10 @@ class MusicLoader(private val context: Context) {
             val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
             val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
 
             while (cursor.moveToNext()) {
                 songList.add(
@@ -32,7 +37,10 @@ class MusicLoader(private val context: Context) {
                         id = cursor.getLong(idCol),
                         title = cursor.getString(titleCol),
                         artist = cursor.getString(artistCol),
-                        path = cursor.getString(dataCol)
+                        album = cursor.getString(albumCol) ?: "Álbum Desconhecido",
+                        duration = cursor.getLong(durationCol),
+                        uri = cursor.getString(dataCol),
+                        albumId = cursor.getLong(albumIdCol)
                     )
                 )
             }
