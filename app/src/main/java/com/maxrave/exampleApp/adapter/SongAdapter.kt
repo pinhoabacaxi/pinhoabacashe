@@ -1,4 +1,4 @@
-package com.maxrave.exampleApp.ui
+package com.maxrave.exampleApp.adapter
 
 import android.view.LayoutInflater
 import android.view.View
