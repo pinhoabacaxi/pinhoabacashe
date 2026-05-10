@@ -26,30 +26,23 @@ class SongAdapter(
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songs[position]
-        holder.binding.tvSongTitle.text = song.title
-        holder.binding.tvSongArtist.text = song.artist
-        
-        // Configura o ícone de favorito (coração) baseado no estado atual
-        val isFav = favoriteManager.isFavorite(song.id)
-        holder.binding.btnFavorite.setImageResource(
-            if (isFav) android.R.drawable.btn_star_big_on 
-            else android.R.drawable.btn_star_big_off
-        )
+        holder.binding.apply {
+            tvSongTitle.text = song.title
+            tvSongArtist.text = song.artist
+            
+            // Ícone de favorito nativo do Android para manter simplicidade
+            val isFav = favoriteManager.isFavorite(song.id)
+            btnFavorite.setImageResource(
+                if (isFav) android.R.drawable.btn_star_big_on 
+                else android.R.drawable.btn_star_big_off
+            )
 
-        // Clique simples: Tocar música
-        holder.binding.root.setOnClickListener { 
-            onSongClick(song) 
-        }
-
-        // Clique no ícone de favorito
-        holder.binding.btnFavorite.setOnClickListener {
-            onFavClick(song)
-        }
-        
-        // Clique longo: Abrir opções de playlist
-        holder.binding.root.setOnLongClickListener {
-            onLongClick(song)
-            true
+            root.setOnClickListener { onSongClick(song) }
+            btnFavorite.setOnClickListener { onFavClick(song) }
+            root.setOnLongClickListener {
+                onLongClick(song)
+                true
+            }
         }
     }
     
@@ -57,7 +50,8 @@ class SongAdapter(
    
     fun updateList(newSongs: List<Song>) {
         this.songs = newSongs
-        this.songsFull = newSongs
+        // Se a lista completa for vazia (primeira carga), atualizamos ela também
+        if (this.songsFull.isEmpty()) this.songsFull = newSongs
         notifyDataSetChanged()
     }
 
