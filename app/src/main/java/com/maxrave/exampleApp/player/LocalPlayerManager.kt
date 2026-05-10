@@ -79,6 +79,34 @@ object LocalPlayerManager {
         recentManager = RecentSongsManager(context)
         handler.post(updateProgressRunnable) // Inicia a atualização de progresso
     }
+    private fun requestAudioFocus(context: Context): Boolean {
+        contextForFocus = context
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                .build()
+            
+        // Armazene o focusRequest para poder abandonar depois
+            currentFocusRequest = focusRequest
+            audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                audioFocusChangeListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+    }
 
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
     fun seekTo(position: Int) { mediaPlayer?.seekTo(position) }
@@ -160,6 +188,15 @@ object LocalPlayerManager {
             if (it.isPlaying) it.pause() else it.start()
             onPlaybackStatusChanged?.invoke(it.isPlaying)
             updateService(context, "ACTION_UPDATE_NOTIFICATION")
+        }
+    }
+    fun abandonAudioFocus(context: Context) {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            currentFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(audioFocusChangeListener)
         }
     }
 
