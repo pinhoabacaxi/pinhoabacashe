@@ -1,16 +1,17 @@
 package com.maxrave.exampleApp.player
 
 import android.content.Context
+import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
 import com.maxrave.exampleApp.model.Song
+import com.maxrave.exampleApp.service.PlaybackService
 
 object LocalPlayerManager {
     private var mediaPlayer: MediaPlayer? = null
     private var songList: List<Song> = emptyList()
     private var currentIndex: Int = -1
 
-    // Propriedades que a MainActivity está tentando acessar
     var currentSong: Song? = null
         private set
 
@@ -34,12 +35,14 @@ object LocalPlayerManager {
         mediaPlayer?.stop()
         mediaPlayer?.release()
 
-        // CORREÇÃO AQUI: Convertendo String para Uri.parse()
         mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
         mediaPlayer?.start()
 
         onTrackChanged?.invoke(song)
         onPlaybackStatusChanged?.invoke(true)
+        
+        // Comando para o serviço atualizar a notificação
+        updateService(context, "ACTION_UPDATE_NOTIFICATION")
 
         mediaPlayer?.setOnCompletionListener {
             next(context)
@@ -55,6 +58,7 @@ object LocalPlayerManager {
                 it.start()
                 onPlaybackStatusChanged?.invoke(true)
             }
+            updateService(context, "ACTION_UPDATE_NOTIFICATION")
         }
     }
 
@@ -68,5 +72,16 @@ object LocalPlayerManager {
         if (songList.isEmpty()) return
         currentIndex = if (currentIndex > 0) currentIndex - 1 else songList.size - 1
         play(context)
+    }
+
+    private fun updateService(context: Context, action: String) {
+        val intent = Intent(context, PlaybackService::class.java).apply {
+            this.action = action
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
     }
 }
