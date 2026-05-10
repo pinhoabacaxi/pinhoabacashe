@@ -27,7 +27,8 @@ object LocalPlayerManager {
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var wasPlayingBeforeLoss = false
-
+    private var prefs: PlayerPrefs? = null
+    
     var isShuffle: Boolean = false
     var repeatMode: RepeatMode = RepeatMode.NONE
 
@@ -82,6 +83,23 @@ object LocalPlayerManager {
         }
     }
 
+    private fun saveCurrentState() {
+        prefs?.savePlayerState(
+            isShuffle, 
+            repeatMode.ordinal, 
+            currentVolume, 
+            currentSong?.id ?: -1L
+        )
+    }
+   fun init(context: Context) {
+        if (prefs == null) {
+            prefs = PlayerPrefs(context)
+            isShuffle = prefs!!.getShuffle()
+            repeatMode = RepeatMode.values()[prefs!!.getRepeatMode()]
+            currentVolume = prefs!!.getVolume()
+        }
+    } 
+   
     fun initRecentManager(context: Context) {
         recentManager = RecentSongsManager(context)
         handler.post(updateProgressRunnable)
