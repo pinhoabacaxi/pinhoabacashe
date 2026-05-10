@@ -1,30 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission
-        android:name="android.permission.INTERNET">
 
-    </uses-permission>
+    [span_1](start_span)<uses-permission android:name="android.permission.INTERNET" />[span_1](end_span)
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <uses-permission 
+        android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.ExampleApp"
-        tools:targetApi="31">
+        [span_2](start_span)android:allowBackup="true"[span_2](end_span)
+        [span_3](start_span)android:dataExtractionRules="@xml/data_extraction_rules"[span_3](end_span)
+        [span_4](start_span)android:fullBackupContent="@xml/backup_rules"[span_4](end_span)
+        [span_5](start_span)android:icon="@mipmap/ic_launcher"[span_5](end_span)
+        [span_6](start_span)android:label="@string/app_name"[span_6](end_span)
+        [span_7](start_span)android:roundIcon="@mipmap/ic_launcher_round"[span_7](end_span)
+        [span_8](start_span)android:supportsRtl="true"[span_8](end_span)
+        [span_9](start_span)android:theme="@style/Theme.ExampleApp"[span_9](end_span)
+        [span_10](start_span)tools:targetApi="31">[span_10](end_span)
+
         <activity
-            android:name="com.maxrave.exampleApp.ui.MainActivity"
+            [span_11](start_span)android:name=".ui.MainActivity"[span_11](end_span)
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
+                [span_12](start_span)<action android:name="android.intent.action.MAIN" />[span_12](end_span)
+                [span_13](start_span)<category android:name="android.intent.category.LAUNCHER" />[span_13](end_span)
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".service.MusicService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>
