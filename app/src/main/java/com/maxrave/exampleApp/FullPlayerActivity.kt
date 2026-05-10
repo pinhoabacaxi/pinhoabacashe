@@ -67,11 +67,16 @@ class FullPlayerActivity : AppCompatActivity() {
             binding.tvTotalTime.text = formatTime(total)
         }
     }
-
     private fun updateSongInfo(song: Song) {
         binding.tvTitle.text = song.title
         binding.tvArtist.text = song.artist
-        binding.ivAlbumArt.setImageResource(android.R.drawable.ic_menu_report_image)
+    
+        val albumArtUri = getAlbumArtUri(song.albumId)
+    
+        Glide.with(this)
+            .load(albumArtUri)
+            .placeholder(android.R.drawable.ic_menu_report_image)
+            .into(binding.ivAlbumArt)
     }
 
     private fun updateShuffleUI() {
