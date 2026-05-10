@@ -22,12 +22,13 @@ class SongAdapter(
         val song = songs[position]
         holder.binding.tvSongTitle.text = song.title
         holder.binding.tvSongArtist.text = song.artist
-        holder.root.setOnClickListener { onSongClick(song) }
+        
+        // CORREÇÃO AQUI: Use holder.binding.root para o clique
+        holder.binding.root.setOnClickListener { onSongClick(song) }
     }
 
     override fun getItemCount(): Int = songs.size
 
-    // ESTA FUNÇÃO É O QUE ESTÁ FALTANDO:
     fun updateList(newSongs: List<Song>) {
         this.songs = newSongs
         notifyDataSetChanged()
