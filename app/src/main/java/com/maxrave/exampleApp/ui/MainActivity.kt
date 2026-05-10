@@ -60,8 +60,8 @@ class MainActivity : AppCompatActivity() {
             binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
     // Agora passamos o 'this' (contexto da Activity)
             LocalPlayerManager.togglePlayPause(this) 
-    }
-
+            }
+        }
     LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
         val icon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
         binding.includeMiniPlayer.btnPlayPause.setImageResource(icon)
