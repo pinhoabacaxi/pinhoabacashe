@@ -100,6 +100,22 @@ object LocalPlayerManager {
         }
     } 
    
+    fun playOnline(onlineSong: OnlineSong, context: Context) {
+    // Convertemos OnlineSong em um objeto Song temporário
+        val tempSong = Song(
+            id = -1, // ID negativo para indicar que não é local
+            title = onlineSong.title,
+            artist = onlineSong.artist,
+            album = "Web Stream",
+            duration = 0,
+            uri = onlineSong.videoUrl, // Aqui entra a URL direta extraída pelo seu código antigo
+            albumId = -1
+        )
+    
+        currentSong = tempSong
+        play(context)
+    }
+
     fun initRecentManager(context: Context) {
         recentManager = RecentSongsManager(context)
         handler.post(updateProgressRunnable)
