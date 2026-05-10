@@ -22,7 +22,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var songAdapter: SongAdapter
-    private val musicLoader by lazy { MusicLoader(this) }
+    private lateinit var musicLoader: MusicLoader
     private var currentList: List<Song> = emptyList()
 
     private val permissionLauncher = registerForActivityResult(
