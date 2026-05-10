@@ -67,14 +67,23 @@ class MainActivity : AppCompatActivity() {
         // 3. Verificação de dados
         checkPermissionsAndLoad()
     }
-
+    // No MainActivity.kt, dentro do setupRecyclerView()
     private fun setupRecyclerView() {
-        songAdapter = SongAdapter(emptyList()) { song ->
-            val index = currentList.indexOf(song)
-            if (index != -1) {
-                LocalPlayerManager.playList(currentList, index, this)
+        val favManager = FavoriteManager(this) // Adicionado
+        songAdapter = SongAdapter(
+            emptyList(),
+            favManager,
+            onSongClick = { song ->
+                val index = currentList.indexOf(song)
+                if (index != -1) {
+                    LocalPlayerManager.playList(currentList, index, this)
+                }
+            },
+            onFavClick = { song ->
+                favManager.toggleFavorite(song.id)
+                songAdapter.notifyDataSetChanged() // Atualiza a UI para mostrar o novo estado do coração
             }
-        }
+        )
         binding.rvSongs.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = songAdapter
