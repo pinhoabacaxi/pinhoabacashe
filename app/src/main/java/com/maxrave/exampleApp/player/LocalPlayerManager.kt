@@ -52,6 +52,33 @@ object LocalPlayerManager {
             setOnCompletionListener { next(context) }
         }
         onTrackChanged?.invoke(song)
+        private fun playCurrent(context: Context) {
+        if (currentIndex !in currentQueue.indices) return
+
+        val song = currentQueue[currentIndex]
+    
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+
+        mediaPlayer = MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+            )
+            setDataSource(context, song.uri)
+            prepareAsync()
+            setOnPreparedListener { 
+                start()
+                onPlaybackStatusChanged?.invoke(true)
+            // CHAMADA AQUI: Notifica o serviço que a música começou
+                updateService(context) 
+        }
+        setOnCompletionListener { next(context) }
+    }
+    onTrackChanged?.invoke(song)
+}
     }
 
     fun togglePlayPause() {
