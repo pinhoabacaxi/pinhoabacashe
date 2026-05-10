@@ -95,6 +95,27 @@ class MainActivity : AppCompatActivity() {
         binding.rvSongs.adapter = songAdapter
     }
 
+   // Adicione um botão no seu XML da MainActivity (ou use um Chip novo)
+// No onCreate ou setupFilters da MainActivity:
+
+    private fun showBrowsePlaylistsDialog() {
+        val playlists = playlistManager.getPlaylistNames().toList()
+        if (playlists.isEmpty()) {
+            Toast.makeText(this, "Nenhuma playlist criada.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+        builder.setTitle("Minhas Playlists")
+        builder.setItems(playlists.toTypedArray()) { _, which ->
+            val selected = playlists[which]
+            val intent = Intent(this, PlaylistSongsActivity::class.java)
+            intent.putExtra("PLAYLIST_NAME", selected)
+            startActivity(intent)
+        }
+        builder.show()
+     }
+
     private fun setupSearch() {
         // Supondo que você tenha um EditText de busca no seu XML de layout anterior
         // Se não houver, adicione um EditText ou SearchView com ID 'etSearch'
