@@ -99,6 +99,15 @@
                     android:layout_height="wrap_content"
                     app:chipIcon="@android:drawable/ic_menu_agenda" 
                     android:text="Playlists"/>
+                
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipOnline"
+                    style="@style/Widget.MaterialComponents.Chip.Action"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:chipIcon="@android:drawable/ic_menu_search"
+                    android:text="Buscar Online"/>
+
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
     </LinearLayout>
