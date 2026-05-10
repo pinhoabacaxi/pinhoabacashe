@@ -32,9 +32,17 @@ class MainActivity : AppCompatActivity() {
         else Toast.makeText(this, "Acesso negado às músicas.", Toast.LENGTH_SHORT).show()
     }
 
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+    
+        musicLoader = MusicLoader(this) // Inicialização direta
+    
+    setupRecyclerView()
+    checkPermissions()
+}
         setContentView(binding.root)
 
         setupRecyclerView()
