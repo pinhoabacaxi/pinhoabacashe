@@ -68,7 +68,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
-        LocalPlayerManager.togglePlayPause()
+        LocalPlayerManager.togglePlayPause(this)
     }
 
     binding.includeMiniPlayer.btnNext.setOnClickListener {
