@@ -20,6 +20,8 @@ class PlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        registerReceiver(noisyReceiver, filter)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -32,6 +34,21 @@ class PlaybackService : Service() {
         return START_STICKY
     }
     
+    private val noisyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+            // Fones desconectados, pausar a música
+                LocalPlayerManager.togglePlayPause(context!!)
+            }
+        }
+    }
+
+// No onCreate do Service:
+    unregisterReceiver(noisyReceiver)
+
+// No onDestroy do Service:
+    
+
     private fun showNotification(song: Song, isPlaying: Boolean) {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
