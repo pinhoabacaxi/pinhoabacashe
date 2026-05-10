@@ -8,8 +8,10 @@ import com.maxrave.exampleApp.model.Song
 
 class SongAdapter(
     private var songs: List<Song>,
+
     private val onSongClick: (Song) -> Unit
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
+    private var songsFull: List<Song> = songs // Cópia da lista completa
 
     class SongViewHolder(val binding: ItemSongBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -28,9 +30,23 @@ class SongAdapter(
     }
 
     override fun getItemCount(): Int = songs.size
-
+   
     fun updateList(newSongs: List<Song>) {
         this.songs = newSongs
+        this.songsFull = newSongs
         notifyDataSetChanged()
     }
+
+    fun filter(query: String) {
+        val filteredList = if (query.isEmpty()) {
+            songsFull
+        } else {
+            songsFull.filter { 
+                it.title.contains(query, ignoreCase = true) || 
+                it.artist.contains(query, ignoreCase = true) 
+            }
+        }
+        this.songs = filteredList
+        notifyDataSetChanged()
+    } 
 }
