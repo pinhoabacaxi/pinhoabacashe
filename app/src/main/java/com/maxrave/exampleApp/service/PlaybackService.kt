@@ -11,7 +11,6 @@ import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.receiver.NotificationReceiver
 import android.app.Service
-import android.content.Intent
 
 
 class PlaybackService : Service() {
