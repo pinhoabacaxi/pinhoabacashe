@@ -24,7 +24,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var songAdapter: SongAdapter
     private lateinit var musicLoader: MusicLoader
     private var currentList: List<Song> = emptyList()
-
+    private lateinit var recentManager: RecentSongsManager
+    private lateinit var favoriteManager: FavoriteManager
     // Launcher para múltiplas permissões (Necessário para Android 13+)
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -36,6 +37,9 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Permissões necessárias para o app funcionar.", Toast.LENGTH_LONG).show()
         }
     }
+    
+    
+private fun setupSearch() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +50,15 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Atualizando biblioteca...", Toast.LENGTH_SHORT).show()
             loadSongs()
         }
+        // ...
+        recentManager = RecentSongsManager(this)
+        favoriteManager = FavoriteManager(this)
+        LocalPlayerManager.initRecentManager(this)
+
+        setupSearch()
+        setupFilters()
+    }
+
 
 
         // 1. Inicialização de componentes
@@ -67,7 +80,36 @@ class MainActivity : AppCompatActivity() {
         // 3. Verificação de dados
         checkPermissionsAndLoad()
     }
+   
+        binding.etSearch.addTextChangedListener(object : android.text.TextWatcher {
+        override fun afterTextChanged(s: android.util.Editable?) {
+            songAdapter.filter(s.toString())
+        }
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+    })
+}
+
+    private fun setupFilters() {
+        binding.chipGroupFilters.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.chipAll -> songAdapter.updateList(currentList)
+                R.id.chipFavorites -> {
+                    val favs = currentList.filter { favoriteManager.isFavorite(it.id) }
+                    songAdapter.updateList(favs)
+                }
+                R.id.chipRecent -> {
+                    val recentIds = recentManager.getRecentIds()
+                    val recents = currentList.filter { recentIds.contains(it.id.toString()) }
+                    // Ordenar conforme a ordem de reprodução recente
+                    val sortedRecents = recents.sortedByDescending { recentIds.indexOf(it.id.toString()) }
+                    songAdapter.updateList(sortedRecents)
+                }
+        
+            }
+        }
     // No MainActivity.kt, dentro do setupRecyclerView()
+   
     private fun setupRecyclerView() {
         val favManager = FavoriteManager(this)
         playlistManager = PlaylistManager(this) // Inicializa o gestor
