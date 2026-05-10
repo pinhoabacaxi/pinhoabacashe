@@ -103,13 +103,11 @@ class MainActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         // CORREÇÃO: Estrutura do Adapter corrigida e variável 'position' definida
         songAdapter = SongAdapter(
-            mutableListOf(),
-            onSongClick = { selectedSong ->
-                val position = currentList.indexOf(selectedSong)
-                if (position != -1) {
-                    LocalPlayerManager.startPlaying(this, currentList, position)
-                    updateMiniPlayerUI(selectedSong)
-                }
+            currentList,
+            favoriteManager,
+            onSongClick = { song -> 
+                val position = currentList.indexOf(song)
+                LocalPlayerManager.startPlaying(this, currentList, position)
             },
             onFavClick = { song ->
                 favoriteManager.toggleFavorite(song.id)
