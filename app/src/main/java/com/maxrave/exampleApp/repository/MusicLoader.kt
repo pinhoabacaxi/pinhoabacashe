@@ -1,4 +1,4 @@
-package com.maxrave.exampleApp.data
+package com.maxrave.exampleApp.repository
 
 import android.content.ContentUris
 import android.content.Context
