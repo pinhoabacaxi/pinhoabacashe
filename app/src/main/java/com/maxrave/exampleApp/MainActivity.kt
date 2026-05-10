@@ -32,6 +32,19 @@ class MainActivity : AppCompatActivity() {
     
     private var allSongs: List<Song> = emptyList()
 
+    private val onDownloadComplete = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+        // Quando um download termina, forçamos o recarregamento da biblioteca
+            loadSongs()
+            Toast.makeText(context, "Nova música adicionada à biblioteca!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+// No onCreate:
+
+// No onDestroy:
+unregisterReceiver(onDownloadComplete)
+
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -46,7 +59,8 @@ class MainActivity : AppCompatActivity() {
 
         // Inicialização do Player e Persistência
         LocalPlayerManager.init(this)
-        
+        registerReceiver(onDownloadComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+
         initRepositories()
         setupRecyclerView()
         setupSearch()
