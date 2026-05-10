@@ -19,6 +19,15 @@ object LocalPlayerManager {
         playCurrent(context)
     }
 
+    private fun updateService(context: Context) {
+        val intent = Intent(context, PlaybackService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.startForegroundService(intent)
+        } else {
+        context.startService(intent)
+        }
+    }
+
     private fun playCurrent(context: Context) {
         if (currentIndex !in currentQueue.indices) return
 
