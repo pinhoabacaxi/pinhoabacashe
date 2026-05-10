@@ -113,7 +113,13 @@ object LocalPlayerManager {
     }
 
     private fun play(context: Context) {
-        if (currentIndex !in songList.indices) return
+        if (songList.isEmpty() || currentIndex !in songList.indices) return
+    
+    // Solicita o foco antes de começar
+        if (!requestAudioFocus(context)) {
+            return // Se não conseguir o foco, não toca
+        }
+
         val song = songList[currentIndex]
         currentSong = song
 
