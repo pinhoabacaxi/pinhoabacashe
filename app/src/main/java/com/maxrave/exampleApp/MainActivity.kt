@@ -43,6 +43,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    binding = ActivityMainBinding.inflate(layoutInflater)
+    setContentView(binding.root)
+
+    // 1. Inicializa o estado persistente
+    LocalPlayerManager.init(this)
+
+    // ... restante do setup (MusicLoader, Adapter, etc) ...
+    
+    setupRestoreLastSong()
+}
+
+private fun setupRestoreLastSong() {
+    val playerPrefs = PlayerPrefs(this)
+    val lastId = playerPrefs.getLastSongId()
+    
+    // Se houver uma música salva, procuramos na lista carregada para mostrar no mini player
+    lifecycleScope.launch {
+        allSongs = musicLoader.loadLocalSongs()
+        val lastSong = allSongs.find { it.id == lastId }
+        lastSong?.let {
+            updateMiniPlayerUI(it)
+        }
+    }
+}
+
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
