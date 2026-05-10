@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-
   workflow_dispatch:
 
 jobs:
@@ -22,8 +21,11 @@ jobs:
           java-version: 11
           cache: gradle
 
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 7.6.4 --distribution-type bin
+
       - name: Make gradlew executable
-        run: chmod +x ./gradlew || true
+        run: chmod +x ./gradlew
 
       - name: Build Debug APK
         run: ./gradlew :app:assembleDebug --build-cache --parallel
