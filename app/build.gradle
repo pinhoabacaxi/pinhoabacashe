@@ -42,7 +42,7 @@ dependencies {
     implementation 'androidx.media:media:1.6.0'
     // Lifecycle para Coroutines estáveis
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
-
+    implementation 'github.bumptech.glide:glide:4.15.1'
     implementation project(':kotlinYoutubeExtractor')
     
     testImplementation 'junit:junit:4.13.2'
