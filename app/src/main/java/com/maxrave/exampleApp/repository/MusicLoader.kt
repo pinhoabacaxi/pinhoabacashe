@@ -12,6 +12,9 @@ class MusicLoader(private val context: Context) {
         val songList = mutableListOf<Song>()
         val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         
+        // Filtro para pegar apenas arquivos que o sistema reconhece como música e ignorar ringtones/alarmes
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+        
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -22,7 +25,9 @@ class MusicLoader(private val context: Context) {
             MediaStore.Audio.Media.ALBUM_ID
         )
 
-        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
+
+        context.contentResolver.query(uri, projection, selection, null, sortOrder)?.use { cursor ->
             val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
             val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
@@ -32,17 +37,21 @@ class MusicLoader(private val context: Context) {
             val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
 
             while (cursor.moveToNext()) {
-                songList.add(
-                    Song(
-                        id = cursor.getLong(idCol),
-                        title = cursor.getString(titleCol),
-                        artist = cursor.getString(artistCol),
-                        album = cursor.getString(albumCol) ?: "Álbum Desconhecido",
-                        duration = cursor.getLong(durationCol),
-                        uri = cursor.getString(dataCol),
-                        albumId = cursor.getLong(albumIdCol)
+                val duration = cursor.getLong(durationCol)
+                // Ignorar arquivos muito curtos (menos de 5 segundos), geralmente são efeitos sonoros
+                if (duration > 5000) {
+                    songList.add(
+                        Song(
+                            id = cursor.getLong(idCol),
+                            title = cursor.getString(titleCol) ?: "Desconhecido",
+                            artist = cursor.getString(artistCol) ?: "Artista Desconhecido",
+                            album = cursor.getString(albumCol) ?: "Álbum Desconhecido",
+                            duration = duration,
+                            uri = cursor.getString(dataCol),
+                            albumId = cursor.getLong(albumIdCol)
+                        )
                     )
-                )
+                }
             }
         }
         songList
