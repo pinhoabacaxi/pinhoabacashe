@@ -136,13 +136,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Atualiza o mini player caso volte de outra tela ou app
         LocalPlayerManager.currentSong?.let { song ->
             binding.includeMiniPlayer.miniPlayerContainer.visibility = View.VISIBLE
             binding.includeMiniPlayer.tvMiniTitle.text = song.title
             binding.includeMiniPlayer.tvMiniArtist.text = song.artist
-            val icon = if (LocalPlayerManager.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        
+        // CORREÇÃO: Adicionado os parênteses ()
+            val icon = if (LocalPlayerManager.isPlaying()) {
+                android.R.drawable.ic_media_pause 
+            } else {
+                android.R.drawable.ic_media_play
+            }
             binding.includeMiniPlayer.btnPlayPause.setImageResource(icon)
+    
         }
     }
 }
