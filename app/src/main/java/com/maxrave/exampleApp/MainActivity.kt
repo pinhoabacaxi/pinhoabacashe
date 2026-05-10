@@ -69,7 +69,9 @@ class MainActivity : AppCompatActivity() {
     }
     // No MainActivity.kt, dentro do setupRecyclerView()
     private fun setupRecyclerView() {
-        val favManager = FavoriteManager(this) // Adicionado
+        val favManager = FavoriteManager(this)
+        playlistManager = PlaylistManager(this) // Inicializa o gestor
+
         songAdapter = SongAdapter(
             emptyList(),
             favManager,
@@ -79,11 +81,15 @@ class MainActivity : AppCompatActivity() {
                     LocalPlayerManager.playList(currentList, index, this)
                 }
             },
-            onFavClick = { song ->
+           onFavClick = { song ->
                 favManager.toggleFavorite(song.id)
-                songAdapter.notifyDataSetChanged() // Atualiza a UI para mostrar o novo estado do coração
+                songAdapter.notifyDataSetChanged()
+            },
+            onLongClick = { song ->
+                showPlaylistDialog(song) // Chama o diálogo de playlists
             }
         )
+    
         binding.rvSongs.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = songAdapter
