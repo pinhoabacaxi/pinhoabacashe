@@ -17,10 +17,7 @@ import com.maxrave.exampleApp.adapter.SongAdapter
 import com.maxrave.exampleApp.databinding.ActivityMainBinding
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
-import com.maxrave.exampleApp.repository.FavoriteManager
-import com.maxrave.exampleApp.repository.MusicLoader
-import com.maxrave.exampleApp.repository.PlaylistManager
-import com.maxrave.exampleApp.repository.RecentSongsManager
+import com.maxrave.exampleApp.repository.*
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -43,54 +40,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    binding = ActivityMainBinding.inflate(layoutInflater)
-    setContentView(binding.root)
-
-    // 1. Inicializa o estado persistente
-    LocalPlayerManager.init(this)
-
-    // ... restante do setup (MusicLoader, Adapter, etc) ...
-    
-    setupRestoreLastSong()
-}
-
-private fun setupRestoreLastSong() {
-    val playerPrefs = PlayerPrefs(this)
-    val lastId = playerPrefs.getLastSongId()
-    
-    // Se houver uma música salva, procuramos na lista carregada para mostrar no mini player
-    lifecycleScope.launch {
-        allSongs = musicLoader.loadLocalSongs()
-        val lastSong = allSongs.find { it.id == lastId }
-        lastSong?.let {
-            updateMiniPlayerUI(it)
-        }
-    }
-}
-
-    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Inicialização do Player e Persistência
+        LocalPlayerManager.init(this)
+        
         initRepositories()
         setupRecyclerView()
         setupSearch()
         setupFilters()
         setupClickListeners()
         checkPermissions()
+        setupRestoreLastSong()
     }
-    binding.searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
-        override fun onQueryTextSubmit(query: String?): Boolean {
-            return false
-        }
-
-        override fun onQueryTextChange(newText: String?): Boolean {
-            songAdapter.filter(newText ?: "")
-            return true
-        }
-    })
 
     private fun initRepositories() {
         musicLoader = MusicLoader(this)
@@ -114,7 +78,7 @@ private fun setupRestoreLastSong() {
                 songAdapter.notifyDataSetChanged()
             },
             onLongClick = { song ->
-                // Implementaremos o diálogo de playlist na Fase 5
+                // Opcional: Implementar diálogo de "Adicionar à Playlist" aqui
                 Toast.makeText(this, "Opções para: ${song.title}", Toast.LENGTH_SHORT).show()
             }
         )
@@ -122,8 +86,53 @@ private fun setupRestoreLastSong() {
         binding.rvSongs.adapter = songAdapter
     }
 
-   // Adicione um botão no seu XML da MainActivity (ou use um Chip novo)
-// No onCreate ou setupFilters da MainActivity:
+    private fun setupSearch() {
+        // Busca em tempo real conforme o usuário digita
+        binding.etSearch.addTextChangedListener { text ->
+            songAdapter.filter(text.toString())
+        }
+        
+        binding.btnScan.setOnClickListener { loadSongs() }
+    }
+
+    private fun setupFilters() {
+        binding.chipGroupFilters.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.chipAll -> songAdapter.updateList(allSongs)
+                
+                R.id.chipFavorites -> {
+                    val favs = allSongs.filter { favoriteManager.isFavorite(it.id) }
+                    songAdapter.updateList(favs)
+                }
+                
+                R.id.chipRecent -> {
+                    val recentIds = recentManager.getRecentIds()
+                    val recentSongs = allSongs.filter { recentIds.contains(it.id.toString()) }
+                        .sortedByDescending { recentIds.indexOf(it.id.toString()) }
+                    songAdapter.updateList(recentSongs)
+                }
+                
+                R.id.chipPlaylists -> {
+                    showBrowsePlaylistsDialog()
+                    // Desmarca o chip para permitir clicar novamente
+                    binding.chipGroupFilters.clearCheck()
+                }
+            }
+        }
+    }
+
+    private fun setupRestoreLastSong() {
+        val playerPrefs = PlayerPrefs(this)
+        val lastId = playerPrefs.getLastSongId()
+        
+        lifecycleScope.launch {
+            // Aguarda carregar as músicas se a lista estiver vazia
+            if (allSongs.isEmpty()) allSongs = musicLoader.loadLocalSongs()
+            
+            val lastSong = allSongs.find { it.id == lastId }
+            lastSong?.let { updateMiniPlayerUI(it) }
+        }
+    }
 
     private fun showBrowsePlaylistsDialog() {
         val playlists = playlistManager.getPlaylistNames().toList()
@@ -141,42 +150,12 @@ private fun setupRestoreLastSong() {
             startActivity(intent)
         }
         builder.show()
-     }
-
-    private fun setupSearch() {
-        // Supondo que você tenha um EditText de busca no seu XML de layout anterior
-        // Se não houver, adicione um EditText ou SearchView com ID 'etSearch'
-        binding.btnScan.setOnClickListener { loadSongs() }
-    }
-
-    private fun setupFilters() {
-        binding.chipAll.setOnClickListener {
-            songAdapter.updateList(allSongs)
-        }
-
-        binding.chipFavorites.setOnClickListener {
-            val favs = allSongs.filter { favoriteManager.isFavorite(it.id) }
-            songAdapter.updateList(favs)
-        }
-
-        binding.chipRecent.setOnClickListener {
-            val recentIds = recentManager.getRecentIds()
-            val recentSongs = recentIds.mapNotNull { id ->
-                allSongs.find { it.id.toString() == id }
-            }
-            songAdapter.updateList(recentSongs)
-        }
-            R.id.chipPlaylists -> showBrowsePlaylistsDialog()
-        
     }
 
     private fun setupClickListeners() {
         binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
             LocalPlayerManager.togglePlayPause(this)
-            val isPlaying = LocalPlayerManager.isPlaying()
-            binding.includeMiniPlayer.btnPlayPause.setImageResource(
-                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-            )
+            updateMiniPlayerUI(LocalPlayerManager.currentSong ?: return@setOnClickListener)
         }
 
         binding.includeMiniPlayer.miniPlayerContainer.setOnClickListener {
