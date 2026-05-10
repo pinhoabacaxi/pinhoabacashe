@@ -181,14 +181,18 @@ object LocalPlayerManager {
             when(repeatMode) {
                 RepeatMode.ONE -> play(context)
                 else -> next(context)
+                
             }
+            
         }
 
         recentManager?.addRecent(song.id)
         onTrackChanged?.invoke(song)
         onPlaybackStatusChanged?.invoke(true)
         updateService(context, "ACTION_UPDATE_NOTIFICATION")
+        saveCurrentState()
     }
+
 
     fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
