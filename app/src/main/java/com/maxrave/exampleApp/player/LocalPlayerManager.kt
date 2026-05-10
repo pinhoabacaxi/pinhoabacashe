@@ -9,11 +9,10 @@ import com.maxrave.exampleApp.service.PlaybackService
 import java.util.*
 
 object LocalPlayerManager {
-    // ... no topo do objeto ...
     private var recentManager: RecentSongsManager? = null
     private var mediaPlayer: MediaPlayer? = null
     private var songList: List<Song> = emptyList()
-    private var originalList: List<Song> = emptyList() // Para desativar o shuffle
+    private var originalList: List<Song> = emptyList() 
     private var currentIndex: Int = -1
     private var currentVolume: Float = 1.0f
 
@@ -35,27 +34,25 @@ object LocalPlayerManager {
             RepeatMode.ONE -> RepeatMode.NONE
         }
     }
+
     fun toggleShuffle() {
         isShuffle = !isShuffle
+        val current = currentSong
         if (isShuffle) {
             originalList = songList.toList()
-            val current = currentSong
-            val shuffled = songList.shuffled()
-            songList = shuffled
-            currentIndex = songList.indexOf(current)
+            songList = songList.shuffled()
         } else {
-            val current = currentSong
             songList = originalList
-            currentIndex = songList.indexOf(current)
         }
+        // Atualiza o índice para a posição da música atual na nova lista
+        currentIndex = songList.indexOf(current)
     }
-
 
     fun initRecentManager(context: Context) {
         recentManager = RecentSongsManager(context)
     }
-    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
 
+    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
     fun getDuration(): Int = mediaPlayer?.duration ?: 0
     fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
 
@@ -75,29 +72,33 @@ object LocalPlayerManager {
         currentIndex = index
         play(context)
     }
+
     private fun play(context: Context) {
         if (currentIndex !in songList.indices) return
         val song = songList[currentIndex]
-    
+        currentSong = song // Atualiza a música atual
+
         mediaPlayer?.stop()
         mediaPlayer?.release()
+        
         mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
-        mediaPlayer?.setVolume(currentVolume, currentVolume) // Aplica volume atual
+        mediaPlayer?.setVolume(currentVolume, currentVolume)
         mediaPlayer?.start()
+
         mediaPlayer?.setOnCompletionListener {
-            next(context)
+            // Lógica de repetição corrigida
             when(repeatMode) {
-                RepeatMode.ONE -> play(context)
-                RepeatMode.ALL, RepeatMode.NONE -> next(context)
+                RepeatMode.ONE -> play(context) // Repete a mesma
+                else -> next(context) // Vai para a próxima (ALL ou NONE)
             }
         }
-        // REGISTRO DE RECENTES
+
         recentManager?.addRecent(song.id)
-    
         onTrackChanged?.invoke(song)
         onPlaybackStatusChanged?.invoke(true)
         
         updateService(context, "ACTION_UPDATE_NOTIFICATION")
+    } // FECHAMENTO DA FUNÇÃO PLAY QUE ESTAVA FALTANDO
 
     fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
@@ -114,6 +115,14 @@ object LocalPlayerManager {
 
     fun next(context: Context) {
         if (songList.isEmpty()) return
+        
+        // Se for RepeatMode.NONE e estiver na última música, para a reprodução
+        if (repeatMode == RepeatMode.NONE && currentIndex == songList.size - 1) {
+            mediaPlayer?.stop()
+            onPlaybackStatusChanged?.invoke(false)
+            return
+        }
+
         currentIndex = (currentIndex + 1) % songList.size
         play(context)
     }
@@ -134,5 +143,4 @@ object LocalPlayerManager {
             context.startService(intent)
         }
     }
-}
 }
