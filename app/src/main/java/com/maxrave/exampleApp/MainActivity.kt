@@ -111,36 +111,44 @@ private fun setupSearch() {
     // No MainActivity.kt, dentro do setupRecyclerView()
    
     private fun setupRecyclerView() {
-        val favManager = FavoriteManager(this)
-        playlistManager = PlaylistManager(this) // Inicializa o gestor
+        
 
+    private fun showPlaylistDialog(song: Song) {
+        
         songAdapter = SongAdapter(
             emptyList(),
-            favManager,
-            onSongClick = { song ->
-                val index = currentList.indexOf(song)
-                if (index != -1) {
-                    LocalPlayerManager.playList(currentList, index, this)
+                favManager,
+                onSongClick = { song ->
+                    val index = currentList.indexOf(song)
+                    if (index != -1) {
+                        LocalPlayerManager.playList(currentList, index, this)
+                        updateMiniPlayerUI(song)
+                    }
+                },
+                onFavClick = { song ->
+                    favoriteManager.toggleFavorite(song.id)
+                    songAdapter.notifyDataSetChanged()
+               },
+                onLongClick = { song ->
+                    showPlaylistDialog(song) // Chama o diálogo de playlists
                 }
-            },
-           onFavClick = { song ->
-                favManager.toggleFavorite(song.id)
-                songAdapter.notifyDataSetChanged()
-            },
-            onLongClick = { song ->
-                showPlaylistDialog(song) // Chama o diálogo de playlists
-            }
-        )
+            )
     
-        binding.rvSongs.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = songAdapter
+            binding.rvSongs.apply {
+                layoutManager = LinearLayoutManager(this@MainActivity)
+                adapter = songAdapter
+            }
         }
-    }
     private fun showPlaylistDialog(song: Song) {
+        val dialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_add_to_playlist, null)
+        val rv = view.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rvPlaylistDialog)
+        val btnNew = view.findViewById<android.widget.Button>(R.id.btnCreateNewPlaylist)
         val playlists = playlistManager.getPlaylistNames().toTypedArray()
         val options = mutableListOf("Criar Nova Playlist")
         options.addAll(playlists)
+        val favManager = FavoriteManager(this)
+            playlistManager = PlaylistManager(this) // Inicializa o gestor
 
         val builder = androidx.appcompat.app.AlertDialog.Builder(this)
         builder.setTitle("Adicionar '${song.title}' a:")
