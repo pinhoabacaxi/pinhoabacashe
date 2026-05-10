@@ -8,6 +8,8 @@ import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.service.PlaybackService
 
 object LocalPlayerManager {
+    // ... no topo do objeto ...
+    private var recentManager: RecentSongsManager? = null
     private var mediaPlayer: MediaPlayer? = null
     private var songList: List<Song> = emptyList()
     private var currentIndex: Int = -1
@@ -19,6 +21,9 @@ object LocalPlayerManager {
     var onTrackChanged: ((Song) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
 
+    fun initRecentManager(context: Context) {
+        recentManager = RecentSongsManager(context)
+    }
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
 
     fun getDuration(): Int = mediaPlayer?.duration ?: 0
@@ -40,13 +45,10 @@ object LocalPlayerManager {
         currentIndex = index
         play(context)
     }
-
     private fun play(context: Context) {
         if (currentIndex !in songList.indices) return
-        
         val song = songList[currentIndex]
-        currentSong = song
-
+    
         mediaPlayer?.stop()
         mediaPlayer?.release()
 
