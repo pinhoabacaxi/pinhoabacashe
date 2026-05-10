@@ -24,7 +24,19 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/toolbar"
-        tools:listitem="@layout/item_song" />
+        tools:listitem="@layout/item_song"
+        android:id="@+id/rvSongs"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/includeMiniPlayer"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <include
+        android:id="@+id/includeMiniPlayer"
+        layout="@layout/layout_mini_player"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/miniPlayerCard"
