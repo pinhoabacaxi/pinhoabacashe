@@ -49,6 +49,33 @@ class MainActivity : AppCompatActivity() {
 
         setupRecyclerView()
         checkPermissions()
+        private fun setupPlayerListeners() {
+        LocalPlayerManager.onTrackChanged = { song ->
+            binding.includeMiniPlayer.miniPlayerContainer.visibility = View.VISIBLE
+            binding.includeMiniPlayer.tvMiniTitle.text = song.title
+            binding.includeMiniPlayer.tvMiniArtist.text = song.artist
+        // Atualiza ícone para play pois uma nova track sempre começa tocando
+            binding.includeMiniPlayer.btnPlayPause.setImageResource(android.media.session.PlaybackState.STATE_PLAYING) 
+        // Nota: Usei um recurso nativo acima apenas para exemplo, ideal é ic_media_pause
+    }
+
+    LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
+        val icon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        binding.includeMiniPlayer.btnPlayPause.setImageResource(icon)
+    }
+
+    binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
+        LocalPlayerManager.togglePlayPause()
+    }
+
+    binding.includeMiniPlayer.btnNext.setOnClickListener {
+        LocalPlayerManager.next(this)
+    }
+
+    binding.includeMiniPlayer.btnPrev.setOnClickListener {
+        LocalPlayerManager.previous(this)
+    }
+}
     }
 
     private fun setupRecyclerView() {
