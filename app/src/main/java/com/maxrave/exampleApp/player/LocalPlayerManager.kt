@@ -7,6 +7,8 @@ import android.net.Uri
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.service.PlaybackService
 import java.util.*
+import com.maxrave.exampleApp.repository.RecentSongsManager
+
 
 object LocalPlayerManager {
     private var recentManager: RecentSongsManager? = null
