@@ -45,6 +45,103 @@ object LocalPlayerManager {
             }
         }
     }
+    import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
+
+object LocalPlayerManager {
+    // ... propriedades existentes ...
+    private var audioManager: AudioManager? = null
+    private var focusRequest: AudioFocusRequest? = null
+    private var wasPlayingBeforeLoss = false
+
+    // 1. O Listener que reage às mudanças de foco
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                if (wasPlayingBeforeLoss) {
+                    mediaPlayer?.setVolume(currentVolume, currentVolume)
+                    mediaPlayer?.start()
+                    onPlaybackStatusChanged?.invoke(true)
+                }
+            }
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                // Perda total (ex: abriu Spotify). Pausamos e não voltamos.
+                pauseWithoutAbandon() 
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                // Perda temporária (ex: áudio de WhatsApp). Pausamos para voltar depois.
+                wasPlayingBeforeLoss = mediaPlayer?.isPlaying ?: false
+                mediaPlayer?.pause()
+                onPlaybackStatusChanged?.invoke(false)
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                // Diminuir volume (ex: som de notificação ou GPS)
+                if (mediaPlayer?.isPlaying == true) {
+                    mediaPlayer?.setVolume(0.1f, 0.1f)
+                }
+            }
+        }
+    }
+
+    // 2. Função para solicitar o foco
+    private fun requestAudioFocus(context: Context): Boolean {
+        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val playbackAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+
+            focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(playbackAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                .build()
+
+            audioManager?.requestAudioFocus(focusRequest!!) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.requestAudioFocus(
+                audioFocusChangeListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+    }
+
+    // 3. Função para libertar o foco
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.abandonAudioFocus(audioFocusChangeListener)
+        }
+    }
+
+    // Modifique o seu método play para incluir a solicitação
+    private fun play(context: Context) {
+        if (currentIndex !in songList.indices) return
+
+        // SOLICITA FOCO ANTES DE TOCAR
+        if (!requestAudioFocus(context)) return 
+
+        val song = songList[currentIndex]
+        // ... resto da sua lógica de inicialização do MediaPlayer ...
+        mediaPlayer?.start()
+        onPlaybackStatusChanged?.invoke(true)
+    }
+
+    // Método para pausar internamente sem largar o foco (usado pelo listener)
+    private fun pauseWithoutAbandon() {
+        mediaPlayer?.pause()
+        onPlaybackStatusChanged?.invoke(false)
+        // Aqui não chamamos abandonAudioFocus pois a perda pode ser temporária
+    }
+}
 
     private var wasPlayingBeforeLoss = false
     private lateinit var contextForFocus: Context
