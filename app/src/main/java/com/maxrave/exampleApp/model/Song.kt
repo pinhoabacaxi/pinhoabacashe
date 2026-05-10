@@ -31,6 +31,12 @@ data class Song(
         parcel.writeString(uri)
         parcel.writeLong(albumId)
     }
+    fun getAlbumArtUri(albumId: Long): android.net.Uri {
+        return android.content.ContentUris.withAppendedId(
+            android.net.Uri.parse("content://media/external/audio/albumart"),
+            albumId
+        )
+    }
 
     override fun describeContents(): Int = 0
 
