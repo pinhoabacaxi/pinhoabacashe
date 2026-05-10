@@ -17,6 +17,37 @@ object LocalPlayerManager {
     private var originalList: List<Song> = emptyList()
     private var currentIndex: Int = -1
     private var currentVolume: Float = 1.0f
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_GAIN -> {
+            // Recuperou o foco (ex: a chamada terminou)
+                if (wasPlayingBeforeLoss) {
+                    mediaPlayer?.setVolume(currentVolume, currentVolume)
+                    mediaPlayer?.start()
+                    onPlaybackStatusChanged?.invoke(true)
+                }
+            }
+            AudioManager.AUDIOFOCUS_LOSS -> {
+            // Perda permanente (ex: outro app de música começou a tocar)
+                pause(contextForFocus) // Pausa e não volta sozinho
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+            // Perda temporária (ex: toque de notificação curto)
+                wasPlayingBeforeLoss = mediaPlayer?.isPlaying ?: false
+                mediaPlayer?.pause()
+                onPlaybackStatusChanged?.invoke(false)
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+            // "Ducking": baixar o volume enquanto outro som toca ao fundo
+                if (mediaPlayer?.isPlaying == true) {
+                    mediaPlayer?.setVolume(0.2f, 0.2f)
+                }
+            }
+        }
+    }
+
+    private var wasPlayingBeforeLoss = false
+    private lateinit var contextForFocus: Context
 
     var isShuffle: Boolean = false // Nome correto usado na Activity
     var repeatMode: RepeatMode = RepeatMode.NONE
