@@ -41,6 +41,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        // Dentro do onCreate da MainActivity.kt, adicione:
+        binding.btnScan.setOnClickListener {
+            Toast.makeText(this, "Atualizando biblioteca...", Toast.LENGTH_SHORT).show()
+            loadSongs()
+        }
+
 
         // 1. Inicialização de componentes
         musicLoader = MusicLoader(this)
