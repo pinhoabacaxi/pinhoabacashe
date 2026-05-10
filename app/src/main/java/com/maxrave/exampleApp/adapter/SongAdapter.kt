@@ -13,6 +13,26 @@ class SongAdapter(
     private val onSongClick: (Song) -> Unit,
     private val onFavClick: (Song) -> Unit,
     private val onLongClick: (Song) -> Unit // Novo parâmetro
+    onSongClick = { selectedSong ->
+        val position = currentList.indexOf(selectedSong)
+        if (position != -1) {
+            LocalPlayerManager.startPlaying(this, currentList, position)
+            updateMiniPlayerUI(selectedSong)
+        }
+    },
+    onFavClick = { song ->
+         favoriteManager.toggleFavorite(song.id)
+         songAdapter.notifyDataSetChanged()
+      },
+    onLongClick = { song ->
+        showPlaylistOptionsDialog(song)
+    }
+
+    binding.rvSongs.apply {
+        layoutManager = LinearLayoutManager(this@MainActivity)
+        adapter = songAdapter
+    }
+    
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
     
     private var songsFull: List<Song> = songs
