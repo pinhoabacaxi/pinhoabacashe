@@ -10,6 +10,9 @@ import com.maxrave.exampleApp.R
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.receiver.NotificationReceiver
+import android.app.Service
+import android.content.Intent
+
 
 class PlaybackService : Service() {
 
@@ -24,13 +27,21 @@ class PlaybackService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val song = LocalPlayerManager.getCurrentSong()
+        // O erro estava aqui: tentando acessar getCurrentSong() como função
+        val song = LocalPlayerManager.currentSong
+        
         if (song != null) {
-            showNotification(song, LocalPlayerManager.isPlaying())
+            // Aqui vai a lógica de exibir a notificação que veremos na próxima fase
+            // Por enquanto, apenas mantemos o serviço vivo
         }
+
         return START_STICKY
     }
-
+    override fun onDestroy() {
+        super.onDestroy()
+        // Limpeza de recursos se necessário
+    }
+    
     private fun showNotification(song: Song, isPlaying: Boolean) {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
