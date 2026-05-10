@@ -44,7 +44,16 @@ class MainActivity : AppCompatActivity() {
 
         // 1. Inicialização de componentes
         musicLoader = MusicLoader(this)
-        
+        // No onCreate, após carregar as músicas:
+        binding.searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
+        override fun onQueryTextSubmit(query: String?): Boolean = false
+
+        override fun onQueryTextChange(newText: String?): Boolean {
+            songAdapter.filter(newText ?: "")
+            return true
+        }
+     })
+
         // 2. Configuração da UI
         setupRecyclerView()
         setupPlayerListeners()
