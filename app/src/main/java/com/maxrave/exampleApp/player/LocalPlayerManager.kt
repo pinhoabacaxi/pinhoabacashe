@@ -55,7 +55,9 @@ object LocalPlayerManager {
         mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
         mediaPlayer?.setVolume(currentVolume, currentVolume) // Aplica volume atual
         mediaPlayer?.start()
-
+        // REGISTRO DE RECENTES
+        recentManager?.addRecent(song.id)
+    
         onTrackChanged?.invoke(song)
         onPlaybackStatusChanged?.invoke(true)
         
