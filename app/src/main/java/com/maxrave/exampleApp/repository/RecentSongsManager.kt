@@ -9,18 +9,19 @@ class RecentSongsManager(context: Context) {
 
     fun addRecent(songId: Long) {
         val recentList = getRecentIds().toMutableList()
+        val idStr = songId.toString()
         
-        // Remove se já existia para mover para o topo
-        recentList.remove(songId.toString())
-        recentList.add(0, songId.toString())
+        recentList.remove(idStr)
+        recentList.add(0, idStr)
 
-        // Limita o tamanho
         val limitedList = if (recentList.size > MAX_RECENT) recentList.take(MAX_RECENT) else recentList
         
-        prefs.edit().putStringSet("recent_list", limitedList.toSet()).apply()
+        // Salva como String única para preservar a ordem
+        prefs.edit().putString("recent_list_ordered", limitedList.joinToString(",")).apply()
     }
 
     fun getRecentIds(): List<String> {
-        return prefs.getStringSet("recent_list", emptySet())?.toList() ?: emptyList()
+        val savedString = prefs.getString("recent_list_ordered", "") ?: ""
+        return if (savedString.isEmpty()) emptyList() else savedString.split(",")
     }
 }
