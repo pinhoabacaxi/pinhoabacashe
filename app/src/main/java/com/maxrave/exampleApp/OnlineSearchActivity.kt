@@ -18,6 +18,21 @@ import kotlinx.coroutines.withContext
 class OnlineSearchActivity : AppCompatActivity() {
     private lateinit var binding: ActivityOnlineSearchBinding
     private lateinit var adapter: OnlineSongAdapter
+    // No seu OnlineSearchActivity ou ViewModel
+    private fun handleOnlineClick(onlineSong: OnlineSong) {
+        val options = arrayOf("Ouvir Agora (Stream)", "Baixar Música", "Adicionar à Playlist")
+    
+        AlertDialog.Builder(this)
+            .setTitle(onlineSong.title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> startStreaming(onlineSong)
+                    1 -> startDownload(onlineSong)
+                    2 -> showPlaylistSelector(onlineSong)
+                }
+            }
+            .show()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
