@@ -1,7 +1,11 @@
 package com.maxrave.exampleApp.service
 
 import android.app.*
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -15,11 +19,25 @@ class PlaybackService : Service() {
     private val CHANNEL_ID = "music_player_channel"
     private val NOTIFICATION_ID = 101
 
+    // 1. Definição do Receiver para fones desconectados
+    private val noisyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                // Se o fone for desplugado e estiver tocando, pausamos
+                if (LocalPlayerManager.isPlaying()) {
+                    LocalPlayerManager.togglePlayPause(this@PlaybackService)
+                }
+            }
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        
+        // 2. Registro do receiver no onCreate
         val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
         registerReceiver(noisyReceiver, filter)
     }
@@ -33,21 +51,16 @@ class PlaybackService : Service() {
 
         return START_STICKY
     }
-    
-    private val noisyReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-            // Fones desconectados, pausar a música
-                LocalPlayerManager.togglePlayPause(context!!)
-            }
+
+    // 3. O unregisterReceiver DEVE ficar no onDestroy para evitar memory leaks
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(noisyReceiver)
+        } catch (e: Exception) {
+            // Caso o receiver não esteja registrado
         }
     }
-
-// No onCreate do Service:
-    unregisterReceiver(noisyReceiver)
-
-// No onDestroy do Service:
-    
 
     private fun showNotification(song: Song, isPlaying: Boolean) {
         val intent = Intent(this, MainActivity::class.java)
