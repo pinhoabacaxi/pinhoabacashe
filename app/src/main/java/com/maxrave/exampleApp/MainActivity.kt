@@ -95,6 +95,25 @@ class MainActivity : AppCompatActivity() {
             adapter = songAdapter
         }
     }
+    private fun showPlaylistDialog(song: Song) {
+        val playlists = playlistManager.getPlaylistNames().toTypedArray()
+        val options = mutableListOf("Criar Nova Playlist")
+        options.addAll(playlists)
+
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+        builder.setTitle("Adicionar '${song.title}' a:")
+        builder.setItems(options.toTypedArray()) { _, which ->
+            if (which == 0) {
+                showCreatePlaylistDialog(song)
+           } else {
+                val selectedPlaylist = options[which]
+                playlistManager.addSongToPlaylist(selectedPlaylist, song.id)
+                Toast.makeText(this, "Adicionado a $selectedPlaylist", Toast.LENGTH_SHORT).show()
+            }
+        }
+        builder.show()
+    }
+
 
     private fun setupPlayerListeners() {
         // Observer para troca de música
