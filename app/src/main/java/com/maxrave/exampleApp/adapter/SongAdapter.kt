@@ -1,43 +1,35 @@
 package com.maxrave.exampleApp.adapter
 
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.maxrave.exampleApp.R
+import com.maxrave.exampleApp.databinding.ItemSongBinding
 import com.maxrave.exampleApp.model.Song
 
 class SongAdapter(
     private var songs: List<Song>,
-    private val onClick: (Song) -> Unit
+    private val onSongClick: (Song) -> Unit
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
-    fun updateSongs(newSongs: List<Song>) {
-        songs = newSongs
-        notifyDataSetChanged()
-    }
+    class SongViewHolder(val binding: ItemSongBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_song, parent, false)
-        return SongViewHolder(view)
+        val binding = ItemSongBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return SongViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songs[position]
-        holder.bind(song)
-        holder.itemView.setOnClickListener { onClick(song) }
+        holder.binding.tvSongTitle.text = song.title
+        holder.binding.tvSongArtist.text = song.artist
+        holder.root.setOnClickListener { onSongClick(song) }
     }
 
-    override fun getItemCount() = songs.size
+    override fun getItemCount(): Int = songs.size
 
-    class SongViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        private val title: TextView = view.findViewById(R.id.tvSongTitle)
-        private val artist: TextView = view.findViewById(R.id.tvSongArtist)
-
-        fun bind(song: Song) {
-            title.text = song.title
-            artist.text = "${song.artist} • ${song.album}"
-        }
+    // ESTA FUNÇÃO É O QUE ESTÁ FALTANDO:
+    fun updateList(newSongs: List<Song>) {
+        this.songs = newSongs
+        notifyDataSetChanged()
     }
 }
