@@ -13,27 +13,17 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.maxrave.exampleApp.adapter.SongAdapter
 import com.maxrave.exampleApp.databinding.ActivityMainBinding
+import com.maxrave.exampleApp.model.Song
+import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.MusicLoader
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    private var currentList: List<Song> = emptyList()
-
-    private fun setupRecyclerView() {
-        songAdapter = SongAdapter(emptyList()) { song ->
-        // Ao clicar, toca a música passando a lista atual e a posição
-            val index = currentList.indexOf(song)
-            LocalPlayerManager.playList(currentList, index, this)
-        }
-        binding.rvSongs.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = songAdapter
-        }
-    }
     private lateinit var binding: ActivityMainBinding
     private lateinit var songAdapter: SongAdapter
     private val musicLoader by lazy { MusicLoader(this) }
+    private var currentList: List<Song> = emptyList()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -49,42 +39,12 @@ class MainActivity : AppCompatActivity() {
 
         setupRecyclerView()
         checkPermissions()
-        private fun setupPlayerListeners() {
-        LocalPlayerManager.onTrackChanged = { song ->
-            binding.includeMiniPlayer.miniPlayerContainer.visibility = View.VISIBLE
-            binding.includeMiniPlayer.tvMiniTitle.text = song.title
-            binding.includeMiniPlayer.tvMiniArtist.text = song.artist
-        // Atualiza ícone para play pois uma nova track sempre começa tocando
-            binding.includeMiniPlayer.btnPlayPause.setImageResource(android.media.session.PlaybackState.STATE_PLAYING) 
-        // Nota: Usei um recurso nativo acima apenas para exemplo, ideal é ic_media_pause
-            binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
-    // Agora passamos o 'this' (contexto da Activity)
-                LocalPlayerManager.togglePlayPause(this) 
-            }
-        }
-    LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
-        val icon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-        binding.includeMiniPlayer.btnPlayPause.setImageResource(icon)
-    }
-
-    binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
-        LocalPlayerManager.togglePlayPause(this)
-    }
-
-    binding.includeMiniPlayer.btnNext.setOnClickListener {
-        LocalPlayerManager.next(this)
-    }
-
-    binding.includeMiniPlayer.btnPrev.setOnClickListener {
-        LocalPlayerManager.previous(this)
-    }
-}
     }
 
     private fun setupRecyclerView() {
         songAdapter = SongAdapter(emptyList()) { song ->
-            // Ação de clique: será conectada ao Player na Fase 2
-            Toast.makeText(this, "Tocando: ${song.title}", Toast.LENGTH_SHORT).show()
+            val index = currentList.indexOf(song)
+            LocalPlayerManager.playList(currentList, index, this)
         }
         binding.rvSongs.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -92,17 +52,49 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkPermissions() {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_AUDIO
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
+    private fun setupPlayerListeners() {
+        LocalPlayerManager.onTrackChanged = { song ->
+            binding.includeMiniPlayer.miniPlayerContainer.visibility = View.VISIBLE
+            binding.includeMiniPlayer.tvMiniTitle.text = song.title
+            binding.includeMiniPlayer.tvMiniArtist.text = song.artist
+            binding.includeMiniPlayer.btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
         }
 
-        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
-            loadSongs()
+        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
+            val icon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            binding.includeMiniPlayer.btnPlayPause.setImageResource(icon)
+        }
+
+        binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
+            LocalPlayerManager.togglePlayPause(this)
+        }
+
+        binding.includeMiniPlayer.btnNext.setOnClickListener {
+            LocalPlayerManager.next(this)
+        }
+
+        binding.includeMiniPlayer.btnPrev.setOnClickListener {
+            LocalPlayerManager.previous(this)
+        }
+    }
+
+    private fun checkPermissions() {
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            permissionLauncher.launch(permission)
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+
+        val toRequest = permissions.firstOrNull {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (toRequest != null) {
+            permissionLauncher.launch(toRequest)
+        } else {
+            loadSongs()
         }
     }
 
@@ -111,10 +103,12 @@ class MainActivity : AppCompatActivity() {
             currentList = musicLoader.loadLocalSongs()
             if (currentList.isEmpty()) {
                 binding.tvEmptyState.visibility = View.VISIBLE
+                binding.rvSongs.visibility = View.GONE
             } else {
                 binding.tvEmptyState.visibility = View.GONE
+                binding.rvSongs.visibility = View.VISIBLE
                 songAdapter.updateList(currentList)
-                setupPlayerListeners() // Inicializa os cliques do mini player
+                setupPlayerListeners()
             }
         }
     }
