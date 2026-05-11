@@ -9,8 +9,8 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
-import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.maxrave.exampleApp.adapter.SongAdapter
@@ -33,17 +33,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var favoriteManager: FavoriteManager
     private lateinit var playlistManager: PlaylistManager
     
-    private var currentList: List<Song> = emptyList()
+    private var allSongs: List<Song> = emptyList()
 
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val granted = permissions.entries.all { it.value }
-        if (granted) {
-            loadSongs()
-        } else {
-            Toast.makeText(this, "Permissão negada. O app não pode ler músicas.", Toast.LENGTH_SHORT).show()
-        }
+        if (permissions.entries.all { it.value }) loadSongs()
+        else Toast.makeText(this, "Permissão negada para ler músicas.", Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,13 +47,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Inicialização de Managers e Repositórios
+        // 1. Inicializar Repositórios
         musicLoader = MusicLoader(this)
         recentManager = RecentSongsManager(this)
         favoriteManager = FavoriteManager(this)
         playlistManager = PlaylistManager(this)
         
-        // Inicializa o Player Global
+        // 2. Inicializar Player Global
         LocalPlayerManager.init(this)
 
         setupRecyclerView()
@@ -70,7 +66,7 @@ class MainActivity : AppCompatActivity() {
             songs = emptyList(),
             favoriteManager = favoriteManager,
             onSongClick = { song ->
-                LocalPlayerManager.setList(currentList)
+                LocalPlayerManager.setList(allSongs)
                 LocalPlayerManager.play(this, song)
                 updateMiniPlayerUI(song)
             },
@@ -79,8 +75,7 @@ class MainActivity : AppCompatActivity() {
                 songAdapter.notifyDataSetChanged()
             },
             onLongClick = { song ->
-                // Aqui você pode abrir o diálogo de adicionar à playlist futuramente
-                Toast.makeText(this, "Opções para: ${song.title}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Opções: ${song.title}", Toast.LENGTH_SHORT).show()
             }
         )
 
@@ -91,68 +86,81 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // Barra de busca local
-        binding.etSearch.addTextChangedListener { text ->
-            songAdapter.filter(text.toString())
+        // Busca na Biblioteca
+        binding.searchViewLibrary.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean = false
+            override fun onQueryTextChange(newText: String?): Boolean {
+                songAdapter.filter(newText ?: "")
+                return true
+            }
+        })
+
+        // Filtros por Chip
+        binding.chipGroupFilters.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.chipAll -> songAdapter.updateList(allSongs)
+                R.id.chipFavorites -> {
+                    val favs = allSongs.filter { favoriteManager.isFavorite(it.id) }
+                    songAdapter.updateList(favs)
+                }
+                R.id.chipRecent -> {
+                    val recents = recentManager.getRecentSongs(allSongs)
+                    songAdapter.updateList(recents)
+                }
+            }
         }
 
-        // Botão para abrir busca online (Verifique se este ID existe no seu activity_main.xml)
-        binding.btnOnlineSearch.setOnClickListener {
-            val intent = Intent(this, OnlineSearchActivity::class.java)
-            startActivity(intent)
+        // Chip Buscar Online (Ação de clique)
+        binding.chipOnline.setOnClickListener {
+            startActivity(Intent(this, OnlineSearchActivity::class.java))
         }
+
+        // Botão Scan
+        binding.btnScan.setOnClickListener { loadSongs() }
 
         // Mini Player
         binding.includeMiniPlayer.root.setOnClickListener {
-            val intent = Intent(this, FullPlayerActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, FullPlayerActivity::class.java))
         }
 
         binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
             LocalPlayerManager.togglePlayPause(this)
-            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
         
-        // Configura Callbacks do Player para atualizar a UI automaticamente
         LocalPlayerManager.onPlaybackStatusChanged = { _ ->
             LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
     }
 
     private fun checkPermissions() {
-        val permissionsNeeded = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsNeeded.add(Manifest.permission.READ_MEDIA_AUDIO)
-            permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
+        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
 
-        val missingPermissions = permissionsNeeded.filter {
+        val missing = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
 
-        if (missingPermissions.isEmpty()) {
-            loadSongs()
-        } else {
-            permissionsLauncher.launch(missingPermissions.toTypedArray())
-        }
+        if (missing.isEmpty()) loadSongs()
+        else permissionsLauncher.launch(missing.toTypedArray())
     }
 
     private fun loadSongs() {
         binding.progressBar.visibility = View.VISIBLE
         lifecycleScope.launch {
             try {
-                currentList = musicLoader.loadLocalSongs()
+                allSongs = musicLoader.loadLocalSongs()
                 binding.progressBar.visibility = View.GONE
                 
-                if (currentList.isEmpty()) {
+                if (allSongs.isEmpty()) {
                     binding.tvEmptyState.visibility = View.VISIBLE
                     binding.rvSongs.visibility = View.GONE
                 } else {
                     binding.tvEmptyState.visibility = View.GONE
                     binding.rvSongs.visibility = View.VISIBLE
-                    songAdapter.updateList(currentList)
+                    songAdapter.updateList(allSongs)
                 }
             } catch (e: Exception) {
                 binding.progressBar.visibility = View.GONE
