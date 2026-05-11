@@ -51,7 +51,21 @@ unregisterReceiver(onDownloadComplete)
         if (permissions.all { it.value }) loadSongs()
         else Toast.makeText(this, "Permissões necessárias para ler músicas", Toast.LENGTH_SHORT).show()
     }
+    private val downloadReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+            if (id != -1L) {
+            // Força o sistema a indexar novos ficheiros de média
+                loadSongs() // O teu método que chama musicLoader.loadLocalSongs()
+                Toast.makeText(context, "Biblioteca atualizada com novo download", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
+// No onCreate:
+registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
