@@ -22,7 +22,7 @@ object LocalPlayerManager {
     private var originalList: List<Song> = emptyList()
     private var currentIndex: Int = -1
     private var currentVolume: Float = 1.0f
-
+    private var playList = mutableListOf<Song>() no topo do object.
     // Propriedades para Audio Focus
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
