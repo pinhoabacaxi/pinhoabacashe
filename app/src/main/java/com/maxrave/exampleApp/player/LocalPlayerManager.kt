@@ -6,7 +6,9 @@ import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.maxrave.exampleApp.model.Song
+import com.maxrave.exampleApp.model.OnlineSong // IMPORTANTE: Importe o seu modelo online
 import com.maxrave.exampleApp.service.PlaybackService
 import com.maxrave.exampleApp.repository.RecentSongsManager
 import com.maxrave.exampleApp.repository.PlayerPrefs
@@ -26,10 +28,14 @@ object LocalPlayerManager {
 
     enum class RepeatMode { NONE, ONE, ALL }
 
+    // Referência para a música atual (Local ou Online)
     var currentSong: Song? = null
+        private set
+    var currentOnlineSong: OnlineSong? = null
         private set
 
     var onTrackChanged: ((Song) -> Unit)? = null
+    var onOnlineTrackChanged: ((OnlineSong) -> Unit)? = null // Callback para online
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
 
@@ -40,7 +46,7 @@ object LocalPlayerManager {
                 if (it.isPlaying) {
                     try {
                         onProgressChanged?.invoke(it.currentPosition, it.duration)
-                    } catch (e: Exception) { /* Ignora erro durante o reset do player */ }
+                    } catch (e: Exception) { /* Ignora erro durante o reset */ }
                 }
             }
             handler.postDelayed(this, 1000)
@@ -56,18 +62,40 @@ object LocalPlayerManager {
         }
     }
 
-    // No arquivo LocalPlayerManager.kt
-     fun playOnline(onlineSong: OnlineSong, context: Context) {
-        if (onlineSong.streamUrl == null) return
-    
-    // Aqui você deve integrar com o seu player (ExoPlayer ou MediaPlayer)
-    // Exemplo genérico de como passar a URL para o serviço:
-        val intent = Intent(context, PlaybackService::class.java).apply {
-            action = "ACTION_PLAY_ONLINE"
-            putExtra("ONLINE_SONG_URL", onlineSong.streamUrl)
-            putExtra("ONLINE_SONG_TITLE", onlineSong.title)
+    /**
+     * Toca uma música vinda da busca online (YouTube)
+     */
+    fun playOnline(onlineSong: OnlineSong, context: Context) {
+        val url = onlineSong.streamUrl ?: return
+        
+        currentSong = null // Limpa a música local atual
+        currentOnlineSong = onlineSong
+
+        try {
+            mediaPlayer?.apply {
+                reset()
+                setDataSource(url)
+                prepareAsync() // Streaming deve ser sempre Async para não travar a UI
+                
+                setOnPreparedListener {
+                    it.start()
+                    onPlaybackStatusChanged?.invoke(true)
+                    onOnlineTrackChanged?.invoke(onlineSong)
+                    updateService(context, "ACTION_UPDATE_NOTIFICATION")
+                }
+
+                setOnCompletionListener {
+                    onPlaybackStatusChanged?.invoke(false)
+                }
+                
+                setOnErrorListener { _, what, extra ->
+                    Log.e("PlayerManager", "Erro no stream: $what, $extra")
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        context.startService(intent)
     }
 
     fun startPlaying(context: Context, list: List<Song>, position: Int) {
@@ -88,6 +116,7 @@ object LocalPlayerManager {
         
         currentIndex = songList.indexOfFirst { it.id == targetSong.id }
         currentSong = targetSong
+        currentOnlineSong = null // Limpa referência online ao tocar local
 
         try {
             mediaPlayer?.apply {
@@ -101,7 +130,6 @@ object LocalPlayerManager {
                 start()
             }
             
-            // Corrigido para o método usado no seu app:
             recentManager?.addSongToRecent(targetSong.id)
             
             onTrackChanged?.invoke(targetSong)
@@ -119,6 +147,11 @@ object LocalPlayerManager {
     }
 
     private fun handleCompletion(context: Context) {
+        if (currentOnlineSong != null) {
+            onPlaybackStatusChanged?.invoke(false)
+            return
+        }
+
         when (repeatMode) {
             RepeatMode.ONE -> play(context, currentSong)
             RepeatMode.ALL -> next(context)
