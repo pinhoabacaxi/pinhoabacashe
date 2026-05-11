@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.maxrave.exampleApp">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -17,51 +12,30 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.PinhoAbacashe"
-        tools:targetApi="31">
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
-        <activity android:name=".MainActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <activity android:name=".OnlineSearchActivity" android:exported="false" />
-        
-        <activity android:name=".FullPlayerActivity" android:exported="false" />
-        
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:screenOrientation="portrait">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".FullPlayerActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+        <activity 
+            android:name=".FullPlayerActivity" 
+            android:exported="false" />
+            
+        <activity 
+            android:name=".OnlineSearchActivity" 
+            android:exported="false" />
 
-        <service 
+        <service
             android:name=".service.PlaybackService"
             android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
-
-        <receiver 
-            android:name=".receiver.NotificationReceiver" 
-            android:exported="false">
-            <intent-filter>
-                <action android:name="ACTION_PREVIOUS" />
-                <action android:name="ACTION_PLAY_PAUSE" />
-                <action android:name="ACTION_NEXT" />
-                <action android:name="ACTION_STOP" />
-            </intent-filter>
-        </receiver>
+            android:exported="false" />
 
     </application>
+
 </manifest>
