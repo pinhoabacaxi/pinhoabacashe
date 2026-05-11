@@ -59,6 +59,12 @@ class SongAdapter(
     
     override fun getItemCount(): Int = songs.size
    
+    fun getAlbumArtUri(albumId: Long): Uri {
+        return ContentUris.withAppendedId(
+            Uri.parse("content://media/external/audio/albumart"),
+            albumId
+        )
+    }
     fun updateList(newSongs: List<Song>) {
         this.songs = newSongs
         // Se a lista completa for vazia (primeira carga), atualizamos ela também
