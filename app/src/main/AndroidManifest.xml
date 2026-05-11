@@ -1,18 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
+        tools:targetApi="31">
 
         <activity
             android:name=".MainActivity"
@@ -23,13 +28,15 @@
             </intent-filter>
         </activity>
 
-        <activity 
-            android:name=".FullPlayerActivity" 
-            android:exported="false" />
-            
-        <activity 
-            android:name=".OnlineSearchActivity" 
-            android:exported="false" />
+        <activity
+            android:name=".FullPlayerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".OnlineSearchActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateVisible" />
 
         <service
             android:name=".service.PlaybackService"
