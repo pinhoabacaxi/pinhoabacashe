@@ -12,6 +12,7 @@ import com.maxrave.exampleApp.adapter.OnlineSongAdapter
 import com.maxrave.exampleApp.databinding.ActivityOnlineSearchBinding
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.player.LocalPlayerManager
+import com.maxrave.exampleApp.repository.YouTubeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -20,21 +21,23 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityOnlineSearchBinding
     private lateinit var adapter: OnlineSongAdapter
+    private lateinit var youtubeRepository: YouTubeRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityOnlineSearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        youtubeRepository = YouTubeRepository(this)
+
         setupRecyclerView()
         setupListeners()
     }
 
     private fun setupRecyclerView() {
-        // Inicializa o adapter passando a ação de clique
         adapter = OnlineSongAdapter(
             onItemClick = { onlineSong ->
-                handleOnlineClick(onlineSong)
+                showOptionsDialog(onlineSong)
             }
         )
         
@@ -43,28 +46,23 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // Configura a barra de busca para pesquisar ao apertar "Enter" no teclado do celular
+        // Atalho para buscar ao apertar "Enter" no teclado
         binding.etSearchOnline.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                val query = binding.etSearchOnline.text.toString().trim()
-                if (query.isNotEmpty()) {
-                    performSearch(query)
-                }
+                val query = binding.etSearchOnline.text.toString()
+                if (query.isNotEmpty()) performSearch(query)
                 true
-            } else {
-                false
-            }
+            } else false
         }
     }
 
-    private fun handleOnlineClick(onlineSong: OnlineSong) {
-        val options = arrayOf("Ouvir Agora (Stream)", "Baixar Música", "Adicionar à Playlist")
-    
+    private fun showOptionsDialog(onlineSong: OnlineSong) {
+        val options = arrayOf("Ouvir Agora", "Baixar Música", "Adicionar à Playlist")
         AlertDialog.Builder(this)
             .setTitle(onlineSong.title)
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> startStreaming(onlineSong)
+                    0 -> playOnline(onlineSong)
                     1 -> startDownload(onlineSong)
                     2 -> showPlaylistSelector(onlineSong)
                 }
@@ -72,50 +70,43 @@ class OnlineSearchActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun startStreaming(onlineSong: OnlineSong) {
-        Toast.makeText(this, "A iniciar stream: ${onlineSong.title}", Toast.LENGTH_SHORT).show()
-        
-        // Exemplo de como você vai integrar o stream quando o extrator estiver pronto:
-        /*
-        lifecycleScope.launch {
-            val extracted = withContext(Dispatchers.IO) {
-                // youtubeExtractor.extract(onlineSong.videoId)
-            }
-            if (extracted?.streamUrl != null) {
-                LocalPlayerManager.playOnline(extracted, this@OnlineSearchActivity)
-            } else {
-                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter áudio", Toast.LENGTH_SHORT).show()
+    private fun playOnline(onlineSong: OnlineSong) {
+        if (onlineSong.streamUrl == null) {
+            Toast.makeText(this, "Extraindo áudio...", Toast.LENGTH_SHORT).show()
+            lifecycleScope.launch {
+                val info = youtubeRepository.extractMusicInfo(onlineSong.videoId)
+                if (info?.streamUrl != null) {
+                    // Nota: Você precisará implementar o método playStream no LocalPlayerManager
+                    // ou converter OnlineSong para o modelo Song temporariamente.
+                    Toast.makeText(this@OnlineSearchActivity, "Reproduzindo...", Toast.LENGTH_SHORT).show()
+                }
             }
         }
-        */
     }
 
     private fun startDownload(onlineSong: OnlineSong) {
-        Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
-        // Aqui entrará a lógica do DownloadManager que você fará no futuro
+        lifecycleScope.launch {
+            Toast.makeText(this@OnlineSearchActivity, "Preparando download...", Toast.LENGTH_SHORT).show()
+            youtubeRepository.downloadMusic(onlineSong.videoId)
+        }
     }
 
     private fun showPlaylistSelector(onlineSong: OnlineSong) {
-        Toast.makeText(this, "Adicionar à playlist...", Toast.LENGTH_SHORT).show()
-        // Aqui entrará a lógica para salvar na playlist local
+        Toast.makeText(this, "Funcionalidade em desenvolvimento", Toast.LENGTH_SHORT).show()
     }
 
     private fun performSearch(query: String) {
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
-            // Faz a busca em background para não travar a UI
-            val results = withContext(Dispatchers.IO) {
-                // AQUI VOCÊ CHAMA A FUNÇÃO DE BUSCA DO SEU REPOSITÓRIO
-                // Exemplo: youtubeRepository.search(query)
-                emptyList<OnlineSong>() // <- Temporário até você conectar o repositório
-            }
+            // Tentativa de extração caso seja um link ou ID
+            val result = youtubeRepository.extractMusicInfo(query)
             
             binding.progressBar.visibility = View.GONE
-            if (results.isEmpty()) {
-                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado ou busca não implementada", Toast.LENGTH_SHORT).show()
+            if (result != null) {
+                adapter.updateList(listOf(result))
             } else {
-                adapter.updateList(results)
+                Toast.makeText(this@OnlineSearchActivity, "Não foi possível encontrar o vídeo", Toast.LENGTH_SHORT).show()
             }
         }
     }
