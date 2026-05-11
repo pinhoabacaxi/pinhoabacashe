@@ -3,7 +3,6 @@ package com.maxrave.exampleApp.player
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -30,7 +29,6 @@ object LocalPlayerManager {
     var currentSong: Song? = null
         private set
 
-    // Callbacks para atualizar a UI
     var onTrackChanged: ((Song) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
@@ -42,7 +40,7 @@ object LocalPlayerManager {
                 if (it.isPlaying) {
                     try {
                         onProgressChanged?.invoke(it.currentPosition, it.duration)
-                    } catch (e: Exception) { /* Ignora se o player resetar */ }
+                    } catch (e: Exception) { /* Ignora erro durante o reset do player */ }
                 }
             }
             handler.postDelayed(this, 1000)
@@ -58,9 +56,6 @@ object LocalPlayerManager {
         }
     }
 
-    /**
-     * Método chamado pela MainActivity para iniciar a reprodução de uma lista
-     */
     fun startPlaying(context: Context, list: List<Song>, position: Int) {
         setList(list)
         currentIndex = position
@@ -92,8 +87,8 @@ object LocalPlayerManager {
                 start()
             }
             
-            // Adiciona aos recentes
-            recentManager?.addRecentSong(targetSong.id)
+            // Corrigido para o método usado no seu app:
+            recentManager?.addSongToRecent(targetSong.id)
             
             onTrackChanged?.invoke(targetSong)
             onPlaybackStatusChanged?.invoke(true)
@@ -105,7 +100,6 @@ object LocalPlayerManager {
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            // Se falhar, tenta a próxima
             next(context)
         }
     }
