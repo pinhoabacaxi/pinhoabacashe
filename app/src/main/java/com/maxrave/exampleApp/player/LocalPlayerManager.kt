@@ -74,14 +74,6 @@ object LocalPlayerManager {
 
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
 
-    fun play(context: Context, song: Song) {
-        val index = songList.indexOf(song)
-        if (index != -1) {
-            currentIndex = index
-            play(context)
-        }
-    }
-
     fun play(context: Context) {
         if (currentIndex !in songList.indices) return
         
@@ -100,7 +92,7 @@ object LocalPlayerManager {
             }
         }
 
-        recentManager?.addRecent(song.id)
+        recentSongsManager?.addSongToRecent(song.id) 
         onTrackChanged?.invoke(song)
         onPlaybackStatusChanged?.invoke(true)
         updateService(context, "ACTION_UPDATE_NOTIFICATION")
