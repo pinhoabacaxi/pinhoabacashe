@@ -1,8 +1,10 @@
 package com.maxrave.exampleApp
 
 import android.Manifest
+import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -13,6 +15,7 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.bumptech.glide.Glide
 import com.maxrave.exampleApp.adapter.SongAdapter
 import com.maxrave.exampleApp.databinding.ActivityMainBinding
 import com.maxrave.exampleApp.model.Song
@@ -33,7 +36,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var favoriteManager: FavoriteManager
     private lateinit var playlistManager: PlaylistManager
     
-    // Variável centralizada para evitar erros de "Unresolved reference"
     private var currentList: List<Song> = emptyList()
 
     private val permissionsLauncher = registerForActivityResult(
@@ -67,13 +69,9 @@ class MainActivity : AppCompatActivity() {
             songs = currentList,
             favoriteManager = favoriteManager,
             onSongClick = { song ->
-                // Configura a lista atual e toca a música selecionada
                 LocalPlayerManager.setList(currentList)
                 LocalPlayerManager.play(this, song)
-            
-                // Adiciona ao histórico de recentes (usando Long)
                 recentManager.addSongToRecent(song.id)
-            
                 updateMiniPlayerUI(song)
             },
             onFavClick = { song ->
@@ -93,7 +91,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // Busca na Biblioteca via SearchView
+        // Busca na Biblioteca
         binding.searchViewLibrary.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = false
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -102,7 +100,7 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Filtros por Chip (Todas, Favoritas, Recentes)
+        // Filtros por Chip
         binding.chipGroupFilters.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.chipAll -> songAdapter.updateList(currentList)
@@ -117,26 +115,36 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Chip para abrir a tela de busca no YouTube
+        // Chip Buscar Online
         binding.chipOnline.setOnClickListener {
             startActivity(Intent(this, OnlineSearchActivity::class.java))
         }
 
-        // Botão para re-escanear músicas locais
+        // Botão Scan
         binding.btnScan.setOnClickListener { loadSongs() }
 
-        // Mini Player - Abrir tela cheia
+        // Mini Player - Abrir Full Player
         binding.includeMiniPlayer.root.setOnClickListener {
             startActivity(Intent(this, FullPlayerActivity::class.java))
         }
 
-        // Mini Player - Play/Pause
+        // Mini Player - Controles
         binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
             LocalPlayerManager.togglePlayPause(this)
             LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
+
+        binding.includeMiniPlayer.btnNext.setOnClickListener {
+            LocalPlayerManager.next(this)
+            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
+        }
+
+        binding.includeMiniPlayer.btnPrev.setOnClickListener {
+            LocalPlayerManager.previous(this)
+            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
+        }
         
-        // Listener para mudanças no estado do Player
+        // Listener global do Player para mudanças automáticas
         LocalPlayerManager.onPlaybackStatusChanged = { _ ->
             LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
@@ -161,7 +169,6 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
         lifecycleScope.launch {
             try {
-                // Carrega as músicas e atualiza a variável global
                 currentList = musicLoader.loadLocalSongs()
                 binding.progressBar.visibility = View.GONE
                 
@@ -184,7 +191,19 @@ class MainActivity : AppCompatActivity() {
         binding.includeMiniPlayer.root.visibility = View.VISIBLE
         binding.includeMiniPlayer.tvMiniTitle.text = song.title
         binding.includeMiniPlayer.tvMiniArtist.text = song.artist
-        
+
+        // Carrega a capa no Mini Player
+        val albumArtUri = ContentUris.withAppendedId(
+            Uri.parse("content://media/external/audio/albumart"),
+            song.albumId
+        )
+
+        Glide.with(this)
+            .load(albumArtUri)
+            .placeholder(android.R.drawable.ic_media_play)
+            .error(android.R.drawable.ic_media_play)
+            .into(binding.includeMiniPlayer.ivMiniArt)
+
         val isPlaying = LocalPlayerManager.isPlaying()
         binding.includeMiniPlayer.btnPlayPause.setImageResource(
             if (isPlaying) android.R.drawable.ic_media_pause 
@@ -194,10 +213,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Sincroniza o Mini Player caso a música tenha mudado em outra tela
         LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
-        
-        // Atualiza a lista caso favoritos tenham mudado na FullPlayerActivity
         if (::songAdapter.isInitialized) {
             songAdapter.notifyDataSetChanged()
         }
