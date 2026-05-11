@@ -16,7 +16,8 @@ object LocalPlayerManager {
     private var mediaPlayer: MediaPlayer? = null
     private var songList: List<Song> = emptyList()
     private var originalList: List<Song> = emptyList()
-    private var currentIndex: Int = -1
+    var currentIndex: Int = -1
+        private set
     
     private var recentManager: RecentSongsManager? = null
     private var prefs: PlayerPrefs? = null
@@ -39,7 +40,9 @@ object LocalPlayerManager {
         override fun run() {
             mediaPlayer?.let {
                 if (it.isPlaying) {
-                    onProgressChanged?.invoke(it.currentPosition, it.duration)
+                    try {
+                        onProgressChanged?.invoke(it.currentPosition, it.duration)
+                    } catch (e: Exception) { /* Ignora se o player resetar */ }
                 }
             }
             handler.postDelayed(this, 1000)
@@ -55,14 +58,23 @@ object LocalPlayerManager {
         }
     }
 
-    fun setList(list: List<Song>) {
+    /**
+     * Método chamado pela MainActivity para iniciar a reprodução de uma lista
+     */
+    fun startPlaying(context: Context, list: List<Song>, position: Int) {
+        setList(list)
+        currentIndex = position
+        if (currentIndex in songList.indices) {
+            play(context, songList[currentIndex])
+        }
+    }
+
+    private fun setList(list: List<Song>) {
         this.originalList = list
         this.songList = if (isShuffle) list.shuffled() else list
     }
 
     fun play(context: Context, song: Song? = null) {
-        // Altere de:
-        // setDataSource(context, Uri.parse(targetSong.path))
         val targetSong = song ?: if (currentIndex in songList.indices) songList[currentIndex] else return
         
         currentIndex = songList.indexOfFirst { it.id == targetSong.id }
@@ -76,15 +88,16 @@ object LocalPlayerManager {
                     targetSong.id
                 )
                 setDataSource(context, trackUri)
-
                 prepare()
                 start()
             }
             
+            // Adiciona aos recentes
+            recentManager?.addRecentSong(targetSong.id)
+            
             onTrackChanged?.invoke(targetSong)
             onPlaybackStatusChanged?.invoke(true)
             
-            // Avisa o serviço para criar/atualizar a notificação
             updateService(context, "ACTION_UPDATE_NOTIFICATION")
             
             mediaPlayer?.setOnCompletionListener {
@@ -92,6 +105,8 @@ object LocalPlayerManager {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            // Se falhar, tenta a próxima
+            next(context)
         }
     }
 
