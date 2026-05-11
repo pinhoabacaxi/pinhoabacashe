@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
@@ -36,7 +37,11 @@ class PlaybackService : Service() {
         super.onCreate()
         createNotificationChannel()
         val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
-        registerReceiver(noisyReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(noisyReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(noisyReceiver, filter)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -67,9 +72,10 @@ class PlaybackService : Service() {
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(song.title)
             .setContentText(song.artist)
-            .setLargeIcon(null) // Opcional: Carregar capa aqui com Glide (bloqueante)
+            .setLargeIcon(null) 
             .setOngoing(isPlaying)
             .setContentIntent(pendingIntent)
+            .setSilent(true)
             .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
                 .setShowActionsInCompactView(0, 1, 2))
             .addAction(android.R.drawable.ic_media_previous, "Anterior", getPendingAction("ACTION_PREVIOUS"))
@@ -77,17 +83,23 @@ class PlaybackService : Service() {
             .addAction(android.R.drawable.ic_media_next, "Próxima", getPendingAction("ACTION_NEXT"))
             .build()
 
-        // Localize esta linha no seu PlaybackService.kt
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // Correção Crítica para Android 14 (Target SDK 34)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID, 
                 notification, 
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, 
+                notification, 
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-      
+    }
 
     private fun getPendingAction(action: String): PendingIntent {
         val intent = Intent(this, NotificationReceiver::class.java).apply { this.action = action }
