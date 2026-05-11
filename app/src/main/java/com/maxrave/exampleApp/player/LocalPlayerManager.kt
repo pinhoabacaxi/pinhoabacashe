@@ -17,7 +17,6 @@ object LocalPlayerManager {
     private var songList: List<Song> = emptyList()
     private var originalList: List<Song> = emptyList()
     private var currentIndex: Int = -1
-    private var currentVolume: Float = 1.0f
     
     private var recentManager: RecentSongsManager? = null
     private var prefs: PlayerPrefs? = null
@@ -30,7 +29,7 @@ object LocalPlayerManager {
     var currentSong: Song? = null
         private set
 
-    // Callbacks para atualizar a UI (MainActivity e FullPlayerActivity)
+    // Callbacks para atualizar a UI
     var onTrackChanged: ((Song) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
@@ -48,95 +47,67 @@ object LocalPlayerManager {
     }
 
     fun init(context: Context) {
-        recentManager = RecentSongsManager(context)
-        prefs = PlayerPrefs(context)
-        loadState()
-        handler.post(updateProgressRunnable)
-    }
-
-    private fun loadState() {
-        prefs?.let {
-            isShuffle = it.isShuffle
-            repeatMode = it.repeatMode
-        }
-    }
-
-    private fun saveCurrentState() {
-        prefs?.let {
-            it.isShuffle = isShuffle
-            it.repeatMode = repeatMode
+        if (mediaPlayer == null) {
+            mediaPlayer = MediaPlayer()
+            recentManager = RecentSongsManager(context)
+            prefs = PlayerPrefs(context)
+            handler.post(updateProgressRunnable)
         }
     }
 
     fun setList(list: List<Song>) {
-        originalList = list
-        songList = if (isShuffle) list.shuffled() else list
+        this.originalList = list
+        this.songList = if (isShuffle) list.shuffled() else list
     }
 
-    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
-
-    /**
-     * Função chamada pela MainActivity ao clicar em uma música.
-     * Ela localiza a música na lista atual e inicia o player.
-     */
-    fun play(context: Context, song: Song) {
-        currentIndex = songList.indexOfFirst { it.id == song.id }
-        if (currentIndex == -1) {
-            // Se a música não estiver na lista (ex: busca), adicionamos
-            songList = listOf(song) + songList
-            currentIndex = 0
-        }
-        play(context)
-    }
-
-    /**
-     * Lógica principal de execução do MediaPlayer
-     */
-    fun play(context: Context) {
-        if (currentIndex !in songList.indices) return
+    fun play(context: Context, song: Song? = null) {
+        val targetSong = song ?: if (currentIndex in songList.indices) songList[currentIndex] else return
         
-        val song = songList[currentIndex]
-        currentSong = song
+        currentIndex = songList.indexOfFirst { it.id == targetSong.id }
+        currentSong = targetSong
 
         try {
-            mediaPlayer?.stop()
-            mediaPlayer?.release()
-            
-            mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
-            mediaPlayer?.setVolume(currentVolume, currentVolume)
-            mediaPlayer?.start()
-
-            mediaPlayer?.setOnCompletionListener {
-                when (repeatMode) {
-                    RepeatMode.ONE -> play(context)
-                    else -> next(context)
-                }
+            mediaPlayer?.apply {
+                reset()
+                setDataSource(context, Uri.parse(targetSong.path))
+                prepare()
+                start()
             }
-
-            // CORREÇÃO: Nome da variável corrigido para 'recentManager'
-            recentManager?.addSongToRecent(song.id) 
             
-            onTrackChanged?.invoke(song)
+            onTrackChanged?.invoke(targetSong)
             onPlaybackStatusChanged?.invoke(true)
+            
+            // Avisa o serviço para criar/atualizar a notificação
             updateService(context, "ACTION_UPDATE_NOTIFICATION")
             
+            mediaPlayer?.setOnCompletionListener {
+                handleCompletion(context)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
+    private fun handleCompletion(context: Context) {
+        when (repeatMode) {
+            RepeatMode.ONE -> play(context, currentSong)
+            RepeatMode.ALL -> next(context)
+            RepeatMode.NONE -> {
+                if (currentIndex < songList.size - 1) next(context)
+                else onPlaybackStatusChanged?.invoke(false)
+            }
+        }
+    }
+
     fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
-            if (it.isPlaying) {
-                it.pause()
-                onPlaybackStatusChanged?.invoke(false)
-            } else {
-                it.start()
-                onPlaybackStatusChanged?.invoke(true)
-            }
+            if (it.isPlaying) it.pause() else it.start()
+            onPlaybackStatusChanged?.invoke(it.isPlaying)
             updateService(context, "ACTION_UPDATE_NOTIFICATION")
         }
     }
+
+    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
 
     fun seekTo(position: Int) {
         mediaPlayer?.seekTo(position)
@@ -157,16 +128,11 @@ object LocalPlayerManager {
     fun toggleShuffle() {
         isShuffle = !isShuffle
         val current = currentSong
-        if (isShuffle) {
-            songList = songList.shuffled()
-        } else {
-            songList = originalList
-        }
-        // Reposiciona o índice na nova lista para não interromper a música atual
+        songList = if (isShuffle) originalList.shuffled() else originalList
+        
         current?.let { song ->
             currentIndex = songList.indexOfFirst { it.id == song.id }
         }
-        saveCurrentState()
     }
 
     fun toggleRepeat() {
@@ -175,20 +141,14 @@ object LocalPlayerManager {
             RepeatMode.ALL -> RepeatMode.ONE
             RepeatMode.ONE -> RepeatMode.NONE
         }
-        saveCurrentState()
     }
 
     private fun updateService(context: Context, action: String) {
         val intent = Intent(context, PlaybackService::class.java).apply { this.action = action }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        } catch (e: Exception) {
-            // Log de erro se o serviço não puder ser iniciado
-            e.printStackTrace()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
         }
     }
 }
