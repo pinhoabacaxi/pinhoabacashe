@@ -1,27 +1,62 @@
 package com.maxrave.exampleApp
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.maxrave.exampleApp.adapter.OnlineSongAdapter
 import com.maxrave.exampleApp.databinding.ActivityOnlineSearchBinding
 import com.maxrave.exampleApp.model.OnlineSong
+import com.maxrave.exampleApp.player.LocalPlayerManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.bumptech.glide.Glide
-import androidx.appcompat.app.AlertDialog
-
 
 class OnlineSearchActivity : AppCompatActivity() {
+
     private lateinit var binding: ActivityOnlineSearchBinding
     private lateinit var adapter: OnlineSongAdapter
-    // No seu OnlineSearchActivity ou ViewModel
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityOnlineSearchBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        setupRecyclerView()
+        setupListeners()
+    }
+
+    private fun setupRecyclerView() {
+        // Inicializa o adapter passando a ação de clique
+        adapter = OnlineSongAdapter(
+            onItemClick = { onlineSong ->
+                handleOnlineClick(onlineSong)
+            }
+        )
+        
+        binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)
+        binding.rvOnlineResults.adapter = adapter
+    }
+
+    private fun setupListeners() {
+        // Configura a barra de busca para pesquisar ao apertar "Enter" no teclado do celular
+        binding.etSearchOnline.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                val query = binding.etSearchOnline.text.toString().trim()
+                if (query.isNotEmpty()) {
+                    performSearch(query)
+                }
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     private fun handleOnlineClick(onlineSong: OnlineSong) {
         val options = arrayOf("Ouvir Agora (Stream)", "Baixar Música", "Adicionar à Playlist")
     
@@ -37,61 +72,48 @@ class OnlineSearchActivity : AppCompatActivity() {
             .show()
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityOnlineSearchBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        setupRecyclerView()
+    private fun startStreaming(onlineSong: OnlineSong) {
+        Toast.makeText(this, "A iniciar stream: ${onlineSong.title}", Toast.LENGTH_SHORT).show()
         
-        binding.btnSearchOnline.setOnClickListener {
-            val query = binding.etOnlineSearch.text.toString()
-            if (query.isNotEmpty()) performSearch(query)
-        }
-    }
-
-    private fun setupRecyclerView() {
-        // Dentro do setupRecyclerView da OnlineSearchActivity
-        adapter = OnlineSongAdapter(results) { selectedSong ->
-            lifecycleScope.launch {
-                binding.progressBar.visibility = View.VISIBLE
-        
-                val repository = YouTubeRepository(this@OnlineSearchActivity)
-                val extracted = repository.extractMusicInfo(selectedSong.videoId)
-
-                binding.progressBar.visibility = View.GONE
-
-                if (extracted?.streamUrl != null) {
-            // TOCA A MÚSICA ONLINE
-                    LocalPlayerManager.playOnline(extracted, this@OnlineSearchActivity)
-            
-            // Opcional: Mostrar um aviso que está a carregar o stream
-                    Toast.makeText(this@OnlineSearchActivity, "A iniciar stream...", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this@OnlineSearchActivity, "Erro ao obter link de áudio", Toast.LENGTH_SHORT).show()
-                }
+        // Exemplo de como você vai integrar o stream quando o extrator estiver pronto:
+        /*
+        lifecycleScope.launch {
+            val extracted = withContext(Dispatchers.IO) {
+                // youtubeExtractor.extract(onlineSong.videoId)
+            }
+            if (extracted?.streamUrl != null) {
+                LocalPlayerManager.playOnline(extracted, this@OnlineSearchActivity)
+            } else {
+                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter áudio", Toast.LENGTH_SHORT).show()
             }
         }
+        */
+    }
 
-                
-            binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)
-            binding.rvOnlineResults.adapter = adapter
+    private fun startDownload(onlineSong: OnlineSong) {
+        Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
+        // Aqui entrará a lógica do DownloadManager que você fará no futuro
+    }
+
+    private fun showPlaylistSelector(onlineSong: OnlineSong) {
+        Toast.makeText(this, "Adicionar à playlist...", Toast.LENGTH_SHORT).show()
+        // Aqui entrará a lógica para salvar na playlist local
     }
 
     private fun performSearch(query: String) {
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
-            // AQUI VOCÊ CHAMA A FUNÇÃO DE BUSCA QUE JÁ EXISTE NO SEU REPO
-            // Exemplo fictício baseado na sua estrutura:
+            // Faz a busca em background para não travar a UI
             val results = withContext(Dispatchers.IO) {
-                // substitua pelo seu método: Repositorio.search(query)
-                emptyList<OnlineSong>() 
+                // AQUI VOCÊ CHAMA A FUNÇÃO DE BUSCA DO SEU REPOSITÓRIO
+                // Exemplo: youtubeRepository.search(query)
+                emptyList<OnlineSong>() // <- Temporário até você conectar o repositório
             }
             
             binding.progressBar.visibility = View.GONE
             if (results.isEmpty()) {
-                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado encontrado", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado ou busca não implementada", Toast.LENGTH_SHORT).show()
             } else {
                 adapter.updateList(results)
             }
