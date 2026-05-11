@@ -77,8 +77,17 @@ class PlaybackService : Service() {
             .addAction(android.R.drawable.ic_media_next, "Próxima", getPendingAction("ACTION_NEXT"))
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
-    }
+        // Localize esta linha no seu PlaybackService.kt
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, 
+                notification, 
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+      
 
     private fun getPendingAction(action: String): PendingIntent {
         val intent = Intent(this, NotificationReceiver::class.java).apply { this.action = action }
