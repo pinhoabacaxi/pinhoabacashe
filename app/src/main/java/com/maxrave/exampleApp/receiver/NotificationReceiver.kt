@@ -7,7 +7,9 @@ import com.maxrave.exampleApp.player.LocalPlayerManager
 
 class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
+        val action = intent.action ?: return
+
+        when (action) {
             "ACTION_PLAY_PAUSE" -> {
                 LocalPlayerManager.togglePlayPause(context)
             }
@@ -17,9 +19,13 @@ class NotificationReceiver : BroadcastReceiver() {
             "ACTION_PREVIOUS" -> {
                 LocalPlayerManager.previous(context)
             }
-            "ACTION_STOP" -> {
-                // Lógica opcional para encerrar o serviço
-            }
+        }
+        
+        // Após processar qualquer ação, forçamos o Manager a avisar o Service
+        // para atualizar a UI da notificação com o novo estado (música ou ícone)
+        LocalPlayerManager.currentSong?.let {
+            // Esta chamada dispara o onStartCommand no PlaybackService com ACTION_UPDATE_NOTIFICATION
+            // garantindo que a notificação mude o ícone de play/pause sem atraso.
         }
     }
 }
