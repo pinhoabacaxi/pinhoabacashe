@@ -33,7 +33,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var favoriteManager: FavoriteManager
     private lateinit var playlistManager: PlaylistManager
     
-    private var allSongs: List<Song> = emptyList()
+    // Variável centralizada para evitar erros de "Unresolved reference"
+    private var currentList: List<Song> = emptyList()
 
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -62,46 +63,37 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-    // Inicializamos o adapter com a lista atual (mesmo que vazia no início)
         songAdapter = SongAdapter(
-            songs = currentList, // Use a variável que você definiu no topo da classe
+            songs = currentList,
             favoriteManager = favoriteManager,
             onSongClick = { song ->
-            // Passamos a lista atual para o player saber qual é a próxima música
+                // Configura a lista atual e toca a música selecionada
                 LocalPlayerManager.setList(currentList)
                 LocalPlayerManager.play(this, song)
             
-            // Adicionamos ao histórico de recentes
+                // Adiciona ao histórico de recentes (usando Long)
                 recentManager.addSongToRecent(song.id)
             
-            // Atualizamos a interface do mini player
                 updateMiniPlayerUI(song)
             },
             onFavClick = { song ->
-            // Alterna o estado de favorito
                 favoriteManager.toggleFavorite(song.id)
-            
-            // Notificamos o adapter para atualizar o ícone de coração
                 songAdapter.notifyDataSetChanged()
             },
             onLongClick = { song ->
-            // Feedback visual ou menu de opções
                 Toast.makeText(this, "Opções: ${song.title}", Toast.LENGTH_SHORT).show()
             }
         )
 
-    // Configuração da View
         binding.rvSongs.apply {
             adapter = songAdapter
             layoutManager = LinearLayoutManager(this@MainActivity)
-        // Otimização: avisa que o tamanho do layout do RV não muda
             setHasFixedSize(true) 
         }
     }
 
-
     private fun setupListeners() {
-        // Busca na Biblioteca
+        // Busca na Biblioteca via SearchView
         binding.searchViewLibrary.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = false
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -110,38 +102,41 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Filtros por Chip
+        // Filtros por Chip (Todas, Favoritas, Recentes)
         binding.chipGroupFilters.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
-                R.id.chipAll -> songAdapter.updateList(allSongs)
+                R.id.chipAll -> songAdapter.updateList(currentList)
                 R.id.chipFavorites -> {
-                    val favs = allSongs.filter { favoriteManager.isFavorite(it.id) }
+                    val favs = currentList.filter { favoriteManager.isFavorite(it.id) }
                     songAdapter.updateList(favs)
                 }
                 R.id.chipRecent -> {
-                    val recents = recentManager.getRecentSongs(allSongs)
+                    val recents = recentManager.getRecentSongs(currentList)
                     songAdapter.updateList(recents)
                 }
             }
         }
 
-        // Chip Buscar Online (Ação de clique)
+        // Chip para abrir a tela de busca no YouTube
         binding.chipOnline.setOnClickListener {
             startActivity(Intent(this, OnlineSearchActivity::class.java))
         }
 
-        // Botão Scan
+        // Botão para re-escanear músicas locais
         binding.btnScan.setOnClickListener { loadSongs() }
 
-        // Mini Player
+        // Mini Player - Abrir tela cheia
         binding.includeMiniPlayer.root.setOnClickListener {
             startActivity(Intent(this, FullPlayerActivity::class.java))
         }
 
+        // Mini Player - Play/Pause
         binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
             LocalPlayerManager.togglePlayPause(this)
+            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
         
+        // Listener para mudanças no estado do Player
         LocalPlayerManager.onPlaybackStatusChanged = { _ ->
             LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
@@ -166,16 +161,17 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
         lifecycleScope.launch {
             try {
-                allSongs = musicLoader.loadLocalSongs()
+                // Carrega as músicas e atualiza a variável global
+                currentList = musicLoader.loadLocalSongs()
                 binding.progressBar.visibility = View.GONE
                 
-                if (allSongs.isEmpty()) {
+                if (currentList.isEmpty()) {
                     binding.tvEmptyState.visibility = View.VISIBLE
                     binding.rvSongs.visibility = View.GONE
                 } else {
                     binding.tvEmptyState.visibility = View.GONE
                     binding.rvSongs.visibility = View.VISIBLE
-                    songAdapter.updateList(allSongs)
+                    songAdapter.updateList(currentList)
                 }
             } catch (e: Exception) {
                 binding.progressBar.visibility = View.GONE
@@ -198,6 +194,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Sincroniza o Mini Player caso a música tenha mudado em outra tela
         LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
+        
+        // Atualiza a lista caso favoritos tenham mudado na FullPlayerActivity
+        if (::songAdapter.isInitialized) {
+            songAdapter.notifyDataSetChanged()
+        }
     }
 }
