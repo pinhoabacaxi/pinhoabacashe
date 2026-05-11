@@ -8,6 +8,8 @@ import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.bumptech.glide.Glide
 import androidx.appcompat.app.AlertDialog
+import android.content.ContentUris
+import android.net.Uri
 
 
 class FullPlayerActivity : AppCompatActivity() {
@@ -98,7 +100,12 @@ class FullPlayerActivity : AppCompatActivity() {
             0xFFFFFFFF.toInt() else 0xFF00FF00.toInt()
         binding.btnRepeat.setColorFilter(color)
     }
-
+    fun getAlbumArtUri(albumId: Long): Uri {
+        return ContentUris.withAppendedId(
+            Uri.parse("content://media/external/audio/albumart"),
+            albumId
+        )
+    }
     private fun formatTime(ms: Int): String {
         val seconds = (ms / 1000) % 60
         val minutes = (ms / (1000 * 60)) % 60
