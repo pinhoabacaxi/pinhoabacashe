@@ -69,63 +69,40 @@ class YouTubeRepository(private val context: Context) {
 
     suspend fun searchTracks(query: String): List<OnlineSong> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineSong>()
+    // O bloco try-catch é essencial para não crashar se a internet falhar
         try {
-            if (query.contains("youtube.com") || query.contains("youtu.be")) {
-                val videoId = extractVideoId(query)
-                val info = extractMusicInfo(videoId)
-                if (info != null) results.add(info)
-                return@withContext results
-            }
-
-            val encodedQuery = URLEncoder.encode(query, "UTF-8")
-            val url = URL("https://pipedapi.kavin.rocks/search?q=$encodedQuery&filter=music_songs")
-            
-            val connection = url.openConnection() as HttpURLConnection
+            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+        // Usando uma instância mais estável da Piped API
+            val url = java.net.URL("https://piped-api.privacydev.net/search?q=$encodedQuery&filter=music_songs")
+        
+            val connection = url.openConnection() as java.net.HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = 5000
-            connection.readTimeout = 5000
-
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                val response = StringBuilder()
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    response.append(line)
-                }
-                // Dentro do searchTracks, após receber o 'response'
-                println("DEBUG SEARCH: ${response.toString()}")
-                reader.close()
-
-                val jsonObject = JSONObject(response.toString())
-                val items = jsonObject.optJSONArray("items") ?: JSONArray()
+        
+        // Adicionando um User-Agent para evitar ser bloqueado pelo servidor
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+        
+            if (connection.responseCode == 200) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val jsonObject = org.json.JSONObject(response)
+                val items = jsonObject.optJSONArray("items") ?: org.json.JSONArray()
 
                 for (i in 0 until items.length()) {
                     val item = items.optJSONObject(i)
                     if (item != null && item.optString("type") == "stream") {
-                        val urlPath = item.optString("url")
-                        val videoId = urlPath.replace("/watch?v=", "")
-                        val title = item.optString("title")
-                        val uploader = item.optString("uploaderName")
-                        val thumbnail = item.optString("thumbnail")
-
-                        results.add(
-                            OnlineSong(
-                                videoId = videoId,
-                                title = title,
-                                author = uploader,
-                                thumbnailUrl = thumbnail,
-                                streamUrl = null
-                            )
-                        )
-                        
-                        if (results.size >= 20) break
+                        results.add(OnlineSong(
+                            videoId = item.optString("url").replace("/watch?v=", ""),
+                            title = item.optString("title"),
+                            author = item.optString("uploaderName"),
+                            thumbnailUrl = item.optString("thumbnail"),
+                            streamUrl = null
+                        ))
                     }
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("YouTubeRepo", "Erro na busca: ${e.message}")
         }
-        return@withContext results
+        results // Retorna a lista (vazia ou cheia)
     }
 
     private fun extractVideoId(url: String): String {
