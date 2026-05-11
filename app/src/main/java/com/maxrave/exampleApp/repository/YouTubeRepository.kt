@@ -17,7 +17,7 @@ class YouTubeRepository(private val context: Context) {
 
     private val extractor = YTExtractor(context, CACHING = false, LOGGING = true)
 
-    suspend fun downloadMusic(videoId: String) = withContext(Dispatchers.IO) {
+    suspend fun downloadMusic(videoId: String): Unit = withContext(Dispatchers.IO) {
         val youtubeUrl = "https://www.youtube.com/watch?v=$videoId"
         try {
             extractor.extract(youtubeUrl)
@@ -32,6 +32,8 @@ class YouTubeRepository(private val context: Context) {
                     artist = meta.author ?: "Desconhecido",
                     url = bestAudio.url!!
                 )
+            } else {
+                Log.e("YouTubeRepo", "Não foi possível encontrar metadados ou URL de áudio")
             }
         } catch (e: Exception) {
             Log.e("YouTubeRepo", "Erro no download: ${e.message}")
@@ -47,26 +49,26 @@ class YouTubeRepository(private val context: Context) {
 
             if (meta != null && ytFiles != null) {
                 val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url
-
-                return@withContext OnlineSong(
+                OnlineSong(
                     videoId = videoId,
                     title = meta.title ?: "Sem título",
                     author = meta.author ?: "Artista desconhecido",
                     thumbnailUrl = meta.maxResImageUrl,
                     streamUrl = bestAudio
                 )
+            } else {
+                null
             }
         } catch (e: Exception) {
             Log.e("YouTubeRepo", "Erro na extração: ${e.message}")
+            null
         }
-        null
     }
 
     suspend fun searchTracks(query: String): List<OnlineSong> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineSong>()
         val trimmedQuery = query.trim()
 
-        // 1. PRIORIDADE: Se for um link, processa localmente para evitar erros de DNS na API de busca
         if (trimmedQuery.contains("youtube.com") || trimmedQuery.contains("youtu.be")) {
             val vId = extractVideoId(trimmedQuery)
             val info = extractMusicInfo(vId)
@@ -74,7 +76,6 @@ class YouTubeRepository(private val context: Context) {
             return@withContext results
         }
 
-        // 2. FALLBACK: Lista de APIs para busca por texto caso a principal falhe
         val apiInstances = arrayOf(
             "https://pipedapi.kavin.rocks",
             "https://api.piped.victr.me",
@@ -112,7 +113,7 @@ class YouTubeRepository(private val context: Context) {
                             }
                         }
                     }
-                    if (results.isNotEmpty()) break 
+                    if (results.isNotEmpty()) break
                 }
             } catch (e: Exception) {
                 Log.e("YouTubeRepo", "Falha na instância $baseUrl: ${e.message}")
