@@ -6,6 +6,9 @@ import androidx.appcompat.app.AppCompatActivity
 import com.maxrave.exampleApp.databinding.ActivityFullPlayerBinding
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
+import com.bumptech.glide.Glide
+import androidx.appcompat.app.AlertDialog
+
 
 class FullPlayerActivity : AppCompatActivity() {
 
