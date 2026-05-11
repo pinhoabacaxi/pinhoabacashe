@@ -2,9 +2,6 @@ package com.maxrave.exampleApp.player
 
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
@@ -16,16 +13,13 @@ import com.maxrave.exampleApp.repository.RecentSongsManager
 import com.maxrave.exampleApp.repository.PlayerPrefs
 
 object LocalPlayerManager {
-    private var recentManager: RecentSongsManager? = null
     private var mediaPlayer: MediaPlayer? = null
     private var songList: List<Song> = emptyList()
     private var originalList: List<Song> = emptyList()
     private var currentIndex: Int = -1
     private var currentVolume: Float = 1.0f
     
-    private var audioManager: AudioManager? = null
-    private var focusRequest: AudioFocusRequest? = null
-    private var wasPlayingBeforeLoss = false
+    private var recentManager: RecentSongsManager? = null
     private var prefs: PlayerPrefs? = null
     
     var isShuffle: Boolean = false
@@ -36,7 +30,6 @@ object LocalPlayerManager {
     var currentSong: Song? = null
         private set
 
-    // Callbacks para a UI
     var onTrackChanged: ((Song) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
@@ -56,9 +49,8 @@ object LocalPlayerManager {
     fun init(context: Context) {
         recentManager = RecentSongsManager(context)
         prefs = PlayerPrefs(context)
-        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        handler.post(updateProgressRunnable)
         loadState()
+        handler.post(updateProgressRunnable)
     }
 
     private fun loadState() {
@@ -80,6 +72,8 @@ object LocalPlayerManager {
         songList = if (isShuffle) list.shuffled() else list
     }
 
+    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
+
     fun play(context: Context, song: Song) {
         val index = songList.indexOf(song)
         if (index != -1) {
@@ -87,8 +81,6 @@ object LocalPlayerManager {
             play(context)
         }
     }
-
-    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
 
     fun play(context: Context) {
         if (currentIndex !in songList.indices) return
@@ -125,6 +117,10 @@ object LocalPlayerManager {
             }
             updateService(context, "ACTION_UPDATE_NOTIFICATION")
         }
+    }
+
+    fun seekTo(position: Int) {
+        mediaPlayer?.seekTo(position)
     }
 
     fun next(context: Context) {
