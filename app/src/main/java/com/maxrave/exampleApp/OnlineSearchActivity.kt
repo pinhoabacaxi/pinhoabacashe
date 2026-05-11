@@ -95,23 +95,19 @@ class OnlineSearchActivity : AppCompatActivity() {
         Toast.makeText(this, "Funcionalidade em desenvolvimento", Toast.LENGTH_SHORT).show()
     }
     private fun performSearch(query: String) {
-        // Esconde a lista e mostra o loading
-        binding.rvOnlineResults.visibility = View.GONE
         binding.progressBar.visibility = View.VISIBLE
-        
+        android.util.Log.d("BUSCA", "Iniciando busca por: $query") // ADICIONE ISSO
+    
         lifecycleScope.launch {
-            // Chama a nova função de busca do repositório
             val results = youtubeRepository.searchTracks(query)
-            
+            android.util.Log.d("BUSCA", "Resultados encontrados: ${results.size}") // ADICIONE ISSO
+        
             binding.progressBar.visibility = View.GONE
-            binding.rvOnlineResults.visibility = View.VISIBLE
-            
+            adapter.updateList(results)
+        
             if (results.isEmpty()) {
-                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado encontrado.", Toast.LENGTH_SHORT).show()
-                adapter.updateList(emptyList()) // Limpa a lista
-            } else {
-                adapter.updateList(results) // Preenche o RecyclerView
+                Toast.makeText(this@OnlineSearchActivity, "Nada encontrado", Toast.LENGTH_SHORT).show()
             }
         }
-    }  
+    }
 }
