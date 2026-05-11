@@ -22,8 +22,7 @@ object LocalPlayerManager {
     private var originalList: List<Song> = emptyList()
     private var currentIndex: Int = -1
     private var currentVolume: Float = 1.0f
-    private var playList = mutableListOf<Song>() no topo do object.
-    // Propriedades para Audio Focus
+    
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var wasPlayingBeforeLoss = false
@@ -54,182 +53,78 @@ object LocalPlayerManager {
         }
     }
 
-    // 1. Listener de Foco de Áudio
-    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-        when (focusChange) {
-            AudioManager.AUDIOFOCUS_GAIN -> {
-                if (wasPlayingBeforeLoss) {
-                    mediaPlayer?.setVolume(currentVolume, currentVolume)
-                    mediaPlayer?.start()
-                    onPlaybackStatusChanged?.invoke(true)
-                }
-            }
-            AudioManager.AUDIOFOCUS_LOSS -> {
-                // Perda total: pausamos e não voltamos automaticamente
-                pauseInternal()
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                // Perda temporária: pausamos para voltar depois
-                wasPlayingBeforeLoss = mediaPlayer?.isPlaying ?: false
-                mediaPlayer?.pause()
-                onPlaybackStatusChanged?.invoke(false)
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                // Diminuir volume (notificações)
-                if (mediaPlayer?.isPlaying == true) {
-                    mediaPlayer?.setVolume(0.1f, 0.1f)
-                }
-            }
+    fun init(context: Context) {
+        recentManager = RecentSongsManager(context)
+        prefs = PlayerPrefs(context)
+        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        handler.post(updateProgressRunnable)
+        loadState()
+    }
+
+    private fun loadState() {
+        prefs?.let {
+            isShuffle = it.isShuffle
+            repeatMode = it.repeatMode
         }
     }
 
     private fun saveCurrentState() {
-        prefs?.savePlayerState(
-            isShuffle, 
-            repeatMode.ordinal, 
-            currentVolume, 
-            currentSong?.id ?: -1L
-        )
-    }
-   fun init(context: Context) {
-        if (prefs == null) {
-            prefs = PlayerPrefs(context)
-            isShuffle = prefs!!.getShuffle()
-            repeatMode = RepeatMode.values()[prefs!!.getRepeatMode()]
-            currentVolume = prefs!!.getVolume()
-        }
-    } 
-   
-    // No LocalPlayerManager.kt, adiciona:
-    fun playOnline(onlineSong: OnlineSong, context: Context) {
-        if (onlineSong.streamUrl == null) return
-
-        val webSong = Song(
-            id = -1, // ID fictício para músicas online
-            title = onlineSong.title,
-            artist = onlineSong.artist,
-            album = "YouTube Stream",
-            duration = 0,
-            uri = onlineSong.streamUrl!!, // O link direto do YTExtractor
-            albumId = -1
-        )
-        currentSong = tempSong
-        play(context) // Aproveita a lógica de play que já tens
-        playList(listOf(webSong), 0, context)
-    }
-
-    fun initRecentManager(context: Context) {
-        recentManager = RecentSongsManager(context)
-        handler.post(updateProgressRunnable)
-    }
-
-    // 2. Solicitação de Foco
-    private fun requestAudioFocus(context: Context): Boolean {
-        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val playbackAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .build()
-
-            focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                .setAudioAttributes(playbackAttributes)
-                .setAcceptsDelayedFocusGain(true)
-                .setOnAudioFocusChangeListener(audioFocusChangeListener)
-                .build()
-
-            audioManager?.requestAudioFocus(focusRequest!!) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager?.requestAudioFocus(
-                audioFocusChangeListener,
-                AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN
-            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        prefs?.let {
+            it.isShuffle = isShuffle
+            it.repeatMode = repeatMode
         }
     }
 
-    // 3. Liberação de Foco
-    fun abandonAudioFocus() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager?.abandonAudioFocus(audioFocusChangeListener)
+    fun setList(list: List<Song>) {
+        originalList = list
+        songList = if (isShuffle) list.shuffled() else list
+    }
+
+    fun play(context: Context, song: Song) {
+        val index = songList.indexOf(song)
+        if (index != -1) {
+            currentIndex = index
+            play(context)
         }
     }
 
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
-    fun getDuration(): Int = mediaPlayer?.duration ?: 0
-    fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
-    fun seekTo(position: Int) { mediaPlayer?.seekTo(position) }
-    
-    fun setVolume(volume: Float) {
-        currentVolume = volume
-        mediaPlayer?.setVolume(volume, volume)
-    }
 
-    fun getVolume(): Float = currentVolume
-
-    fun startPlaying(context: Context, playlist: List<Song>, index: Int) {
-        this.songList = playlist
-        this.originalList = playlist.toList()
-        this.currentIndex = index
-        play(context)
-    }
-
-    private fun play(context: Context) {
-        if (songList.isEmpty() || currentIndex !in songList.indices) return
-    
-        // Solicita o foco antes de iniciar o som
-        if (!requestAudioFocus(context)) return
-
+    fun play(context: Context) {
+        if (currentIndex !in songList.indices) return
+        
         val song = songList[currentIndex]
         currentSong = song
 
-        mediaPlayer?.stop()
         mediaPlayer?.release()
-        
         mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
         mediaPlayer?.setVolume(currentVolume, currentVolume)
         mediaPlayer?.start()
 
         mediaPlayer?.setOnCompletionListener {
-            when(repeatMode) {
+            when (repeatMode) {
                 RepeatMode.ONE -> play(context)
                 else -> next(context)
-                
             }
-            
         }
 
         recentManager?.addRecent(song.id)
         onTrackChanged?.invoke(song)
         onPlaybackStatusChanged?.invoke(true)
         updateService(context, "ACTION_UPDATE_NOTIFICATION")
-        saveCurrentState()
     }
-
 
     fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
             if (it.isPlaying) {
                 it.pause()
-                abandonAudioFocus()
+                onPlaybackStatusChanged?.invoke(false)
             } else {
-                if (requestAudioFocus(context)) {
-                    it.start()
-                }
+                it.start()
+                onPlaybackStatusChanged?.invoke(true)
             }
-            onPlaybackStatusChanged?.invoke(it.isPlaying)
             updateService(context, "ACTION_UPDATE_NOTIFICATION")
         }
-    }
-
-    private fun pauseInternal() {
-        mediaPlayer?.pause()
-        onPlaybackStatusChanged?.invoke(false)
     }
 
     fun next(context: Context) {
@@ -253,18 +148,17 @@ object LocalPlayerManager {
         } else {
             songList = originalList
         }
-        currentIndex = songList.indexOf(current)
-        saveCurrentState() ->
+        current?.let { currentIndex = songList.indexOf(it) }
+        saveCurrentState()
     }
 
-    
     fun toggleRepeat() {
         repeatMode = when (repeatMode) {
             RepeatMode.NONE -> RepeatMode.ALL
             RepeatMode.ALL -> RepeatMode.ONE
             RepeatMode.ONE -> RepeatMode.NONE
-            saveCurrentState() ->
         }
+        saveCurrentState()
     }
 
     private fun updateService(context: Context, action: String) {
