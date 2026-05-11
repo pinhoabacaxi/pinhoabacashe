@@ -56,6 +56,20 @@ object LocalPlayerManager {
         }
     }
 
+    // No arquivo LocalPlayerManager.kt
+     fun playOnline(onlineSong: OnlineSong, context: Context) {
+        if (onlineSong.streamUrl == null) return
+    
+    // Aqui você deve integrar com o seu player (ExoPlayer ou MediaPlayer)
+    // Exemplo genérico de como passar a URL para o serviço:
+        val intent = Intent(context, PlaybackService::class.java).apply {
+            action = "ACTION_PLAY_ONLINE"
+            putExtra("ONLINE_SONG_URL", onlineSong.streamUrl)
+            putExtra("ONLINE_SONG_TITLE", onlineSong.title)
+        }
+        context.startService(intent)
+    }
+
     fun startPlaying(context: Context, list: List<Song>, position: Int) {
         setList(list)
         currentIndex = position
