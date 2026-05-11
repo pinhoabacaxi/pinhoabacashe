@@ -50,18 +50,32 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 1. Inicializar Repositórios
         musicLoader = MusicLoader(this)
         recentManager = RecentSongsManager(this)
         favoriteManager = FavoriteManager(this)
         playlistManager = PlaylistManager(this)
         
-        // 2. Inicializar Player Global
         LocalPlayerManager.init(this)
 
         setupRecyclerView()
         setupListeners()
+        setupPlayerObservers() // Escuta mudanças no player para atualizar UI
         checkPermissions()
+    }
+
+    private fun setupPlayerObservers() {
+        // Quando a música muda (via next, completion, etc)
+        LocalPlayerManager.onTrackChanged = { song ->
+            updateMiniPlayerUI(song)
+        }
+
+        // Quando o player pausa ou retoma
+        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
+            binding.includeMiniPlayer.btnPlayPause.setImageResource(
+                if (isPlaying) android.R.drawable.ic_media_pause 
+                else android.R.drawable.ic_media_play
+            )
+        }
     }
 
     private fun setupRecyclerView() {
@@ -69,9 +83,8 @@ class MainActivity : AppCompatActivity() {
             songs = currentList,
             favoriteManager = favoriteManager,
             onSongClick = { song ->
-                LocalPlayerManager.setList(currentList)
-                LocalPlayerManager.play(this, song)
-                recentManager.addSongToRecent(song.id)
+                val position = currentList.indexOf(song)
+                LocalPlayerManager.startPlaying(this, currentList, position)
                 updateMiniPlayerUI(song)
             },
             onFavClick = { song ->
@@ -86,12 +99,11 @@ class MainActivity : AppCompatActivity() {
         binding.rvSongs.apply {
             adapter = songAdapter
             layoutManager = LinearLayoutManager(this@MainActivity)
-            setHasFixedSize(true) 
+            setHasFixedSize(true)
         }
     }
 
     private fun setupListeners() {
-        // Busca na Biblioteca
         binding.searchViewLibrary.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = false
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -100,91 +112,21 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Filtros por Chip
-        binding.chipGroupFilters.setOnCheckedChangeListener { _, checkedId ->
-            when (checkedId) {
-                R.id.chipAll -> songAdapter.updateList(currentList)
-                R.id.chipFavorites -> {
-                    val favs = currentList.filter { favoriteManager.isFavorite(it.id) }
-                    songAdapter.updateList(favs)
-                }
-                R.id.chipRecent -> {
-                    val recents = recentManager.getRecentSongs(currentList)
-                    songAdapter.updateList(recents)
-                }
-            }
-        }
-
-        // Chip Buscar Online
-        binding.chipOnline.setOnClickListener {
-            startActivity(Intent(this, OnlineSearchActivity::class.java))
-        }
-
-        // Botão Scan
-        binding.btnScan.setOnClickListener { loadSongs() }
-
-        // Mini Player - Abrir Full Player
-        binding.includeMiniPlayer.root.setOnClickListener {
-            startActivity(Intent(this, FullPlayerActivity::class.java))
-        }
-
-        // Mini Player - Controles
+        // Mini Player Controles
         binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
             LocalPlayerManager.togglePlayPause(this)
-            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
-
         binding.includeMiniPlayer.btnNext.setOnClickListener {
             LocalPlayerManager.next(this)
-            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
-
         binding.includeMiniPlayer.btnPrev.setOnClickListener {
             LocalPlayerManager.previous(this)
-            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
-        
-        // Listener global do Player para mudanças automáticas
-        LocalPlayerManager.onPlaybackStatusChanged = { _ ->
-            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
-        }
-    }
-
-    private fun checkPermissions() {
-        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        binding.includeMiniPlayer.root.setOnClickListener {
+            // Futuro: Abrir FullPlayerActivity
         }
 
-        val missing = permissions.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-
-        if (missing.isEmpty()) loadSongs()
-        else permissionsLauncher.launch(missing.toTypedArray())
-    }
-
-    private fun loadSongs() {
-        binding.progressBar.visibility = View.VISIBLE
-        lifecycleScope.launch {
-            try {
-                currentList = musicLoader.loadLocalSongs()
-                binding.progressBar.visibility = View.GONE
-                
-                if (currentList.isEmpty()) {
-                    binding.tvEmptyState.visibility = View.VISIBLE
-                    binding.rvSongs.visibility = View.GONE
-                } else {
-                    binding.tvEmptyState.visibility = View.GONE
-                    binding.rvSongs.visibility = View.VISIBLE
-                    songAdapter.updateList(currentList)
-                }
-            } catch (e: Exception) {
-                binding.progressBar.visibility = View.GONE
-                Toast.makeText(this@MainActivity, "Erro ao carregar músicas.", Toast.LENGTH_SHORT).show()
-            }
-        }
+        binding.btnScan.setOnClickListener { loadSongs() }
     }
 
     private fun updateMiniPlayerUI(song: Song) {
@@ -192,7 +134,6 @@ class MainActivity : AppCompatActivity() {
         binding.includeMiniPlayer.tvMiniTitle.text = song.title
         binding.includeMiniPlayer.tvMiniArtist.text = song.artist
 
-        // Carrega a capa no Mini Player
         val albumArtUri = ContentUris.withAppendedId(
             Uri.parse("content://media/external/audio/albumart"),
             song.albumId
@@ -211,11 +152,42 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun checkPermissions() {
+        val permissionsNeeded = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsNeeded.add(Manifest.permission.READ_MEDIA_AUDIO)
+            permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+
+        val missing = permissionsNeeded.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (missing.isEmpty()) loadSongs() else permissionsLauncher.launch(missing.toTypedArray())
+    }
+
+    private fun loadSongs() {
+        lifecycleScope.launch {
+            try {
+                currentList = musicLoader.loadLocalSongs()
+                if (currentList.isEmpty()) {
+                    binding.tvEmptyState.visibility = View.VISIBLE
+                    binding.rvSongs.visibility = View.GONE
+                } else {
+                    binding.tvEmptyState.visibility = View.GONE
+                    binding.rvSongs.visibility = View.VISIBLE
+                    songAdapter.updateList(currentList)
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "Erro ao carregar músicas.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
-        if (::songAdapter.isInitialized) {
-            songAdapter.notifyDataSetChanged()
-        }
     }
 }
