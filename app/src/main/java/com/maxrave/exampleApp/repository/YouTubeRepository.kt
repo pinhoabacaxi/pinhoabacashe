@@ -69,47 +69,77 @@ class YouTubeRepository(private val context: Context) {
 
     suspend fun searchTracks(query: String): List<OnlineSong> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineSong>()
-    // O bloco try-catch é essencial para não crashar se a internet falhar
-        try {
-            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
-        // Usando uma instância mais estável da Piped API
-            val url = java.net.URL("https://piped-api.privacydev.net/search?q=$encodedQuery&filter=music_songs")
         
-            val connection = url.openConnection() as java.net.HttpURLConnection
-            connection.requestMethod = "GET"
-        
-        // Adicionando um User-Agent para evitar ser bloqueado pelo servidor
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-        
-            if (connection.responseCode == 200) {
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val jsonObject = org.json.JSONObject(response)
-                val items = jsonObject.optJSONArray("items") ?: org.json.JSONArray()
-
-                for (i in 0 until items.length()) {
-                    val item = items.optJSONObject(i)
-                    if (item != null && item.optString("type") == "stream") {
-                        results.add(OnlineSong(
-                            videoId = item.optString("url").replace("/watch?v=", ""),
-                            title = item.optString("title"),
-                            author = item.optString("uploaderName"),
-                            thumbnailUrl = item.optString("thumbnail"),
-                            streamUrl = null
-                        ))
-                    }
-                }
+        // CORREÇÃO: Se for um link, extrai direto sem usar a API de busca
+        if (query.contains("youtube.com") || query.contains("youtu.be")) {
+            try {
+                val videoId = extractVideoId(query)
+                val info = extractMusicInfo(videoId)
+                if (info != null) results.add(info)
+                return@withContext results
+            } catch (e: Exception) {
+                return@withContext emptyList()
             }
-        } catch (e: Exception) {
-            android.util.Log.e("YouTubeRepo", "Erro na busca: ${e.message}")
         }
-        results // Retorna a lista (vazia ou cheia)
+
+        // Se for pesquisa por texto, tenta instâncias diferentes (Fallback)
+        val instances = arrayOf(
+            "https://piped-api.privacydev.net",
+            "https://pipedapi.kavin.rocks",
+            "https://api.piped.victr.me"
+        )
+
+        for (baseUrl in instances) {
+            try {
+                val encodedQuery = URLEncoder.encode(query, "UTF-8")
+                val url = URL("$baseUrl/search?q=$encodedQuery&filter=music_songs")
+                
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+
+                if (connection.responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val jsonObject = JSONObject(response)
+                    val items = jsonObject.optJSONArray("items") ?: JSONArray()
+
+                    for (i in 0 until items.length()) {
+                        val item = items.optJSONObject(i)
+                        if (item != null && item.optString("type") == "stream") {
+                            val urlPath = item.optString("url")
+                            val videoId = urlPath.replace("/watch?v=", "")
+                            
+                            results.add(OnlineSong(
+                                videoId = videoId,
+                                title = item.optString("title") ?: "Sem título",
+                                author = item.optString("uploaderName") ?: "Desconhecido",
+                                thumbnailUrl = item.optString("thumbnail"),
+                                streamUrl = null
+                            ))
+                        }
+                        if (results.size >= 15) break
+                    }
+                    if (results.isNotEmpty()) break // Se conseguiu resultados, para de tentar outras instâncias
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("YouTubeRepo", "Falha na instância $baseUrl: ${e.message}")
+                // Continua para a próxima instância do loop
+            }
+        }
+        results
     }
 
     private fun extractVideoId(url: String): String {
-        return if (url.contains("youtu.be/")) {
-            url.substringAfter("youtu.be/").substringBefore("?")
-        } else {
-            url.substringAfter("v=").substringBefore("&")
-        }
+        return try {
+            if (url.contains("youtu.be/")) {
+                url.substringAfter("youtu.be/").substringBefore("?").substringBefore("/")
+            } else if (url.contains("v=")) {
+                url.substringAfter("v=").substringBefore("&").substringBefore("/")
+            } else {
+                url // Assume que já é o ID
+            }
+        } catch (e: Exception) { url }
     }
 }
