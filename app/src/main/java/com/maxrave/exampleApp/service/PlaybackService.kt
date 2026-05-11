@@ -19,13 +19,14 @@ class PlaybackService : Service() {
     private val CHANNEL_ID = "music_player_channel"
     private val NOTIFICATION_ID = 101
 
-    // 1. Definição do Receiver para fones desconectados
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                // Se o fone for desplugado e estiver tocando, pausamos
+                // Se o fone for desplugado, pausamos a música
                 if (LocalPlayerManager.isPlaying()) {
                     LocalPlayerManager.togglePlayPause(this@PlaybackService)
+                    // Atualiza a notificação para mostrar o ícone de Play
+                    showNotification(LocalPlayerManager.currentSong ?: return)
                 }
             }
         }
@@ -37,44 +38,47 @@ class PlaybackService : Service() {
         super.onCreate()
         createNotificationChannel()
         
-        // 2. Registro do receiver no onCreate
         val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
         registerReceiver(noisyReceiver, filter)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val song = LocalPlayerManager.currentSong
+        val action = intent?.action ?: return START_STICKY
         
+        // Sempre que o Manager pedir para atualizar ou uma nova música começar
+        val song = LocalPlayerManager.currentSong
         if (song != null) {
-            showNotification(song, LocalPlayerManager.isPlaying())
+            when (action) {
+                "ACTION_UPDATE_NOTIFICATION" -> showNotification(song)
+                // Você pode adicionar outras ações diretas aqui se não usar o NotificationReceiver
+            }
         }
 
         return START_STICKY
     }
 
-    // 3. O unregisterReceiver DEVE ficar no onDestroy para evitar memory leaks
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            unregisterReceiver(noisyReceiver)
-        } catch (e: Exception) {
-            // Caso o receiver não esteja registrado
-        }
-    }
-
-    private fun showNotification(song: Song, isPlaying: Boolean) {
+    private fun showNotification(song: Song) {
+        val isPlaying = LocalPlayerManager.isPlaying()
+        
         val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
-        val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val playPauseIcon = if (isPlaying) 
+            android.R.drawable.ic_media_pause 
+        else 
+            android.R.drawable.ic_media_play
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(song.title)
             .setContentText(song.artist)
-            .setOngoing(isPlaying)
+            .setOngoing(isPlaying) // Se estiver tocando, o usuário não pode remover a notificação
             .setContentIntent(pendingIntent)
             .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
                 .setShowActionsInCompactView(0, 1, 2))
             .addAction(android.R.drawable.ic_media_previous, "Previous", getPendingAction("ACTION_PREVIOUS"))
@@ -87,7 +91,12 @@ class PlaybackService : Service() {
 
     private fun getPendingAction(action: String): PendingIntent {
         val intent = Intent(this, NotificationReceiver::class.java).apply { this.action = action }
-        return PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        return PendingIntent.getBroadcast(
+            this, 
+            action.hashCode(), // RequestCode único por ação para evitar bugs
+            intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun createNotificationChannel() {
@@ -95,9 +104,17 @@ class PlaybackService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID, "Reprodução de Música",
                 NotificationManager.IMPORTANCE_LOW
-            ).apply { description = "Controles do player de música" }
+            ).apply { 
+                description = "Controles do player de música"
+                setShowBadge(false)
+            }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(noisyReceiver)
     }
 }
