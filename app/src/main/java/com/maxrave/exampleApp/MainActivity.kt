@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
             onSongClick = { song ->
                 LocalPlayerManager.setList(allSongs)
                 LocalPlayerManager.play(this, song)
+                recentManager.addSongToRecent(song.id):
                 updateMiniPlayerUI(song)
             },
             onFavClick = { song ->
