@@ -235,11 +235,17 @@ class MainActivity : AppCompatActivity() {
         if (missing.isEmpty()) loadSongs()
         else permissionsLauncher.launch(missing.toTypedArray())
     }
-
     private fun loadSongs() {
+    // 1. Mostrar a barra antes de iniciar a corrotina
+        binding.progressBar.visibility = View.VISIBLE 
+
         lifecycleScope.launch {
             try {
                 allSongs = musicLoader.loadLocalSongs()
+             
+            // 2. Esconder após carregar os dados
+                binding.progressBar.visibility = View.GONE 
+
                 if (allSongs.isEmpty()) {
                     binding.tvEmptyState.visibility = View.VISIBLE
                     binding.rvSongs.visibility = View.GONE
@@ -249,6 +255,8 @@ class MainActivity : AppCompatActivity() {
                     songAdapter.updateList(allSongs)
                 }
             } catch (e: Exception) {
+            // 3. Esconder também em caso de erro
+                binding.progressBar.visibility = View.GONE
                 Toast.makeText(this@MainActivity, "Erro ao carregar biblioteca", Toast.LENGTH_SHORT).show()
             }
         }
