@@ -4,22 +4,24 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.widget.Toast
 
 class DownloadHelper(private val context: Context) {
 
-    fun downloadMusic(title: String, url: String) {
+    fun startDownload(title: String, artist: String, url: String) {
+        val fileName = "$artist - $title.mp3".replace("/", "-") // Limpeza básica de caracteres
+        
         val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("Baixando: $title")
-            .setDescription("MaxRave Player")
+            .setTitle("A baixar: $title")
+            .setDescription(artist)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "$title.mp3")
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, fileName)
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(true)
 
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         manager.enqueue(request)
         
-        // DICA: O Android MediaScanner vai indexar o arquivo automaticamente
-        // e ele aparecerá no seu MusicLoader na próxima vez que você der "Scan".
+        Toast.makeText(context, "Download iniciado...", Toast.LENGTH_SHORT).show()
     }
 }
