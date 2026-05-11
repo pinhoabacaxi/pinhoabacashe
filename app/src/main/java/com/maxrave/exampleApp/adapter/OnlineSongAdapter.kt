@@ -28,29 +28,23 @@ class OnlineSongAdapter(
     override fun onBindViewHolder(holder: OnlineViewHolder, position: Int) {
         val song = songs[position]
         holder.binding.apply {
-            // Vinculação dos textos
             tvOnlineTitle.text = song.title
-            
-            // Usamos 'author' para ser coerente com o Model OnlineSong.kt
             tvOnlineChannel.text = song.author
 
-            // Carregamento da Thumbnail com transição suave
             Glide.with(holder.itemView.context)
                 .load(song.thumbnailUrl)
-                .transition(DrawableTransitionOptions.withCrossFade()) // Efeito de fade ao aparecer
+                .transition(DrawableTransitionOptions.withCrossFade())
                 .placeholder(android.R.drawable.ic_menu_gallery)
                 .error(android.R.drawable.ic_menu_report_image)
-                .centerCrop() // Garante que a imagem preencha o espaço sem distorcer
+                .centerCrop()
                 .into(ivThumbnail)
 
-            // Clique no item
             root.setOnClickListener { onItemClick(song) }
         }
     }
 
     override fun getItemCount(): Int = songs.size
 
-    // Método para atualizar a lista de resultados da busca
     fun updateList(newSongs: List<OnlineSong>) {
         this.songs = newSongs
         notifyDataSetChanged()
