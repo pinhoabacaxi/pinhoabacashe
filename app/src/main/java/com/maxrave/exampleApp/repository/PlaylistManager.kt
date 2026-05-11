@@ -6,33 +6,39 @@ import android.content.SharedPreferences
 class PlaylistManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("playlist_prefs", Context.MODE_PRIVATE)
 
-    // Retorna todos os nomes de playlists criadas
+    // Retorna todos os nomes de playlists criadas de forma mutável
     fun getPlaylistNames(): MutableSet<String> {
-        return prefs.getStringSet("all_playlists", mutableSetOf()) ?: mutableSetOf()
+        val names = prefs.getStringSet("all_playlists", null)
+        return names?.toMutableSet() ?: mutableSetOf()
     }
 
     fun createPlaylist(name: String) {
         val names = getPlaylistNames()
-        names.add(name)
-        prefs.edit().putStringSet("all_playlists", names).apply()
+        if (!names.contains(name)) {
+            names.add(name)
+            prefs.edit().putStringSet("all_playlists", names).apply()
+        }
     }
 
     fun addSongToPlaylist(playlistName: String, songId: Long) {
-        val songIds = getSongIdsFromPlaylist(playlistName).toMutableSet()
+        val songIds = getSongIdsFromPlaylist(playlistName)
         songIds.add(songId.toString())
         prefs.edit().putStringSet("playlist_$playlistName", songIds).apply()
     }
 
-    fun getSongIdsFromPlaylist(playlistName: String): Set<String> {
-        return prefs.getStringSet("playlist_$playlistName", emptySet()) ?: emptySet()
+    fun getSongIdsFromPlaylist(playlistName: String): MutableSet<String> {
+        val ids = prefs.getStringSet("playlist_$playlistName", null)
+        return ids?.toMutableSet() ?: mutableSetOf()
     }
 
     fun removePlaylist(name: String) {
         val names = getPlaylistNames()
-        names.remove(name)
-        prefs.edit().apply {
-            putStringSet("all_playlists", names)
-            remove("playlist_$name")
-        }.apply()
+        if (names.contains(name)) {
+            names.remove(name)
+            prefs.edit().apply {
+                putStringSet("all_playlists", names)
+                remove("playlist_$name")
+            }.apply()
+        }
     }
 }
