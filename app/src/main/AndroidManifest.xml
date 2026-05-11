@@ -38,8 +38,12 @@
             android:exported="false"
             android:windowSoftInputMode="stateVisible" />
 
-        <service
+        <service 
             android:name=".service.PlaybackService"
+            android:enabled="true"
+            android:exported="false" />
+        <receiver 
+            android:name=".receiver.NotificationReceiver"
             android:enabled="true"
             android:exported="false" />
 
