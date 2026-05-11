@@ -92,6 +92,8 @@ class YouTubeRepository(private val context: Context) {
                 while (reader.readLine().also { line = it } != null) {
                     response.append(line)
                 }
+                // Dentro do searchTracks, após receber o 'response'
+                println("DEBUG SEARCH: ${response.toString()}")
                 reader.close()
 
                 val jsonObject = JSONObject(response.toString())
