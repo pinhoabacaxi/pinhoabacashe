@@ -132,6 +132,17 @@ class YTExtractor(val con: Context, val CACHING: Boolean = false, val LOGGING: B
         InterruptedException::class,
         JSONException::class
     )
+    private fun extractVideoId(url: String): String {
+        return try {
+            if (url.contains("youtu.be/")) {
+                url.substringAfter("youtu.be/").substringBefore("?").substringBefore("/")
+            } else if (url.contains("v=")) {
+                url.substringAfter("v=").substringBefore("&").substringBefore("/")
+            } else {
+                url
+            }
+        } catch (e: Exception) { url }
+    }
     private fun getStreamUrls(): SparseArray<YtFile>? {
         val pageHtml: String
         val encSignatures = SparseArray<String>()
