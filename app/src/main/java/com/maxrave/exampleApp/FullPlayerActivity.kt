@@ -37,52 +37,56 @@ class FullPlayerActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        binding.btnBack.setOnClickListener { finish() }
+    
         binding.btnPlayPause.setOnClickListener { 
             LocalPlayerManager.togglePlayPause(this) 
         }
+    
         binding.btnNext.setOnClickListener { LocalPlayerManager.next(this) }
         binding.btnPrev.setOnClickListener { LocalPlayerManager.previous(this) }
-        
+    
         binding.btnShuffle.setOnClickListener {
             LocalPlayerManager.toggleShuffle()
             updateShuffleUI()
         }
-        
+    
         binding.btnRepeat.setOnClickListener {
             LocalPlayerManager.toggleRepeat()
             updateRepeatUI()
         }
 
-        binding.seekProgress.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+    // Correção: Alterado de seekProgress para seekBar
+        binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    binding.tvCurrentTime.text = formatTime(progress)
-                }
+                if (fromUser) LocalPlayerManager.seekTo(progress)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                seekBar?.let { LocalPlayerManager.seekTo(it.progress) }
-            }
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
-
-        binding.btnBack.setOnClickListener { finish() }
     }
 
     private fun observePlayer() {
-        LocalPlayerManager.onTrackChanged = { song -> updateSongInfo(song) }
-        
         LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
-            val icon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-            binding.btnPlayPause.setImageResource(icon)
+            binding.btnPlayPause.setImageResource(
+                if (isPlaying) android.R.drawable.ic_media_pause 
+                else android.R.drawable.ic_media_play
+            )
         }
-        
+
+        LocalPlayerManager.onTrackChanged = { song ->
+            updateSongInfo(song)
+        }
+
         LocalPlayerManager.onProgressChanged = { current, total ->
-            binding.seekProgress.max = total
-            binding.seekProgress.progress = current
+        // Correção: Alterado de seekProgress para seekBar
+            binding.seekBar.max = total
+            binding.seekBar.progress = current
             binding.tvCurrentTime.text = formatTime(current)
             binding.tvTotalTime.text = formatTime(total)
         }
     }
+
 
     private fun updateSongInfo(song: Song) {
         binding.tvTitle.text = song.title
