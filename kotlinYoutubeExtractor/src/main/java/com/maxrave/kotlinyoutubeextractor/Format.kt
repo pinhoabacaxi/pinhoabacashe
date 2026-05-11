@@ -53,6 +53,12 @@ class Format {
         audioBitrate = -1
         this.isDashContainer = isDashContainer
         isHlsContent = false
+        // Exemplo de como deve ficar dentro dos construtores internos:
+        this.videoCodec = vCodec // ATRIBUIÇÃO NECESSÁRIA
+        this.audioCodec = aCodec // ATRIBUIÇÃO NECESSÁRIA
+    
+}
+
     }
 
     internal constructor(
@@ -70,6 +76,9 @@ class Format {
         this.audioBitrate = audioBitrate
         this.isDashContainer = isDashContainer
         isHlsContent = false
+        this.videoCodec = vCodec // ATRIBUIÇÃO NECESSÁRIA
+        this.audioCodec = aCodec // ATRIBUIÇÃO NECESSÁRIA
+    
     }
 
     internal constructor(
@@ -114,6 +123,9 @@ class Format {
         this.fps = fps
         this.isDashContainer = isDashContainer
         isHlsContent = false
+        this.videoCodec = vCodec // ATRIBUIÇÃO NECESSÁRIA
+        this.audioCodec = aCodec // ATRIBUIÇÃO NECESSÁRIA
+    
     }
 
     override fun equals(o: Any?): Boolean {
