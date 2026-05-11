@@ -11,6 +11,29 @@ class YouTubeRepository(private val context: Context) {
 
     private val extractor = YTExtractor(context, CACHING = false, LOGGING = true)
 
+    // No teu YouTubeRepository ou similar
+    suspend fun downloadMusic(videoId: String) = withContext(Dispatchers.IO) {
+        val extractor = YTExtractor(context, CACHING = false)
+        val youtubeUrl = "https://www.youtube.com/watch?v=$videoId"
+    
+        extractor.extract(youtubeUrl)
+    
+        val meta = extractor.getVideoMeta()
+        val ytFiles = extractor.getYTFiles()
+    
+    // Utiliza a tua extensão getAudioOnly() para pegar o itag 251 ou similar
+        val bestAudio = ytFiles?.getAudioOnly()?.firstOrNull()
+
+        if (meta != null && bestAudio?.url != null) {
+            val downloader = DownloadHelper(context)
+            downloader.startDownload(
+                title = meta.title ?: "Som",
+                artist = meta.author ?: "Desconhecido",
+                url = bestAudio.url!!
+            )
+        }
+    }
+
     suspend fun extractMusicInfo(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
         val url = "https://www.youtube.com/watch?v=$videoId"
         
