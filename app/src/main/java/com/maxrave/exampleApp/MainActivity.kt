@@ -32,6 +32,20 @@ class MainActivity : AppCompatActivity() {
     
     private var allSongs: List<Song> = emptyList()
 
+    fun onOnlineSongClicked(onlineSong: OnlineSong) {
+    val options = arrayOf("Ouvir agora (Stream)", "Baixar para o dispositivo")
+    
+    AlertDialog.Builder(this)
+        .setTitle(onlineSong.title)
+        .setItems(options) { _, which ->
+            when (which) {
+                0 -> playStream(onlineSong)  // Usa o LocalPlayerManager com a URL direta
+                1 -> triggerDownload(onlineSong.videoId) // Chama a lógica de download acima
+            }
+        }
+        .show()
+}
+
     private val onDownloadComplete = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
         // Quando um download termina, forçamos o recarregamento da biblioteca
