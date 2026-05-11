@@ -8,14 +8,19 @@ import com.maxrave.exampleApp.databinding.ItemOnlineSongBinding
 import com.maxrave.exampleApp.model.OnlineSong
 
 class OnlineSongAdapter(
-    private var songs: List<OnlineSong>,
-    private val onClick: (OnlineSong) -> Unit
+    private val onItemClick: (OnlineSong) -> Unit
 ) : RecyclerView.Adapter<OnlineSongAdapter.OnlineViewHolder>() {
+
+    private var songs: List<OnlineSong> = emptyList()
 
     class OnlineViewHolder(val binding: ItemOnlineSongBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): OnlineViewHolder {
-        val binding = ItemOnlineSongBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = ItemOnlineSongBinding.inflate(
+            LayoutInflater.from(parent.context), 
+            parent, 
+            false
+        )
         return OnlineViewHolder(binding)
     }
 
@@ -23,21 +28,21 @@ class OnlineSongAdapter(
         val song = songs[position]
         holder.binding.apply {
             tvOnlineTitle.text = song.title
-            tvOnlineChannel.text = song.artist
-            
-            Glide.with(root.context)
+            tvOnlineChannel.text = song.author
+
+            Glide.with(holder.itemView.context)
                 .load(song.thumbnailUrl)
-                .centerCrop()
+                .placeholder(android.R.drawable.ic_menu_gallery)
                 .into(ivThumbnail)
 
-            root.setOnClickListener { onClick(song) }
+            root.setOnClickListener { onItemClick(song) }
         }
     }
 
-    override fun getItemCount() = songs.size
+    override fun getItemCount(): Int = songs.size
 
-    fun updateList(newList: List<OnlineSong>) {
-        songs = newList
+    fun updateList(newSongs: List<OnlineSong>) {
+        this.songs = newSongs
         notifyDataSetChanged()
     }
 }
