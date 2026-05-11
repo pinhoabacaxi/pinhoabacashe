@@ -51,7 +51,7 @@ class YouTubeRepository(private val context: Context) {
             return@withContext OnlineSong(
                 videoId = videoId,
                 title = meta.title ?: "Sem título",
-                artist = meta.author ?: "Artista desconhecido",
+                author = meta.author ?: "Artista desconhecido",
                 thumbnailUrl = meta.maxResImageUrl,
                 streamUrl = bestAudio
             )
