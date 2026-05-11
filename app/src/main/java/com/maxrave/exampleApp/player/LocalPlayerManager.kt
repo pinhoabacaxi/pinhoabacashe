@@ -30,6 +30,7 @@ object LocalPlayerManager {
     var currentSong: Song? = null
         private set
 
+    // Callbacks para atualizar a UI (MainActivity e FullPlayerActivity)
     var onTrackChanged: ((Song) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
@@ -74,28 +75,54 @@ object LocalPlayerManager {
 
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
 
+    /**
+     * Função chamada pela MainActivity ao clicar em uma música.
+     * Ela localiza a música na lista atual e inicia o player.
+     */
+    fun play(context: Context, song: Song) {
+        currentIndex = songList.indexOfFirst { it.id == song.id }
+        if (currentIndex == -1) {
+            // Se a música não estiver na lista (ex: busca), adicionamos
+            songList = listOf(song) + songList
+            currentIndex = 0
+        }
+        play(context)
+    }
+
+    /**
+     * Lógica principal de execução do MediaPlayer
+     */
     fun play(context: Context) {
         if (currentIndex !in songList.indices) return
         
         val song = songList[currentIndex]
         currentSong = song
 
-        mediaPlayer?.release()
-        mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
-        mediaPlayer?.setVolume(currentVolume, currentVolume)
-        mediaPlayer?.start()
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+            
+            mediaPlayer = MediaPlayer.create(context, Uri.parse(song.uri))
+            mediaPlayer?.setVolume(currentVolume, currentVolume)
+            mediaPlayer?.start()
 
-        mediaPlayer?.setOnCompletionListener {
-            when (repeatMode) {
-                RepeatMode.ONE -> play(context)
-                else -> next(context)
+            mediaPlayer?.setOnCompletionListener {
+                when (repeatMode) {
+                    RepeatMode.ONE -> play(context)
+                    else -> next(context)
+                }
             }
-        }
 
-        recentSongsManager?.addSongToRecent(song.id) 
-        onTrackChanged?.invoke(song)
-        onPlaybackStatusChanged?.invoke(true)
-        updateService(context, "ACTION_UPDATE_NOTIFICATION")
+            // CORREÇÃO: Nome da variável corrigido para 'recentManager'
+            recentManager?.addSongToRecent(song.id) 
+            
+            onTrackChanged?.invoke(song)
+            onPlaybackStatusChanged?.invoke(true)
+            updateService(context, "ACTION_UPDATE_NOTIFICATION")
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun togglePlayPause(context: Context) {
@@ -131,12 +158,14 @@ object LocalPlayerManager {
         isShuffle = !isShuffle
         val current = currentSong
         if (isShuffle) {
-            originalList = songList.toList()
             songList = songList.shuffled()
         } else {
             songList = originalList
         }
-        current?.let { currentIndex = songList.indexOf(it) }
+        // Reposiciona o índice na nova lista para não interromper a música atual
+        current?.let { song ->
+            currentIndex = songList.indexOfFirst { it.id == song.id }
+        }
         saveCurrentState()
     }
 
@@ -151,10 +180,15 @@ object LocalPlayerManager {
 
     private fun updateService(context: Context, action: String) {
         val intent = Intent(context, PlaybackService::class.java).apply { this.action = action }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            // Log de erro se o serviço não puder ser iniciado
+            e.printStackTrace()
         }
     }
 }
