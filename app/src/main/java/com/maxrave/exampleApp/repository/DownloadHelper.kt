@@ -9,7 +9,6 @@ import android.widget.Toast
 class DownloadHelper(private val context: Context) {
 
     fun startDownload(title: String, artist: String, url: String) {
-        // Limpeza rigorosa para evitar erro de caracteres inválidos no sistema de arquivos
         val rawName = "$artist - $title"
         val fileName = rawName.replace("[\\\\/:*?\"<>|]".toRegex(), "_") + ".mp3"
         
@@ -18,7 +17,7 @@ class DownloadHelper(private val context: Context) {
                 .setTitle("Baixando: $title")
                 .setDescription(artist)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                [span_9](start_span).setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, fileName) //[span_9](end_span)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, fileName)
                 .setAllowedOverMetered(true)
                 .setAllowedOverRoaming(true)
 
