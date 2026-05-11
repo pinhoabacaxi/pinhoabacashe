@@ -94,20 +94,24 @@ class OnlineSearchActivity : AppCompatActivity() {
     private fun showPlaylistSelector(onlineSong: OnlineSong) {
         Toast.makeText(this, "Funcionalidade em desenvolvimento", Toast.LENGTH_SHORT).show()
     }
-
     private fun performSearch(query: String) {
+        // Esconde a lista e mostra o loading
+        binding.rvOnlineResults.visibility = View.GONE
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
-            // Tentativa de extração caso seja um link ou ID
-            val result = youtubeRepository.extractMusicInfo(query)
+            // Chama a nova função de busca do repositório
+            val results = youtubeRepository.searchTracks(query)
             
             binding.progressBar.visibility = View.GONE
-            if (result != null) {
-                adapter.updateList(listOf(result))
+            binding.rvOnlineResults.visibility = View.VISIBLE
+            
+            if (results.isEmpty()) {
+                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado encontrado.", Toast.LENGTH_SHORT).show()
+                adapter.updateList(emptyList()) // Limpa a lista
             } else {
-                Toast.makeText(this@OnlineSearchActivity, "Não foi possível encontrar o vídeo", Toast.LENGTH_SHORT).show()
+                adapter.updateList(results) // Preenche o RecyclerView
             }
         }
-    }
+    }  
 }
