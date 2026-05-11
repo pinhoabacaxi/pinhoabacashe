@@ -254,7 +254,7 @@ object LocalPlayerManager {
             songList = originalList
         }
         currentIndex = songList.indexOf(current)
-        saveCurrentState()
+        saveCurrentState() ->
     }
 
     
@@ -263,7 +263,7 @@ object LocalPlayerManager {
             RepeatMode.NONE -> RepeatMode.ALL
             RepeatMode.ALL -> RepeatMode.ONE
             RepeatMode.ONE -> RepeatMode.NONE
-            saveCurrentState()
+            saveCurrentState() ->
         }
     }
 
