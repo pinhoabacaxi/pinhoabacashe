@@ -6,6 +6,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.maxrave.exampleApp.databinding.ItemSongBinding
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.repository.FavoriteManager
+import com.bumptech.glide.Glide
+import androidx.appcompat.app.AlertDialog
+
 
 class SongAdapter(
     private var songs: List<Song>,
