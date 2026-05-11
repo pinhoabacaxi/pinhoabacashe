@@ -7,15 +7,23 @@
     android:padding="8dp"
     android:background="?attr/selectableItemBackground">
 
-    <ImageView
-        android:id="@+id/ivThumbnail"
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardThumbnail"
         android:layout_width="120dp"
         android:layout_height="70dp"
-        android:scaleType="centerCrop"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:background="#333"/>
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/ivThumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:background="#333" />
+    </androidx.cardview.widget.CardView>
 
     <TextView
         android:id="@+id/tvOnlineTitle"
@@ -24,19 +32,19 @@
         android:layout_marginStart="12dp"
         android:ellipsize="end"
         android:maxLines="2"
-        android:textColor="@android:color/white"
+        android:textColor="?attr/colorOnSurface"
         android:textSize="16sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/ivThumbnail"
-        app:layout_constraintTop_toTopOf="@id/ivThumbnail" />
+        app:layout_constraintStart_toEndOf="@id/cardThumbnail"
+        app:layout_constraintTop_toTopOf="@id/cardThumbnail" />
 
     <TextView
         android:id="@+id/tvOnlineChannel"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:textColor="#BBB"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="@id/tvOnlineTitle"
