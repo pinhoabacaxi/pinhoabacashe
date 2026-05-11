@@ -57,6 +57,7 @@
         android:id="@+id/tvArtist"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         android:alpha="0.7"
         android:text="Artista"
         android:textColor="@android:color/white"
@@ -66,10 +67,12 @@
         app:layout_constraintTop_toBottomOf="@id/tvTitle" />
 
     <SeekBar
-        android:id="@+id/seekProgress"
+        android:id="@+id/seekBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
+        android:progressTint="@android:color/white"
+        android:thumbTint="@android:color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvArtist" />
@@ -78,31 +81,32 @@
         android:id="@+id/tvCurrentTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="00:00"
+        android:layout_marginTop="8dp"
+        android:text="0:00"
         android:textColor="@android:color/white"
         android:textSize="12sp"
-        app:layout_constraintStart_toStartOf="@id/seekProgress"
-        app:layout_constraintTop_toBottomOf="@id/seekProgress" />
+        app:layout_constraintStart_toStartOf="@id/seekBar"
+        app:layout_constraintTop_toBottomOf="@id/seekBar" />
 
     <TextView
         android:id="@+id/tvTotalTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="00:00"
+        android:layout_marginTop="8dp"
+        android:text="0:00"
         android:textColor="@android:color/white"
         android:textSize="12sp"
-        app:layout_constraintEnd_toEndOf="@id/seekProgress"
-        app:layout_constraintTop_toBottomOf="@id/seekProgress" />
+        app:layout_constraintEnd_toEndOf="@id/seekBar"
+        app:layout_constraintTop_toBottomOf="@id/seekBar" />
 
     <LinearLayout
-        android:layout_width="0dp"
+        android:id="@+id/controlsContainer"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/seekProgress">
+        app:layout_constraintTop_toBottomOf="@id/tvCurrentTime">
 
         <ImageButton
             android:id="@+id/btnShuffle"
@@ -110,6 +114,7 @@
             android:layout_height="48dp"
             android:layout_marginEnd="16dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Aleatório"
             android:src="@android:drawable/ic_menu_share"
             app:tint="@android:color/white" />
 
@@ -118,6 +123,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Anterior"
             android:src="@android:drawable/ic_media_previous"
             app:tint="@android:color/white" />
 
@@ -126,6 +132,7 @@
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Play ou Pause"
             android:scaleType="fitCenter"
             android:src="@android:drawable/ic_media_play"
             app:tint="@android:color/white" />
@@ -135,6 +142,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Próxima"
             android:src="@android:drawable/ic_media_next"
             app:tint="@android:color/white" />
 
@@ -144,6 +152,7 @@
             android:layout_height="48dp"
             android:layout_marginStart="16dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Repetir"
             android:src="@android:drawable/ic_menu_revert"
             app:tint="@android:color/white" />
 
