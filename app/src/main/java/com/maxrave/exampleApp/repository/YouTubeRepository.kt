@@ -6,7 +6,15 @@ import com.maxrave.kotlinyoutubeextractor.YTExtractor
 import com.maxrave.kotlinyoutubeextractor.getAudioOnly
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 
+// ... (código existente da classe YouTubeRepository) ...
 class YouTubeRepository(private val context: Context) {
 
     // Instância única para evitar overhead
@@ -35,7 +43,79 @@ class YouTubeRepository(private val context: Context) {
             e.printStackTrace()
         }
     }
+        suspend fun searchTracks(query: String): List<OnlineSong> = withContext(Dispatchers.IO) {
+        val results = mutableListOf<OnlineSong>()
+        try {
+            // Se o usuário colou um link direto do YouTube, usamos o método antigo
+            if (query.contains("youtube.com") || query.contains("youtu.be")) {
+                val videoId = extractVideoId(query)
+                val info = extractMusicInfo(videoId)
+                if (info != null) results.add(info)
+                return@withContext results
+            }
 
+            // Caso contrário, fazemos a busca por texto usando a API pública do Piped
+            val encodedQuery = URLEncoder.encode(query, "UTF-8")
+            // filter=music_songs ajuda a trazer resultados mais voltados para música
+            val url = URL("https://pipedapi.kavin.rocks/search?q=$encodedQuery&filter=music_songs")
+            
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val response = StringBuilder()
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    response.append(line)
+                }
+                reader.close()
+
+                // Parse do JSON nativo do Android
+                val jsonObject = JSONObject(response.toString())
+                val items = jsonObject.optJSONArray("items") ?: JSONArray()
+
+                for (i in 0 until items.length()) {
+                    val item = items.optJSONObject(i)
+                    // Garantimos que estamos pegando apenas streams de vídeo/áudio
+                    if (item != null && item.optString("type") == "stream") {
+                        val urlPath = item.optString("url")
+                        val videoId = urlPath.replace("/watch?v=", "")
+                        val title = item.optString("title")
+                        val uploader = item.optString("uploaderName")
+                        val thumbnail = item.optString("thumbnail")
+
+                        results.add(
+                            OnlineSong(
+                                videoId = videoId,
+                                title = title,
+                                author = uploader,
+                                thumbnailUrl = thumbnail,
+                                streamUrl = null // Será extraído só quando o usuário clicar para ouvir
+                            )
+                        )
+                        
+                        // Limita a 20 resultados para não pesar a lista
+                        if (results.size >= 20) break
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return@withContext results
+    }
+
+    // Função auxiliar para extrair o ID de um link colado
+    private fun extractVideoId(url: String): String {
+        return if (url.contains("youtu.be/")) {
+            url.substringAfter("youtu.be/").substringBefore("?")
+        } else {
+            url.substringAfter("v=").substringBefore("&")
+        }
+    }
     suspend fun extractMusicInfo(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
         val url = "https://www.youtube.com/watch?v=$videoId"
         
