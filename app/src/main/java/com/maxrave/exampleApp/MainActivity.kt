@@ -62,29 +62,43 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
+    // Inicializamos o adapter com a lista atual (mesmo que vazia no início)
         songAdapter = SongAdapter(
-            songs = emptyList(),
+            songs = currentList, // Use a variável que você definiu no topo da classe
             favoriteManager = favoriteManager,
             onSongClick = { song ->
-                LocalPlayerManager.setList(allSongs);
-                LocalPlayerManager.play(this, song);
-                recentManager.addSongToRecent(song.id):
+            // Passamos a lista atual para o player saber qual é a próxima música
+                LocalPlayerManager.setList(currentList)
+                LocalPlayerManager.play(this, song)
+            
+            // Adicionamos ao histórico de recentes
+                recentManager.addSongToRecent(song.id)
+            
+            // Atualizamos a interface do mini player
                 updateMiniPlayerUI(song)
             },
             onFavClick = { song ->
-                favoriteManager.toggleFavorite(song.id); 
+            // Alterna o estado de favorito
+                favoriteManager.toggleFavorite(song.id)
+            
+            // Notificamos o adapter para atualizar o ícone de coração
                 songAdapter.notifyDataSetChanged()
             },
             onLongClick = { song ->
+            // Feedback visual ou menu de opções
                 Toast.makeText(this, "Opções: ${song.title}", Toast.LENGTH_SHORT).show()
             }
         )
 
+    // Configuração da View
         binding.rvSongs.apply {
             adapter = songAdapter
             layoutManager = LinearLayoutManager(this@MainActivity)
+        // Otimização: avisa que o tamanho do layout do RV não muda
+            setHasFixedSize(true) 
         }
     }
+
 
     private fun setupListeners() {
         // Busca na Biblioteca
