@@ -10,7 +10,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
+        android:name=".service.PlaybackService"
+        android:enabled="true"
+        android:exported="false"
         android:allowBackup="true"
+        android:foregroundServiceType="mediaPlayback"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
