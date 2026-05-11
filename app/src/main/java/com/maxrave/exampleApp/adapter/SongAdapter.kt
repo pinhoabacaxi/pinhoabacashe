@@ -34,7 +34,7 @@ class SongAdapter(
             tvSongTitle.text = song.title
             tvSongArtist.text = song.artist
             
-            // Carregamento da capa do álbum com Glide
+            // Uri da capa do álbum baseada no ID do MediaStore
             val albumArtUri = ContentUris.withAppendedId(
                 Uri.parse("content://media/external/audio/albumart"),
                 song.albumId
@@ -42,18 +42,18 @@ class SongAdapter(
 
             Glide.with(holder.itemView.context)
                 .load(albumArtUri)
-                .placeholder(android.R.drawable.ic_media_play) // Ícone padrão
-                .error(android.R.drawable.ic_media_play)       // Caso não encontre a capa
+                .placeholder(android.R.drawable.ic_media_play) 
+                .error(android.R.drawable.ic_media_play)      
                 .into(ivAlbumArt)
 
-            // Configura o ícone de favorito
+            // Estado do ícone de favorito
             val isFav = favoriteManager.isFavorite(song.id)
             btnFavorite.setImageResource(
                 if (isFav) android.R.drawable.btn_star_big_on 
                 else android.R.drawable.btn_star_big_off
             )
 
-            // Listeners de clique
+            // Listeners
             root.setOnClickListener { onSongClick(song) }
             btnFavorite.setOnClickListener { onFavClick(song) }
             root.setOnLongClickListener {
@@ -67,7 +67,7 @@ class SongAdapter(
    
     fun updateList(newSongs: List<Song>) {
         this.songs = newSongs
-        this.songsFull = newSongs
+        this.songsFull = newSongs // Importante para que a busca funcione após o scan
         notifyDataSetChanged()
     }
 
