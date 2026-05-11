@@ -22,10 +22,8 @@ class PlaybackService : Service() {
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                // Se o fone for desplugado, pausamos a música
                 if (LocalPlayerManager.isPlaying()) {
                     LocalPlayerManager.togglePlayPause(this@PlaybackService)
-                    // Atualiza a notificação para mostrar o ícone de Play
                     showNotification(LocalPlayerManager.currentSong ?: return)
                 }
             }
@@ -37,7 +35,6 @@ class PlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        
         val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
         registerReceiver(noisyReceiver, filter)
     }
@@ -45,15 +42,13 @@ class PlaybackService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: return START_STICKY
         
-        // Sempre que o Manager pedir para atualizar ou uma nova música começar
         val song = LocalPlayerManager.currentSong
         if (song != null) {
             when (action) {
                 "ACTION_UPDATE_NOTIFICATION" -> showNotification(song)
-                // Você pode adicionar outras ações diretas aqui se não usar o NotificationReceiver
+                "ACTION_STOP" -> stopForegroundService()
             }
         }
-
         return START_STICKY
     }
 
@@ -66,24 +61,20 @@ class PlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val playPauseIcon = if (isPlaying) 
-            android.R.drawable.ic_media_pause 
-        else 
-            android.R.drawable.ic_media_play
+        val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(song.title)
             .setContentText(song.artist)
-            .setOngoing(isPlaying) // Se estiver tocando, o usuário não pode remover a notificação
+            .setLargeIcon(null) // Opcional: Carregar capa aqui com Glide (bloqueante)
+            .setOngoing(isPlaying)
             .setContentIntent(pendingIntent)
-            .setSilent(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
                 .setShowActionsInCompactView(0, 1, 2))
-            .addAction(android.R.drawable.ic_media_previous, "Previous", getPendingAction("ACTION_PREVIOUS"))
+            .addAction(android.R.drawable.ic_media_previous, "Anterior", getPendingAction("ACTION_PREVIOUS"))
             .addAction(playPauseIcon, "Play/Pause", getPendingAction("ACTION_PLAY_PAUSE"))
-            .addAction(android.R.drawable.ic_media_next, "Next", getPendingAction("ACTION_NEXT"))
+            .addAction(android.R.drawable.ic_media_next, "Próxima", getPendingAction("ACTION_NEXT"))
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
@@ -92,11 +83,18 @@ class PlaybackService : Service() {
     private fun getPendingAction(action: String): PendingIntent {
         val intent = Intent(this, NotificationReceiver::class.java).apply { this.action = action }
         return PendingIntent.getBroadcast(
-            this, 
-            action.hashCode(), // RequestCode único por ação para evitar bugs
-            intent, 
+            this, action.hashCode(), intent, 
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    private fun stopForegroundService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            stopForeground(true)
+        }
+        stopSelf()
     }
 
     private fun createNotificationChannel() {
@@ -115,6 +113,8 @@ class PlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(noisyReceiver)
+        try {
+            unregisterReceiver(noisyReceiver)
+        } catch (e: Exception) { }
     }
 }
