@@ -61,6 +61,8 @@ object LocalPlayerManager {
     }
 
     fun play(context: Context, song: Song? = null) {
+        // Altere de:
+        // setDataSource(context, Uri.parse(targetSong.path))
         val targetSong = song ?: if (currentIndex in songList.indices) songList[currentIndex] else return
         
         currentIndex = songList.indexOfFirst { it.id == targetSong.id }
@@ -69,7 +71,12 @@ object LocalPlayerManager {
         try {
             mediaPlayer?.apply {
                 reset()
-                setDataSource(context, Uri.parse(targetSong.path))
+                val trackUri = android.content.ContentUris.withAppendedId(
+                    android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    targetSong.id
+                )
+                setDataSource(context, trackUri)
+
                 prepare()
                 start()
             }
