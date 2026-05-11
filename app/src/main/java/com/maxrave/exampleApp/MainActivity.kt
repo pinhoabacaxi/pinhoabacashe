@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
                 updateMiniPlayerUI(song)
             },
             onFavClick = { song ->
-                favoriteManager.toggleFavorite(song.id) 
+                favoriteManager.toggleFavorite(song.id); 
                 songAdapter.notifyDataSetChanged()
             },
             onLongClick = { song ->
