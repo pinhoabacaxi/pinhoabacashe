@@ -1,13 +1,18 @@
 package com.maxrave.exampleApp
 
 import android.Manifest
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
@@ -15,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.maxrave.exampleApp.adapter.SongAdapter
 import com.maxrave.exampleApp.databinding.ActivityMainBinding
+import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.*
@@ -30,34 +36,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var favoriteManager: FavoriteManager
     private lateinit var playlistManager: PlaylistManager
     
+    // Repositórios para a parte Online
+    private lateinit var youtubeRepository: YouTubeRepository
+    private lateinit var downloadHelper: DownloadHelper
+    
     private var allSongs: List<Song> = emptyList()
 
-    fun onOnlineSongClicked(onlineSong: OnlineSong) {
-    val options = arrayOf("Ouvir agora (Stream)", "Baixar para o dispositivo")
-    
-    AlertDialog.Builder(this)
-        .setTitle(onlineSong.title)
-        .setItems(options) { _, which ->
-            when (which) {
-                0 -> playStream(onlineSong)  // Usa o LocalPlayerManager com a URL direta
-                1 -> triggerDownload(onlineSong.videoId) // Chama a lógica de download acima
-            }
-        }
-        .show()
-}
-
-    private val onDownloadComplete = object : BroadcastReceiver() {
+    // 1. Único Receiver para Downloads
+    private val downloadReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-        // Quando um download termina, forçamos o recarregamento da biblioteca
+            // Recarrega a biblioteca local quando um download termina
             loadSongs()
-            Toast.makeText(context, "Nova música adicionada à biblioteca!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Biblioteca atualizada com novo download!", Toast.LENGTH_SHORT).show()
         }
     }
-
-// No onCreate:
-
-// No onDestroy:
-unregisterReceiver(onDownloadComplete)
 
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -65,31 +57,19 @@ unregisterReceiver(onDownloadComplete)
         if (permissions.all { it.value }) loadSongs()
         else Toast.makeText(this, "Permissões necessárias para ler músicas", Toast.LENGTH_SHORT).show()
     }
-    private val downloadReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-            if (id != -1L) {
-            // Força o sistema a indexar novos ficheiros de média
-                loadSongs() // O teu método que chama musicLoader.loadLocalSongs()
-                Toast.makeText(context, "Biblioteca atualizada com novo download", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
-// No onCreate:
-registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-
-    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Inicialização do Player e Persistência
+        // Inicialização
         LocalPlayerManager.init(this)
-        registerReceiver(onDownloadComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-
         initRepositories()
+        
+        // Registro do Receiver de Download
+        registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+
         setupRecyclerView()
         setupSearch()
         setupFilters()
@@ -103,8 +83,54 @@ registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_
         recentManager = RecentSongsManager(this)
         favoriteManager = FavoriteManager(this)
         playlistManager = PlaylistManager(this)
+        
+        // Inicia os novos ajudantes online
+        youtubeRepository = YouTubeRepository(this)
+        downloadHelper = DownloadHelper(this)
+        
         LocalPlayerManager.initRecentManager(this)
     }
+
+    // --- LÓGICA ONLINE (FASE 9) ---
+
+    fun onOnlineSongClicked(onlineSong: OnlineSong) {
+        val options = arrayOf("Ouvir agora (Stream)", "Baixar para o dispositivo")
+        
+        AlertDialog.Builder(this)
+            .setTitle(onlineSong.title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> playStream(onlineSong)
+                    1 -> triggerDownload(onlineSong.videoId)
+                }
+            }
+            .show()
+    }
+
+    private fun playStream(onlineSong: OnlineSong) {
+        lifecycleScope.launch {
+            binding.progressBar.visibility = View.VISIBLE // Certifique-se de ter um ProgressBar no XML
+            val extracted = youtubeRepository.extractMusicInfo(onlineSong.videoId)
+            binding.progressBar.visibility = View.GONE
+
+            if (extracted?.streamUrl != null) {
+                LocalPlayerManager.playOnline(extracted, this@MainActivity)
+                updateMiniPlayerUI(LocalPlayerManager.currentSong!!)
+                Toast.makeText(this@MainActivity, "Iniciando Stream...", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@MainActivity, "Erro ao extrair áudio.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun triggerDownload(videoId: String) {
+        lifecycleScope.launch {
+            Toast.makeText(this@MainActivity, "Preparando download...", Toast.LENGTH_SHORT).show()
+            youtubeRepository.downloadMusic(videoId)
+        }
+    }
+
+    // --- CONFIGURAÇÕES DE UI ---
 
     private fun setupRecyclerView() {
         songAdapter = SongAdapter(
@@ -120,7 +146,6 @@ registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_
                 songAdapter.notifyDataSetChanged()
             },
             onLongClick = { song ->
-                // Opcional: Implementar diálogo de "Adicionar à Playlist" aqui
                 Toast.makeText(this, "Opções para: ${song.title}", Toast.LENGTH_SHORT).show()
             }
         )
@@ -129,11 +154,9 @@ registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_
     }
 
     private fun setupSearch() {
-        // Busca em tempo real conforme o usuário digita
         binding.etSearch.addTextChangedListener { text ->
             songAdapter.filter(text.toString())
         }
-        
         binding.btnScan.setOnClickListener { loadSongs() }
     }
 
@@ -141,31 +164,23 @@ registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_
         binding.chipGroupFilters.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.chipAll -> songAdapter.updateList(allSongs)
-                
-                R.id.chipFavorites -> {
-                    val favs = allSongs.filter { favoriteManager.isFavorite(it.id) }
-                    songAdapter.updateList(favs)
-                }
-                
+                R.id.chipFavorites -> songAdapter.updateList(allSongs.filter { favoriteManager.isFavorite(it.id) })
                 R.id.chipRecent -> {
                     val recentIds = recentManager.getRecentIds()
                     val recentSongs = allSongs.filter { recentIds.contains(it.id.toString()) }
                         .sortedByDescending { recentIds.indexOf(it.id.toString()) }
                     songAdapter.updateList(recentSongs)
                 }
-                
                 R.id.chipPlaylists -> {
                     showBrowsePlaylistsDialog()
-                    // Desmarca o chip para permitir clicar novamente
                     binding.chipGroupFilters.clearCheck()
-                
                 }
-                
                 R.id.chipOnline -> {
-                    startActivity(Intent(this, OnlineSearchActivity::class.java))
+                    // Aqui você abre sua Activity de busca online
+                    val intent = Intent(this, OnlineSearchActivity::class.java)
+                    startActivity(intent)
                     binding.chipGroupFilters.clearCheck()
                 }
-
             }
         }
     }
@@ -175,9 +190,7 @@ registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_
         val lastId = playerPrefs.getLastSongId()
         
         lifecycleScope.launch {
-            // Aguarda carregar as músicas se a lista estiver vazia
             if (allSongs.isEmpty()) allSongs = musicLoader.loadLocalSongs()
-            
             val lastSong = allSongs.find { it.id == lastId }
             lastSong?.let { updateMiniPlayerUI(it) }
         }
@@ -189,36 +202,30 @@ registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_
             Toast.makeText(this, "Nenhuma playlist criada.", Toast.LENGTH_SHORT).show()
             return
         }
-
-        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
-        builder.setTitle("Minhas Playlists")
-        builder.setItems(playlists.toTypedArray()) { _, which ->
-            val selected = playlists[which]
-            val intent = Intent(this, PlaylistSongsActivity::class.java)
-            intent.putExtra("PLAYLIST_NAME", selected)
-            startActivity(intent)
-        }
-        builder.show()
+        AlertDialog.Builder(this)
+            .setTitle("Minhas Playlists")
+            .setItems(playlists.toTypedArray()) { _, which ->
+                val intent = Intent(this, PlaylistSongsActivity::class.java)
+                intent.putExtra("PLAYLIST_NAME", playlists[which])
+                startActivity(intent)
+            }.show()
     }
 
     private fun setupClickListeners() {
         binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
             LocalPlayerManager.togglePlayPause(this)
-            updateMiniPlayerUI(LocalPlayerManager.currentSong ?: return@setOnClickListener)
+            LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
         }
-
         binding.includeMiniPlayer.miniPlayerContainer.setOnClickListener {
             startActivity(Intent(this, FullPlayerActivity::class.java))
         }
     }
 
     private fun checkPermissions() {
-        val permissionsNeeded = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsNeeded.add(Manifest.permission.READ_MEDIA_AUDIO)
-            permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
+        val permissionsNeeded = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
 
         val missing = permissionsNeeded.filter {
@@ -260,5 +267,16 @@ registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_
     override fun onResume() {
         super.onResume()
         LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
+    }
+
+    // 2. Implementação do onDestroy para segurança
+    override fun onDestroy() {
+        super.onDestroy()
+        // Importante: desregistrar para evitar que o app tente atualizar uma tela que não existe mais
+        try {
+            unregisterReceiver(downloadReceiver)
+        } catch (e: Exception) {
+            // Receiver já estava desregistrado
+        }
     }
 }
