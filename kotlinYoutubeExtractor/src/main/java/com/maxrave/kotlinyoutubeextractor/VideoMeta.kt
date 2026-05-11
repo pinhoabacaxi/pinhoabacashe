@@ -32,10 +32,10 @@ class VideoMeta(
     val maxResImageUrl: String
         get() = IMAGE_BASE_URL + videoId + "/maxresdefault.jpg"
 
-    override fun equals(o: Any?): Boolean {
-        if (this === o) return true
-        if (o == null || javaClass != o.javaClass) return false
-        val videoMeta = o as VideoMeta
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || javaClass != other.javaClass) return false
+        val videoMeta = other as VideoMeta
         if (videoLength != videoMeta.videoLength) return false
         if (viewCount != videoMeta.viewCount) return false
         if (isLiveStream != videoMeta.isLiveStream) return false
