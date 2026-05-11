@@ -19,14 +19,14 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityOnlineSearchBinding
     private lateinit var adapter: OnlineSongAdapter
-    private lateinit var youtubeRepository: YouTubeRepository // Repositório adicionado
+    private lateinit var youtubeRepository: YouTubeRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityOnlineSearchBinding.inflate(layoutInflater)[span_51](end_span)
+        binding = ActivityOnlineSearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        youtubeRepository = YouTubeRepository(this) // Inicialização
+        youtubeRepository = YouTubeRepository(this)
         setupRecyclerView()
         setupListeners()
     }
@@ -34,11 +34,11 @@ class OnlineSearchActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         adapter = OnlineSongAdapter(
             onItemClick = { onlineSong ->
-                handleOnlineClick(onlineSong)[span_52](end_span)
+                handleOnlineClick(onlineSong)
             }
         )
-        binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)[span_53](end_span)
-        binding.rvOnlineResults.adapter = adapter[span_54](end_span)
+        binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)
+        binding.rvOnlineResults.adapter = adapter
     }
 
     private fun setupListeners() {
@@ -46,7 +46,7 @@ class OnlineSearchActivity : AppCompatActivity() {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 val query = binding.etSearchOnline.text.toString().trim()
                 if (query.isNotEmpty()) {
-                    performSearch(query)[span_55](end_span)
+                    performSearch(query)
                 }
                 true
             } else {
@@ -56,31 +56,27 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun handleOnlineClick(onlineSong: OnlineSong) {
-        val options = arrayOf("Ouvir Agora (Stream)", "Baixar Música", "Adicionar à Playlist")[span_56](end_span)
+        val options = arrayOf("Ouvir Agora (Stream)", "Baixar Música", "Adicionar à Playlist")
         AlertDialog.Builder(this)
             .setTitle(onlineSong.title)
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> startStreaming(onlineSong)[span_57](end_span)
-                    1 -> startDownload(onlineSong)[span_58](end_span)
-                    2 -> showPlaylistSelector(onlineSong)[span_59](end_span)
+                    0 -> startStreaming(onlineSong)
+                    1 -> startDownload(onlineSong)
+                    2 -> showPlaylistSelector(onlineSong)
                 }
             }
             .show()
     }
 
     private fun startStreaming(onlineSong: OnlineSong) {
-        Toast.makeText(this, "Obtendo link de áudio...", Toast.LENGTH_SHORT).show()
-        
+        Toast.makeText(this, "Obtendo áudio...", Toast.LENGTH_SHORT).show()
         lifecycleScope.launch {
-            // Extrai as informações completas (incluindo streamUrl) antes de tocar
             val fullSong = youtubeRepository.extractMusicInfo(onlineSong.videoId)
-            
             if (fullSong?.streamUrl != null) {
-                // LocalPlayerManager deve ter um método para tocar stream
                 LocalPlayerManager.playOnline(fullSong, this@OnlineSearchActivity)
             } else {
-                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter áudio", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter link de áudio", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -93,20 +89,18 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun showPlaylistSelector(onlineSong: OnlineSong) {
-        Toast.makeText(this, "Funcionalidade em desenvolvimento", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Funcionalidade de playlist em breve", Toast.LENGTH_SHORT).show()
     }
 
     private fun performSearch(query: String) {
-        binding.progressBar.visibility = View.VISIBLE[span_60](end_span)
-        
+        binding.progressBar.visibility = View.VISIBLE
         lifecycleScope.launch {
-            val results = youtubeRepository.searchTracks(query) // Chama a busca real do repositório
-            
-            binding.progressBar.visibility = View.GONE[span_61](end_span)
+            val results = youtubeRepository.searchTracks(query)
+            binding.progressBar.visibility = View.GONE
             if (results.isEmpty()) {
-                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado encontrado", Toast.LENGTH_SHORT).show()[span_62](end_span)
+                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado encontrado", Toast.LENGTH_SHORT).show()
             } else {
-                adapter.updateList(results)[span_63](end_span)
+                adapter.updateList(results)
             }
         }
     }
