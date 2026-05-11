@@ -12,7 +12,6 @@ class MusicLoader(private val context: Context) {
         val songList = mutableListOf<Song>()
         val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         
-        // Filtro para pegar apenas arquivos que o sistema reconhece como música e ignorar ringtones/alarmes
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         
         val projection = arrayOf(
@@ -27,32 +26,38 @@ class MusicLoader(private val context: Context) {
 
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
 
-        context.contentResolver.query(uri, projection, selection, null, sortOrder)?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+        try {
+            context.contentResolver.query(uri, projection, selection, null, sortOrder)?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
 
-            while (cursor.moveToNext()) {
-                val duration = cursor.getLong(durationCol)
-                // Ignorar arquivos muito curtos (menos de 5 segundos), geralmente são efeitos sonoros
-                if (duration > 5000) {
-                    songList.add(
-                        Song(
-                            id = cursor.getLong(idCol),
-                            title = cursor.getString(titleCol) ?: "Desconhecido",
-                            artist = cursor.getString(artistCol) ?: "Artista Desconhecido",
-                            album = cursor.getString(albumCol) ?: "Álbum Desconhecido",
-                            duration = duration,
-                            uri = cursor.getString(dataCol),
-                            albumId = cursor.getLong(albumIdCol)
+                while (cursor.moveToNext()) {
+                    val duration = cursor.getLong(durationCol)
+                    val songPath = cursor.getString(dataCol)
+
+                    // Só adiciona se a música tiver mais de 5 segundos e o caminho não for nulo
+                    if (duration > 5000 && !songPath.isNullOrEmpty()) {
+                        songList.add(
+                            Song(
+                                id = cursor.getLong(idCol),
+                                title = cursor.getString(titleCol) ?: "Desconhecido",
+                                artist = cursor.getString(artistCol) ?: "Artista Desconhecido",
+                                album = cursor.getString(albumCol) ?: "Álbum Desconhecido",
+                                duration = duration,
+                                uri = songPath,
+                                albumId = cursor.getLong(albumIdCol)
+                            )
                         )
-                    )
+                    }
                 }
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
         songList
     }
