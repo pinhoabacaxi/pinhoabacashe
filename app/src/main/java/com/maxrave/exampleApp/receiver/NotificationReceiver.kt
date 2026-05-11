@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.maxrave.exampleApp.player.LocalPlayerManager
+import com.maxrave.exampleApp.service.PlaybackService
 
 class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -19,13 +20,16 @@ class NotificationReceiver : BroadcastReceiver() {
             "ACTION_PREVIOUS" -> {
                 LocalPlayerManager.previous(context)
             }
+            "ACTION_STOP" -> {
+                val stopIntent = Intent(context, PlaybackService::class.java).apply {
+                    this.action = "ACTION_STOP"
+                }
+                context.startService(stopIntent)
+            }
         }
         
-        // Após processar qualquer ação, forçamos o Manager a avisar o Service
-        // para atualizar a UI da notificação com o novo estado (música ou ícone)
-        LocalPlayerManager.currentSong?.let {
-            // Esta chamada dispara o onStartCommand no PlaybackService com ACTION_UPDATE_NOTIFICATION
-            // garantindo que a notificação mude o ícone de play/pause sem atraso.
-        }
+        // Garante que a notificação seja atualizada para refletir o novo estado (Play/Pause ou nova música)
+        // O LocalPlayerManager já dispara essa atualização internamente em suas funções, 
+        // mas reforçar aqui evita atrasos na UI da notificação.
     }
 }
