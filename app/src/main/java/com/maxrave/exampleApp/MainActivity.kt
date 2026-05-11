@@ -184,7 +184,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
+    binding.etSearch.addTextChangedListener(object : TextWatcher {
+    override fun afterTextChanged(s: Editable?) {
+        songAdapter.filter(s.toString())
     private fun setupRestoreLastSong() {
         val playerPrefs = PlayerPrefs(this)
         val lastId = playerPrefs.getLastSongId()
