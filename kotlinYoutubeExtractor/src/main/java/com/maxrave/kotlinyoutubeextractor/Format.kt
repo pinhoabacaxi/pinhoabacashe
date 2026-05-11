@@ -1,6 +1,16 @@
 package com.maxrave.kotlinyoutubeextractor
 
-class Format {
+class Format(
+    val itag: Int,
+    val ext: String?,
+    val height: Int,
+    val fps: Int,
+    val videoCodec: VCodec?,
+    val audioCodec: ACodec?,
+    val audioBitrate: Int,
+    val isDashContainer: Boolean,
+    val isHlsContent: Boolean = false
+) {
     enum class VCodec {
         H263, H264, MPEG4, VP8, VP9, NONE
     }
@@ -9,35 +19,7 @@ class Format {
         MP3, AAC, VORBIS, OPUS, NONE
     }
 
-    /**
-     * An identifier used by youtube for different formats.
-     */
-    val itag: Int
-
-    /**
-     * The file extension and conainer format like "mp4"
-     */
-    val ext: String?
-
-    /**
-     * The pixel height of the video stream or -1 for audio files.
-     */
-    val height: Int
-
-    /**
-     * Get the frames per second
-     */
-    val fps: Int
-    val videoCodec: VCodec? = null
-    val audioCodec: ACodec? = null
-
-    /**
-     * Audio bitrate in kbit/s or -1 if there is no audio track.
-     */
-    val audioBitrate: Int
-    val isDashContainer: Boolean
-    val isHlsContent: Boolean
-
+    // Construtor 1: Padrão (utilizado na maioria dos formatos de vídeo)
     internal constructor(
         itag: Int,
         ext: String?,
@@ -45,22 +27,9 @@ class Format {
         vCodec: VCodec?,
         aCodec: ACodec?,
         isDashContainer: Boolean
-    ) {
-        this.itag = itag
-        this.ext = ext
-        this.height = height
-        fps = 30
-        audioBitrate = -1
-        this.isDashContainer = isDashContainer
-        isHlsContent = false
-        // Exemplo de como deve ficar dentro dos construtores internos:
-        this.videoCodec = vCodec // ATRIBUIÇÃO NECESSÁRIA
-        this.audioCodec = aCodec // ATRIBUIÇÃO NECESSÁRIA
-    
-}
+    ) : this(itag, ext, height, 30, vCodec, aCodec, -1, isDashContainer, false)
 
-    }
-
+    // Construtor 2: Focado em Áudio (sem definição de altura/height)
     internal constructor(
         itag: Int,
         ext: String?,
@@ -68,45 +37,32 @@ class Format {
         aCodec: ACodec?,
         audioBitrate: Int,
         isDashContainer: Boolean
-    ) {
-        this.itag = itag
-        this.ext = ext
-        height = -1
-        fps = 30
-        this.audioBitrate = audioBitrate
-        this.isDashContainer = isDashContainer
-        isHlsContent = false
-        this.videoCodec = vCodec // ATRIBUIÇÃO NECESSÁRIA
-        this.audioCodec = aCodec // ATRIBUIÇÃO NECESSÁRIA
-    
-    }
+    ) : this(itag, ext, -1, 30, vCodec, aCodec, audioBitrate, isDashContainer, false)
 
+    // Construtor 3: Com Bitrate definido
     internal constructor(
-        itag: Int, ext: String?, height: Int, vCodec: VCodec?, aCodec: ACodec?, audioBitrate: Int,
+        itag: Int,
+        ext: String?,
+        height: Int,
+        vCodec: VCodec?,
+        aCodec: ACodec?,
+        audioBitrate: Int,
         isDashContainer: Boolean
-    ) {
-        this.itag = itag
-        this.ext = ext
-        this.height = height
-        fps = 30
-        this.audioBitrate = audioBitrate
-        this.isDashContainer = isDashContainer
-        isHlsContent = false
-    }
+    ) : this(itag, ext, height, 30, vCodec, aCodec, audioBitrate, isDashContainer, false)
 
+    // Construtor 4: Completo (incluindo flag HLS)
     internal constructor(
-        itag: Int, ext: String?, height: Int, vCodec: VCodec?, aCodec: ACodec?, audioBitrate: Int,
-        isDashContainer: Boolean, isHlsContent: Boolean
-    ) {
-        this.itag = itag
-        this.ext = ext
-        this.height = height
-        fps = 30
-        this.audioBitrate = audioBitrate
-        this.isDashContainer = isDashContainer
-        this.isHlsContent = isHlsContent
-    }
+        itag: Int,
+        ext: String?,
+        height: Int,
+        vCodec: VCodec?,
+        aCodec: ACodec?,
+        audioBitrate: Int,
+        isDashContainer: Boolean,
+        isHlsContent: Boolean
+    ) : this(itag, ext, height, 30, vCodec, aCodec, audioBitrate, isDashContainer, isHlsContent)
 
+    // Construtor 5: Com FPS variável
     internal constructor(
         itag: Int,
         ext: String?,
@@ -115,31 +71,21 @@ class Format {
         fps: Int,
         aCodec: ACodec?,
         isDashContainer: Boolean
-    ) {
-        this.itag = itag
-        this.ext = ext
-        this.height = height
-        audioBitrate = -1
-        this.fps = fps
-        this.isDashContainer = isDashContainer
-        isHlsContent = false
-        this.videoCodec = vCodec // ATRIBUIÇÃO NECESSÁRIA
-        this.audioCodec = aCodec // ATRIBUIÇÃO NECESSÁRIA
-    
-    }
+    ) : this(itag, ext, height, fps, vCodec, aCodec, -1, isDashContainer, false)
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other == null || javaClass != other.javaClass) return false
-        val videoMeta = other as VideoMeta
-        val format = o as Format
-        if (itag != format.itag) return false
-        if (height != format.height) return false
-        if (fps != format.fps) return false
-        if (audioBitrate != format.audioBitrate) return false
-        if (isDashContainer != format.isDashContainer) return false
-        if (isHlsContent != format.isHlsContent) return false
-        if (if (ext != null) ext != format.ext else format.ext != null) return false
-        return if (videoCodec != format.videoCodec) false else audioCodec == format.audioCodec
+        if (other !is Format) return false
+
+        return itag == other.itag &&
+                height == other.height &&
+                fps == other.fps &&
+                audioBitrate == other.audioBitrate &&
+                isDashContainer == other.isDashContainer &&
+                isHlsContent == other.isHlsContent &&
+                ext == other.ext &&
+                videoCodec == other.videoCodec &&
+                audioCodec == other.audioCodec
     }
 
     override fun hashCode(): Int {
@@ -147,25 +93,15 @@ class Format {
         result = 31 * result + (ext?.hashCode() ?: 0)
         result = 31 * result + height
         result = 31 * result + fps
-        result = 31 * result + if (videoCodec != null) videoCodec.hashCode() else 0
-        result = 31 * result + if (audioCodec != null) audioCodec.hashCode() else 0
+        result = 31 * result + (videoCodec?.hashCode() ?: 0)
+        result = 31 * result + (audioCodec?.hashCode() ?: 0)
         result = 31 * result + audioBitrate
-        result = 31 * result + if (isDashContainer) 1 else 0
-        result = 31 * result + if (isHlsContent) 1 else 0
+        result = 31 * result + isDashContainer.hashCode()
+        result = 31 * result + isHlsContent.hashCode()
         return result
     }
 
     override fun toString(): String {
-        return "Format{" +
-                "itag=" + itag +
-                ", ext='" + ext + '\'' +
-                ", height=" + height +
-                ", fps=" + fps +
-                ", vCodec=" + videoCodec +
-                ", aCodec=" + audioCodec +
-                ", audioBitrate=" + audioBitrate +
-                ", isDashContainer=" + isDashContainer +
-                ", isHlsContent=" + isHlsContent +
-                '}'
+        return "Format(itag=$itag, ext=$ext, height=$height, fps=$fps, vCodec=$videoCodec, aCodec=$audioCodec, audioBitrate=$audioBitrate, isDashContainer=$isDashContainer, isHlsContent=$isHlsContent)"
     }
 }
