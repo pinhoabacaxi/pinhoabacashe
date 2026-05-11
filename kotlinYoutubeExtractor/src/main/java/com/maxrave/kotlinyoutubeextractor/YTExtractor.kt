@@ -30,21 +30,12 @@ import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import java.util.regex.Pattern
 
-/**
- * @author maxrave-dev
- * A lightweight Android (Kotlin) library for extract YouTube streaming URL.
- * @param con Context is required for caching the deciphering function.
- * @param CACHING Enable caching of the deciphering function, default is false. When you extract multiple links, caching is not recommended because Caching will cause HTTP 403 Error.
- * @param LOGGING Enable logging, default is false.
- */
-
 class YTExtractor(val con: Context, val CACHING: Boolean = false, val LOGGING: Boolean = false, val retryCount: Int = 1) {
     private val LOG_TAG = "Kotlin YouTube Extractor"
     private val CACHE_FILE_NAME = "decipher_js_funct"
 
     var ytFiles: SparseArray<YtFile>? = null
     var state: State = State.INIT
-
 
     private var refContext: WeakReference<Context>? = null
     private var videoID: String? = null
@@ -61,48 +52,31 @@ class YTExtractor(val con: Context, val CACHING: Boolean = false, val LOGGING: B
     private val lock: Lock = ReentrantLock()
     private val jsExecuting = lock.newCondition()
 
-    private val USER_AGENT =
-        "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
-    //Old User Agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.98 Safari/537.36"
+    private val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
 
-    private val patPlayerResponse =
-        Pattern.compile("var ytInitialPlayerResponse\\s*=\\s*(\\{.+?\\})\\s*;")
+    private val patPlayerResponse = Pattern.compile("var ytInitialPlayerResponse\\s*=\\s*(\\{.+?\\})\\s*;")
     private val patSigEncUrl = Pattern.compile("url=(.+?)(\\u0026|$)")
     private val patSignature = Pattern.compile("s=(.+?)(\\u0026|$)")
-
-    private val patVariableFunction =
-        Pattern.compile("([{; =])([a-zA-Z$][a-zA-Z0-9$]{0,2})\\.([a-zA-Z$][a-zA-Z0-9$]{0,2})\\(")
-    private val patFunction = Pattern.compile("([{; =])([a-zA-Z\$_][a-zA-Z0-9$]{0,2})\\(") //check $
-
+    private val patVariableFunction = Pattern.compile("([{; =])([a-zA-Z$][a-zA-Z0-9$]{0,2})\\.([a-zA-Z$][a-zA-Z0-9$]{0,2})\\(")
+    private val patFunction = Pattern.compile("([{; =])([a-zA-Z\$_][a-zA-Z0-9$]{0,2})\\(") 
     private val patDecryptionJsFile = Pattern.compile("\\\\/s\\\\/player\\\\/([^\"]+?)\\.js")
     private val patDecryptionJsFileWithoutSlash = Pattern.compile("/s/player/([^\"]+?).js")
-    private val patSignatureDecFunction =
-        Pattern.compile("(?:\\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{1,4})\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)")
+    private val patSignatureDecFunction = Pattern.compile("(?:\\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{1,4})\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)")
 
     private val FORMAT_MAP = SparseArray<Format>()
 
     init {
         refContext = WeakReference(con)
         cacheDirPath = con.cacheDir.absolutePath
-        FORMAT_MAP.put(
-            17,
-            Format(17, "3gp", 144, Format.VCodec.MPEG4, Format.ACodec.AAC, 24, false)
-        )
-        FORMAT_MAP.put(
-            36,
-            Format(36, "3gp", 240, Format.VCodec.MPEG4, Format.ACodec.AAC, 32, false)
-        )
-        FORMAT_MAP.put(5, Format(5, "flv", 240, Format.VCodec.H263, Format.ACodec.MP3, 64, false))
-        FORMAT_MAP.put(
-            43,
-            Format(43, "webm", 360, Format.VCodec.VP8, Format.ACodec.VORBIS, 128, false)
-        )
-        FORMAT_MAP.put(18, Format(18, "mp4", 360, Format.VCodec.H264, Format.ACodec.AAC, 96, false))
-        FORMAT_MAP.put(
-            22,
-            Format(22, "mp4", 720, Format.VCodec.H264, Format.ACodec.AAC, 192, false)
-        )
-
+        
+        // Formatos Legados (itag, ext, height, vCodec, aCodec, isDash)
+        // Removido o parâmetro de bitrate que estava causando "Too many arguments"
+        FORMAT_MAP.put(17, Format(17, "3gp", 144, Format.VCodec.MPEG4, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(36, Format(36, "3gp", 240, Format.VCodec.MPEG4, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(5, Format(5, "flv", 240, Format.VCodec.H263, Format.ACodec.MP3, false))
+        FORMAT_MAP.put(43, Format(43, "webm", 360, Format.VCodec.VP8, Format.ACodec.VORBIS, false))
+        FORMAT_MAP.put(18, Format(18, "mp4", 360, Format.VCodec.H264, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(22, Format(22, "mp4", 720, Format.VCodec.H264, Format.ACodec.AAC, false))
 
         // Dash Video (no audio)
         FORMAT_MAP.put(160, Format(160, "mp4", 144, Format.VCodec.H264, Format.ACodec.NONE, true))
@@ -113,25 +87,15 @@ class YTExtractor(val con: Context, val CACHING: Boolean = false, val LOGGING: B
         FORMAT_MAP.put(137, Format(137, "mp4", 1080, Format.VCodec.H264, Format.ACodec.NONE, true))
         FORMAT_MAP.put(264, Format(264, "mp4", 1440, Format.VCodec.H264, Format.ACodec.NONE, true))
         FORMAT_MAP.put(266, Format(266, "mp4", 2160, Format.VCodec.H264, Format.ACodec.NONE, true))
+        FORMAT_MAP.put(298, Format(298, "mp4", 720, Format.VCodec.H264, Format.ACodec.NONE, true))
+        FORMAT_MAP.put(299, Format(299, "mp4", 1080, Format.VCodec.H264, Format.ACodec.NONE, true))
 
-        FORMAT_MAP.put(
-            298,
-            Format(298, "mp4", 720, Format.VCodec.H264, 60, Format.ACodec.NONE, true)
-        )
-        FORMAT_MAP.put(
-            299,
-            Format(299, "mp4", 1080, Format.VCodec.H264, 60, Format.ACodec.NONE, true)
-        )
-
-        // Dash Audio
-
-        // Dash Audio
-        FORMAT_MAP.put(140, Format(140, "m4a", Format.VCodec.NONE, Format.ACodec.AAC, 128, true))
-        FORMAT_MAP.put(141, Format(141, "m4a", Format.VCodec.NONE, Format.ACodec.AAC, 256, true))
-        FORMAT_MAP.put(256, Format(256, "m4a", Format.VCodec.NONE, Format.ACodec.AAC, 192, true))
-        FORMAT_MAP.put(258, Format(258, "m4a", Format.VCodec.NONE, Format.ACodec.AAC, 384, true))
-
-        // WEBM Dash Video
+        // Dash Audio (itag, ext, height, vCodec, aCodec, isDash)
+        // Adicionado height = -1 para alinhar os tipos de dados corretamente
+        FORMAT_MAP.put(140, Format(140, "m4a", -1, Format.VCodec.NONE, Format.ACodec.AAC, true))
+        FORMAT_MAP.put(141, Format(141, "m4a", -1, Format.VCodec.NONE, Format.ACodec.AAC, true))
+        FORMAT_MAP.put(256, Format(256, "m4a", -1, Format.VCodec.NONE, Format.ACodec.AAC, true))
+        FORMAT_MAP.put(258, Format(258, "m4a", -1, Format.VCodec.NONE, Format.ACodec.AAC, true))
 
         // WEBM Dash Video (no audio)
         FORMAT_MAP.put(278, Format(278, "webm", 144, Format.VCodec.VP9, Format.ACodec.NONE, true))
@@ -142,63 +106,24 @@ class YTExtractor(val con: Context, val CACHING: Boolean = false, val LOGGING: B
         FORMAT_MAP.put(248, Format(248, "webm", 1080, Format.VCodec.VP9, Format.ACodec.NONE, true))
         FORMAT_MAP.put(271, Format(271, "webm", 1440, Format.VCodec.VP9, Format.ACodec.NONE, true))
         FORMAT_MAP.put(313, Format(313, "webm", 2160, Format.VCodec.VP9, Format.ACodec.NONE, true))
-
-        FORMAT_MAP.put(
-            302,
-            Format(302, "webm", 720, Format.VCodec.VP9, 60, Format.ACodec.NONE, true)
-        )
-        FORMAT_MAP.put(
-            308,
-            Format(308, "webm", 1440, Format.VCodec.VP9, 60, Format.ACodec.NONE, true)
-        )
-        FORMAT_MAP.put(
-            303,
-            Format(303, "webm", 1080, Format.VCodec.VP9, 60, Format.ACodec.NONE, true)
-        )
-        FORMAT_MAP.put(
-            315,
-            Format(315, "webm", 2160, Format.VCodec.VP9, 60, Format.ACodec.NONE, true)
-        )
+        FORMAT_MAP.put(302, Format(302, "webm", 720, Format.VCodec.VP9, Format.ACodec.NONE, true))
+        FORMAT_MAP.put(308, Format(308, "webm", 1440, Format.VCodec.VP9, Format.ACodec.NONE, true))
+        FORMAT_MAP.put(303, Format(303, "webm", 1080, Format.VCodec.VP9, Format.ACodec.NONE, true))
+        FORMAT_MAP.put(315, Format(315, "webm", 2160, Format.VCodec.VP9, Format.ACodec.NONE, true))
 
         // WEBM Dash Audio
+        FORMAT_MAP.put(171, Format(171, "webm", -1, Format.VCodec.NONE, Format.ACodec.VORBIS, true))
+        FORMAT_MAP.put(249, Format(249, "webm", -1, Format.VCodec.NONE, Format.ACodec.OPUS, true))
+        FORMAT_MAP.put(250, Format(250, "webm", -1, Format.VCodec.NONE, Format.ACodec.OPUS, true))
+        FORMAT_MAP.put(251, Format(251, "webm", -1, Format.VCodec.NONE, Format.ACodec.OPUS, true))
 
-        // WEBM Dash Audio
-        FORMAT_MAP.put(
-            171,
-            Format(171, "webm", Format.VCodec.NONE, Format.ACodec.VORBIS, 128, true)
-        )
-
-        FORMAT_MAP.put(249, Format(249, "webm", Format.VCodec.NONE, Format.ACodec.OPUS, 48, true))
-        FORMAT_MAP.put(250, Format(250, "webm", Format.VCodec.NONE, Format.ACodec.OPUS, 64, true))
-        FORMAT_MAP.put(251, Format(251, "webm", Format.VCodec.NONE, Format.ACodec.OPUS, 160, true))
-
-        // HLS Live Stream
-
-        // HLS Live Stream
-        FORMAT_MAP.put(
-            91,
-            Format(91, "mp4", 144, Format.VCodec.H264, Format.ACodec.AAC, 48, false, true)
-        )
-        FORMAT_MAP.put(
-            92,
-            Format(92, "mp4", 240, Format.VCodec.H264, Format.ACodec.AAC, 48, false, true)
-        )
-        FORMAT_MAP.put(
-            93,
-            Format(93, "mp4", 360, Format.VCodec.H264, Format.ACodec.AAC, 128, false, true)
-        )
-        FORMAT_MAP.put(
-            94,
-            Format(94, "mp4", 480, Format.VCodec.H264, Format.ACodec.AAC, 128, false, true)
-        )
-        FORMAT_MAP.put(
-            95,
-            Format(95, "mp4", 720, Format.VCodec.H264, Format.ACodec.AAC, 256, false, true)
-        )
-        FORMAT_MAP.put(
-            96,
-            Format(96, "mp4", 1080, Format.VCodec.H264, Format.ACodec.AAC, 256, false, true)
-        )
+        // HLS Live Stream (Apenas os 6 parâmetros do construtor)
+        FORMAT_MAP.put(91, Format(91, "mp4", 144, Format.VCodec.H264, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(92, Format(92, "mp4", 240, Format.VCodec.H264, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(93, Format(93, "mp4", 360, Format.VCodec.H264, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(94, Format(94, "mp4", 480, Format.VCodec.H264, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(95, Format(95, "mp4", 720, Format.VCodec.H264, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(96, Format(96, "mp4", 1080, Format.VCodec.H264, Format.ACodec.AAC, false))
     }
 
 
