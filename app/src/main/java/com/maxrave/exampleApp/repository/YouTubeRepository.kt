@@ -67,22 +67,19 @@ class YouTubeRepository(private val context: Context) {
         null
     }
 
+    // Dentro do seu YouTubeRepository.kt
     suspend fun searchTracks(query: String): List<OnlineSong> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineSong>()
-        
-        // CORREÇÃO: Se for um link, extrai direto sem usar a API de busca
+    
+    // 1. Se for um link direto, extraia o ID e pegue as informações locais
         if (query.contains("youtube.com") || query.contains("youtu.be")) {
-            try {
-                val videoId = extractVideoId(query)
-                val info = extractMusicInfo(videoId)
-                if (info != null) results.add(info)
-                return@withContext results
-            } catch (e: Exception) {
-                return@withContext emptyList()
-            }
+            val videoId = extractVideoId(query)
+            val info = extractMusicInfo(videoId)
+            if (info != null) results.add(info)
+            return@withContext results [cite: 1, 6]
         }
 
-        // Se for pesquisa por texto, tenta instâncias diferentes (Fallback)
+    // 2. Lista de instâncias públicas da Piped API (Fallback)
         val instances = arrayOf(
             "https://piped-api.privacydev.net",
             "https://pipedapi.kavin.rocks",
@@ -91,28 +88,25 @@ class YouTubeRepository(private val context: Context) {
 
         for (baseUrl in instances) {
             try {
-                val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url = URL("$baseUrl/search?q=$encodedQuery&filter=music_songs")
-                
-                val connection = url.openConnection() as HttpURLConnection
+                val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+                val url = java.net.URL("$baseUrl/search?q=$encodedQuery&filter=music_songs")
+            
+                val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "GET"
-                connection.connectTimeout = 5000
+                connection.connectTimeout = 5000 // Tempo máximo para conectar
                 connection.readTimeout = 5000
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0")
 
                 if (connection.responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    val jsonObject = JSONObject(response)
-                    val items = jsonObject.optJSONArray("items") ?: JSONArray()
+                    val jsonObject = org.json.JSONObject(response)
+                    val items = jsonObject.optJSONArray("items") ?: org.json.JSONArray()
 
                     for (i in 0 until items.length()) {
                         val item = items.optJSONObject(i)
                         if (item != null && item.optString("type") == "stream") {
-                            val urlPath = item.optString("url")
-                            val videoId = urlPath.replace("/watch?v=", "")
-                            
                             results.add(OnlineSong(
-                                videoId = videoId,
+                                videoId = item.optString("url").replace("/watch?v=", ""),
                                 title = item.optString("title") ?: "Sem título",
                                 author = item.optString("uploaderName") ?: "Desconhecido",
                                 thumbnailUrl = item.optString("thumbnail"),
@@ -121,16 +115,14 @@ class YouTubeRepository(private val context: Context) {
                         }
                         if (results.size >= 15) break
                     }
-                    if (results.isNotEmpty()) break // Se conseguiu resultados, para de tentar outras instâncias
+                    if (results.isNotEmpty()) break // Sucesso! Sai do loop de instâncias
                 }
             } catch (e: Exception) {
                 android.util.Log.e("YouTubeRepo", "Falha na instância $baseUrl: ${e.message}")
-                // Continua para a próxima instância do loop
             }
         }
         results
     }
-
     private fun extractVideoId(url: String): String {
         return try {
             if (url.contains("youtu.be/")) {
