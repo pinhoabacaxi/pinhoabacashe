@@ -20,17 +20,18 @@ class YTSearch(private val context: Context) {
     suspend fun search(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
         val searchResults = mutableListOf<VideoMeta>()
         
-        // 1. Verificação de Conexão (Movida para dentro da função)
+        // 1. Verificação de Conexão
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val activeNetwork = cm.activeNetworkInfo
         if (activeNetwork == null || !activeNetwork.isConnectedOrConnecting) {
             Log.e(LOG_TAG, "Dispositivo sem conexão de rede.")
-            return@withContext searchResults // Retorna lista vazia se estiver offline
+            return@withContext searchResults
         }
 
         try {
             Log.d(LOG_TAG, "Iniciando busca para: $query")
             
+            // Endpoint sem 'www.' para evitar problemas de DNS em certas redes
             val apiUrl = "https://youtubei.googleapis.com/youtubei/v1/search?prettyPrint=false"
             val conn = URL(apiUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -38,7 +39,7 @@ class YTSearch(private val context: Context) {
             conn.setRequestProperty("User-Agent", "com.google.android.youtube/19.05.36 (Linux; U; Android 14)")
             conn.doOutput = true
 
-            // 2. Montagem do corpo da requisição JSON
+            // 2. Montagem do corpo da requisição JSON (Contexto InnerTube)
             val requestBody = JSONObject().apply {
                 put("context", JSONObject().apply {
                     put("client", JSONObject().apply {
@@ -56,9 +57,10 @@ class YTSearch(private val context: Context) {
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val jsonResponse = JSONObject(response)
 
-            // LOG PARA VER O JSON COMPLETO (Se for muito grande, ele corta, mas ajuda)
-            Log.d(LOG_TAG, "Resposta recebida (JSON): ${response.take(500)}...")
+            // DEBUG: Ver se o JSON básico chegou
+            Log.d(LOG_TAG, "Resposta JSON recebida. Tamanho: ${response.length}")
 
+            // 3. Navegação profunda no JSON da InnerTube
             val contents = jsonResponse.optJSONObject("contents")
                 ?.optJSONObject("sectionListRenderer")
                 ?.optJSONArray("contents")
@@ -67,11 +69,14 @@ class YTSearch(private val context: Context) {
                 ?.optJSONArray("contents")
 
             if (contents == null) {
-                Log.e(LOG_TAG, "ERRO: Não foi possível encontrar a lista de vídeos no JSON. O YouTube pode ter mudado a estrutura.")
+                Log.e(LOG_TAG, "Caminho 'contents' não encontrado no JSON. Estrutura pode ter mudado.")
             } else {
-                Log.d(LOG_TAG, "Vídeos encontrados no JSON: ${contents.length()}")
+                Log.d(LOG_TAG, "Itens encontrados no JSON: ${contents.length()}")
+                
                 for (i in 0 until contents.length()) {
                     val item = contents.optJSONObject(i)
+                    
+                    // Tenta encontrar o renderer de vídeo ou música
                     val videoRenderer = item?.optJSONObject("videoRenderer") 
                         ?: item?.optJSONObject("musicVideoRenderer")
                     
@@ -88,11 +93,13 @@ class YTSearch(private val context: Context) {
                             ?: videoRenderer.optJSONObject("shortBylineText")
                             ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "Desconhecido"
                         
-                        // Extração da Thumbnail de melhor resolução
+                        // Extração da Thumbnail
                         val thumbnailArray = videoRenderer.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
                         val thumbUrl = if (thumbnailArray != null && thumbnailArray.length() > 0) {
                             thumbnailArray.optJSONObject(thumbnailArray.length() - 1)?.optString("url") ?: ""
                         } else ""
+
+                        Log.d(LOG_TAG, "Mapeado: $title [ID: $videoId]")
 
                         searchResults.add(VideoMeta(
                             videoId = videoId,
@@ -104,19 +111,16 @@ class YTSearch(private val context: Context) {
                             isLiveStream = false,
                             description = "",
                             thumbnailUrl = thumbUrl
-                        // ... (resto do código de extração igual ao anterior)
-                        Log.d(LOG_TAG, "Vídeo mapeado: $title")
                         ))
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(LOG_TAG, "Erro na busca InnerTube: ${e.message}")
+            Log.e(LOG_TAG, "Erro crítico na busca: ${e.message}")
+            e.printStackTrace()
         }
         
+        Log.d(LOG_TAG, "Total de resultados retornados: ${searchResults.size}")
         return@withContext searchResults
     }
 }
-
-                    
-               
