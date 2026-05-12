@@ -84,23 +84,31 @@ class YTExtractor(
     private fun getStreamUrls(): SparseArray<YtFile>? {
         var pageHtml = ""
         val ytFilesResult = SparseArray<YtFile>()
-        val encSignatures = SparseArray<String>() // Não esqueça de declarar esta lista aqui
+        val encSignatures = SparseArray<String>()
     
         try {
-            // 1. CONFIGURAÇÃO DA CONEXÃO E DOWNLOAD
-            val getUrl = URL("https://www.youtube.com/watch?v=$videoID&bpctr=9999999999&has_verified=1&el=embedded&hl=en")
+            // URL otimizada para pular telas de consentimento e restrições
+            val getUrl = URL("https://www.youtube.com/watch?v=$videoID&bpctr=9999999999&has_verified=1&el=detailpage&hl=en")
             val urlConnection = getUrl.openConnection() as HttpURLConnection
             
-            urlConnection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-            urlConnection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
-            urlConnection.setRequestProperty("X-Youtube-Client-Name", "1")
-            urlConnection.setRequestProperty("X-Youtube-Client-Version", "2.20240510.01.00")
-            urlConnection.setRequestProperty("Cookie", "CONSENT=YES+cb.20230531-04-p0.en+FX+999")
+            // HEADERS OBRIGATÓRIOS PARA 2026
+            urlConnection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
+            urlConnection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,webp,*/*;q=0.8")
+            urlConnection.setRequestProperty("Accept-Language", "en-US,en;q=0.5")
+            
+            // O YouTube verifica de onde a requisição veio (Referer)
+            urlConnection.setRequestProperty("Referer", "https://www.youtube.com/watch?v=$videoID")
+            urlConnection.setRequestProperty("Origin", "https://www.youtube.com")
+            
+            // Simular que aceitamos cookies (essencial para evitar erro de streamingData)
+            urlConnection.setRequestProperty("Cookie", "CONSENT=YES+cb.20230531-04-p0.en+FX+999; SOCS=CAESEwgDEgk0ODE3Nzk3MTQaAmVuIAEaBgiA_LyaBg")
     
             urlConnection.inputStream.bufferedReader().use { pageHtml = it.readText() }
             urlConnection.disconnect()
     
             if (pageHtml.isEmpty()) return null
+
+        // ... (resto da lógica de busca do JSON)
     
             // 2. BUSCA DO JSON (Lógica de Fallback)
             var jsonStr: String? = null
