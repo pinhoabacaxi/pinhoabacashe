@@ -39,7 +39,6 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         searchAdapter = SearchAdapter { videoMeta ->
-            // Inicia o processo de extração e play
             startStreaming(videoMeta)
         }
         
@@ -50,10 +49,8 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupSearchInput() {
-        // Busca o SearchView de dentro do CardView do layout
-        val searchView = binding.cardSearchContainer.findViewById<androidx.appcompat.widget.SearchView>(R.id.searchViewOnline)
-        
-        searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
+        // Corrigido: Acesso direto via binding para evitar findViewById desnecessário
+        binding.searchViewOnline.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 if (!query.isNullOrEmpty()) {
                     viewModel.performSearch(query)
@@ -89,12 +86,11 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun startStreaming(videoMeta: VideoMeta) {
-        // Bloqueia interações repetidas mostrando o progress
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
             try {
-                // Extrai o link real do YouTube via Repository
+                // Extrai o link real
                 val streamData = youtubeRepository.extractAudioLink(videoMeta.videoId)
                 
                 if (streamData != null) {
@@ -107,21 +103,19 @@ class OnlineSearchActivity : AppCompatActivity() {
                         duration = videoMeta.duration.toString()
                     )
                     
-                    // Executa o play no Manager
+                    // CORREÇÃO: Chama a função que adicionamos/verificamos no LocalPlayerManager
                     LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
                     
-                    // Pequeno delay para garantir que o serviço de áudio processou o comando antes de fechar a tela
                     kotlinx.coroutines.delay(200)
-                    
                     binding.progressBar.visibility = View.GONE
-                    finish() // Volta para a biblioteca onde o Mini Player aparecerá
+                    finish() 
                 } else {
                     binding.progressBar.visibility = View.GONE
-                    Toast.makeText(this@OnlineSearchActivity, "Vídeo protegido ou indisponível", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@OnlineSearchActivity, "Vídeo indisponível", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 binding.progressBar.visibility = View.GONE
-                Toast.makeText(this@OnlineSearchActivity, "Erro ao processar: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@OnlineSearchActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
