@@ -40,12 +40,47 @@ class YTSearch {
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val jsonResponse = JSONObject(response)
 
-            // Aqui entra a lógica de parse do JSON contents -> sectionListRenderer...
-            // (Mantenha o código de extração que enviamos anteriormente)
-            
-        } catch (e: Exception) {
-            Log.e(LOG_TAG, "Erro na busca: ${e.message}")
+            // CORREÇÃO: Usando a variável jsonResponse para extrair os vídeos
+            // O caminho no JSON da InnerTube é longo: contents -> sectionListRenderer -> ... -> contents
+            val contents = jsonResponse.optJSONObject("contents")
+                ?.optJSONObject("sectionListRenderer")
+                ?.optJSONArray("contents")
+                ?.optJSONObject(0)
+                ?.optJSONObject("itemSectionRenderer")
+                ?.optJSONArray("contents")
+
+            if (contents != null) {
+                for (i in 0 until contents.length()) {
+                    val item = contents.optJSONObject(i)
+                    // Procuramos pelo vídeo ou música
+                    val videoRenderer = item?.optJSONObject("videoRenderer") 
+                        ?: item?.optJSONObject("musicVideoRenderer")
+                    
+                    if (videoRenderer != null) {
+                        val videoId = videoRenderer.getString("videoId")
+                        val title = videoRenderer.getJSONObject("title")
+                            .getJSONArray("runs").getJSONObject(0).getString("text")
+                        val author = videoRenderer.optJSONObject("longBylineText")
+                            ?.getJSONArray("runs")?.getJSONObject(0)?.getString("text") ?: "Desconhecido"
+                        
+                        // Extração da melhor Thumbnail
+                        val thumbnailArray = videoRenderer.getJSONObject("thumbnail").getJSONArray("thumbnails")
+                        val thumbUrl = thumbnailArray.getJSONObject(thumbnailArray.length() - 1).getString("url")
+
+                        searchResults.add(VideoMeta(
+                            videoId = videoId,
+                            title = title,
+                            author = author,
+                            channelId = "",
+                            duration = 0L,
+                            viewCount = 0L,
+                            isLiveStream = false,
+                            description = "",
+                            thumbnailUrl = thumbUrl
+                        ))
+                    }
+                }
+            }
         }
-        return@withContext searchResults
     }
 }
