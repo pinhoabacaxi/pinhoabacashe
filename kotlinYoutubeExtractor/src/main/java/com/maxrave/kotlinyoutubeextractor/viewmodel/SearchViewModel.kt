@@ -19,12 +19,14 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     fun performSearch(query: String) {
         viewModelScope.launch {
+            Log.d("SearchVM", "Solicitando busca para: $query")
             _searchState.value = SearchState.Loading
             try {
-                // Chamada para a lógica de busca no YouTube
                 val results = ytSearch.search(query)
+                Log.d("SearchVM", "Resultados obtidos: ${results.size}")
                 _searchState.value = SearchState.Success(results)
             } catch (e: Exception) {
+                Log.e("SearchVM", "Erro no ViewModel: ${e.message}")
                 _searchState.value = SearchState.Error(e.message ?: "Erro desconhecido")
             }
         }
