@@ -91,10 +91,24 @@ class PlaylistSongsActivity : AppCompatActivity() {
                 val songsFromDb = result[0].songs
                 val mappedList = songsFromDb.map { entity ->
                     if (entity.isOnline) {
-                        OnlineSong(entity.id, entity.title, entity.artist, entity.thumbnailUrl ?: "", entity.sourcePath)
+                        OnlineSong(
+                            videoId = entity.id, 
+                            title = entity.title, 
+                            author = entity.artist, 
+                            thumbnailUrl = entity.thumbnailUrl ?: "", 
+                            url = entity.sourcePath,
+                            duration = "0" // ADICIONE UM VALOR PADRÃO SE O MODELO EXIGIR
+                        )
                     } else {
-                        // Mapeia para o seu modelo Song local
-                        Song(entity.id.toLong(), entity.title, entity.artist, "", 0, entity.sourcePath, null)
+                        Song(
+                            id = entity.id.toLongOrNull() ?: 0L, // Proteção contra nulo
+                            title = entity.title, 
+                            artist = entity.artist, 
+                            path = entity.sourcePath,
+                            album = "", // VALORES PADRÃO
+                            duration = 0, 
+                            albumArtUri = null
+                        )
                     }
                 }
                 hybridAdapter.setList(mappedList.toMutableList())
