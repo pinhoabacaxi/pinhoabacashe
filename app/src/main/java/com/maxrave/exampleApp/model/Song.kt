@@ -9,7 +9,7 @@ data class Song(
     val artist: String,
     val album: String,
     val duration: Long,
-    val uri: String,
+    val path: String,
     val albumId: Long
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
