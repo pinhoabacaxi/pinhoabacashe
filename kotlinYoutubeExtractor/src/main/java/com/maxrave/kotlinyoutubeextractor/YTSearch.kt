@@ -3,6 +3,7 @@ package com.maxrave.kotlinyoutubeextractor
 import android.content.Context
 import android.net.ConnectivityManager
 import android.util.Log
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -11,16 +12,14 @@ import kotlinx.coroutines.withContext
 
 class YTSearch(private val context: Context) {
     private val LOG_TAG = "YTSearch"
-    private val CLIENT_NAME = "ANDROID_MUSIC"
-    private val CLIENT_VERSION = "6.45.52"
+    
+    // Mudança CRUCIAL: Usamos cliente WEB porque o JSON é mais previsível e estável
+    private val CLIENT_NAME = "WEB"
+    private val CLIENT_VERSION = "2.20231017.00.00"
 
-    /**
-     * Realiza a busca no YouTube via InnerTube API.
-     */
     suspend fun search(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
         val searchResults = mutableListOf<VideoMeta>()
         
-        // 1. Verificação de Conexão
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val activeNetwork = cm.activeNetworkInfo
         if (activeNetwork == null || !activeNetwork.isConnectedOrConnecting) {
@@ -31,15 +30,15 @@ class YTSearch(private val context: Context) {
         try {
             Log.d(LOG_TAG, "Iniciando busca para: $query")
             
-            // Endpoint sem 'www.' para evitar problemas de DNS em certas redes
             val apiUrl = "https://youtubei.googleapis.com/youtubei/v1/search?prettyPrint=false"
             val conn = URL(apiUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("User-Agent", "com.google.android.youtube/19.05.36 (Linux; U; Android 14)")
+            
+            // Fingimos ser um Chrome Desktop para forçar o Google a mandar a versão WEB padrão
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
             conn.doOutput = true
 
-            // 2. Montagem do corpo da requisição JSON (Contexto InnerTube)
             val requestBody = JSONObject().apply {
                 put("context", JSONObject().apply {
                     put("client", JSONObject().apply {
@@ -57,43 +56,52 @@ class YTSearch(private val context: Context) {
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val jsonResponse = JSONObject(response)
 
-            // DEBUG: Ver se o JSON básico chegou
             Log.d(LOG_TAG, "Resposta JSON recebida. Tamanho: ${response.length}")
 
-            // 3. Navegação profunda no JSON da InnerTube
-            val contents = jsonResponse.optJSONObject("contents")
+            val contentsObj = jsonResponse.optJSONObject("contents")
+            
+            // Caminho 1: Tenta o padrão WEB de mesa (O mais comum)
+            var itemsArray: JSONArray? = contentsObj
+                ?.optJSONObject("twoColumnSearchResultsRenderer")
+                ?.optJSONObject("primaryContents")
                 ?.optJSONObject("sectionListRenderer")
                 ?.optJSONArray("contents")
                 ?.optJSONObject(0)
                 ?.optJSONObject("itemSectionRenderer")
                 ?.optJSONArray("contents")
 
-            if (contents == null) {
-                Log.e(LOG_TAG, "Caminho 'contents' não encontrado no JSON. Estrutura pode ter mudado.")
+            // Caminho 2 (Fallback): Tenta o padrão Mobile caso a API altere o formato
+            if (itemsArray == null) {
+                itemsArray = contentsObj
+                    ?.optJSONObject("sectionListRenderer")
+                    ?.optJSONArray("contents")
+                    ?.optJSONObject(0)
+                    ?.optJSONObject("itemSectionRenderer")
+                    ?.optJSONArray("contents")
+            }
+
+            if (itemsArray == null) {
+                Log.e(LOG_TAG, "ERRO: Caminho 'contents' não encontrado. A estrutura do JSON é diferente das mapeadas.")
             } else {
-                Log.d(LOG_TAG, "Itens encontrados no JSON: ${contents.length()}")
+                Log.d(LOG_TAG, "Itens encontrados no JSON: ${itemsArray.length()}")
                 
-                for (i in 0 until contents.length()) {
-                    val item = contents.optJSONObject(i)
+                for (i in 0 until itemsArray.length()) {
+                    val item = itemsArray.optJSONObject(i)
                     
-                    // Tenta encontrar o renderer de vídeo ou música
                     val videoRenderer = item?.optJSONObject("videoRenderer") 
                         ?: item?.optJSONObject("musicVideoRenderer")
                     
                     if (videoRenderer != null) {
                         val videoId = videoRenderer.getString("videoId")
                         
-                        // Extração do Título
                         val title = videoRenderer.optJSONObject("title")
                             ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "Sem título"
                             
-                        // Extração do Autor/Canal
                         val author = videoRenderer.optJSONObject("longBylineText")
                             ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
                             ?: videoRenderer.optJSONObject("shortBylineText")
                             ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "Desconhecido"
                         
-                        // Extração da Thumbnail
                         val thumbnailArray = videoRenderer.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
                         val thumbUrl = if (thumbnailArray != null && thumbnailArray.length() > 0) {
                             thumbnailArray.optJSONObject(thumbnailArray.length() - 1)?.optString("url") ?: ""
