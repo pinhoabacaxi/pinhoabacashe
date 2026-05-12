@@ -46,7 +46,8 @@ class PlaybackService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: return START_STICKY
-        
+        val notification = createPlaceholderNotification() // Crie uma notificação de "Carregando..."
+        startForeground(NOTIFICATION_ID, notification)
         val song = LocalPlayerManager.currentSong
         if (song != null) {
             when (action) {
@@ -54,7 +55,7 @@ class PlaybackService : Service() {
                 "ACTION_STOP" -> stopForegroundService()
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun showNotification(song: Song) {
