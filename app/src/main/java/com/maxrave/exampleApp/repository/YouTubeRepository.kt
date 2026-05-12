@@ -15,65 +15,63 @@ import java.net.URLEncoder
 
 class YouTubeRepository(private val context: Context) {
 
-    private val extractor = YTExtractor(context, CACHING = false, LOGGING = true) [cite: 1]
+    private val extractor = YTExtractor(context, CACHING = false, LOGGING = true)
     
     private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
-    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
+    private val youtubeApiKey2 = "COLE_AQUI_SUA_SEGUNDA_CHAVE" 
 
     suspend fun downloadMusic(videoId: String): Unit = withContext(Dispatchers.IO) {
-        val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://www.youtube.com/watch?v=$videoId" [cite: 1]
+        val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://www.youtube.com/watch?v=$videoId"
         try {
-            extractor.extract(youtubeUrl) [cite: 1]
-            val ytFiles = extractor.getYTFiles() [cite: 2]
+            extractor.extract(youtubeUrl)
+            val ytFiles = extractor.getYTFiles()
             
-            // Verificação de segurança para evitar o erro de streamingData
             if (ytFiles == null || ytFiles.isEmpty()) {
                 Log.e("YouTubeRepo", "Falha ao obter streamingData do YouTube")
                 return@withContext
             }
 
-            val meta = extractor.getVideoMeta() [cite: 1]
-            val bestAudio = ytFiles.getAudioOnly().firstOrNull() [cite: 2]
+            val meta = extractor.getVideoMeta()
+            val bestAudio = ytFiles.getAudioOnly().firstOrNull()
 
             if (meta != null && bestAudio?.url != null) {
-                val downloader = DownloadHelper(context) [cite: 2]
+                val downloader = DownloadHelper(context)
                 downloader.startDownload(
-                    title = meta.title ?: "Som", [cite: 3]
-                    artist = meta.author ?: "Desconhecido", [cite: 3]
+                    title = meta.title ?: "Som",
+                    artist = meta.author ?: "Desconhecido",
                     url = bestAudio.url!!
                 )
             }
         } catch (e: Exception) {
-            Log.e("YouTubeRepo", "Erro no download: ${e.message}") [cite: 4]
+            Log.e("YouTubeRepo", "Erro no download: ${e.message}")
         }
     }
 
-    suspend fun extractMusicInfo(input: String): OnlineSong? = withContext(Dispatchers.IO) { [cite: 5]
-        val url = if (input.contains("http")) input else "https://www.youtube.com/watch?v=$input" [cite: 5]
+    suspend fun extractMusicInfo(input: String): OnlineSong? = withContext(Dispatchers.IO) {
+        val url = if (input.contains("http")) input else "https://www.youtube.com/watch?v=$input"
         try {
-            extractor.extract(url) [cite: 5]
-            val ytFiles = extractor.getYTFiles() [cite: 5]
+            extractor.extract(url)
+            val ytFiles = extractor.getYTFiles()
             
-            // Previne o erro JSONException: No value for streamingData
             if (ytFiles == null || ytFiles.isEmpty()) {
-                Log.e("YouTubeRepo", "streamingData não disponível para este vídeo")
+                Log.e("YouTubeRepo", "streamingData nao disponível")
                 return@withContext null
             }
 
-            val meta = extractor.getVideoMeta() [cite: 5]
-            val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url [cite: 6]
+            val meta = extractor.getVideoMeta()
+            val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url
 
             if (meta != null) {
                 OnlineSong(
-                    videoId = if (input.contains("http")) extractVideoId(input) else input, [cite: 6]
-                    title = meta.title ?: "Sem título", [cite: 7]
-                    author = meta.author ?: "Artista", [cite: 7]
-                    thumbnailUrl = meta.maxResImageUrl, [cite: 7]
-                    streamUrl = bestAudio [cite: 7]
+                    videoId = if (input.contains("http")) extractVideoId(input) else input,
+                    title = meta.title ?: "Sem título",
+                    author = meta.author ?: "Artista",
+                    thumbnailUrl = meta.maxResImageUrl,
+                    streamUrl = bestAudio
                 )
             } else null
         } catch (e: Exception) {
-            Log.e("YouTubeRepo", "Erro na extração: ${e.message}") [cite: 8]
+            Log.e("YouTubeRepo", "Erro na extração: ${e.message}")
             null
         }
     }
@@ -88,11 +86,11 @@ class YouTubeRepository(private val context: Context) {
             return@withContext results
         }
 
-        val apiInstances = arrayOf("https://pipedapi.kavin.rocks", "https://api.piped.victr.me") [cite: 10]
+        val apiInstances = arrayOf("https://pipedapi.kavin.rocks", "https://api.piped.victr.me")
         for (baseUrl in apiInstances) {
             try {
-                val encoded = URLEncoder.encode(trimmedQuery, "UTF-8") [cite: 11]
-                val url = URL("$baseUrl/search?q=$encoded&filter=music_songs") [cite: 11]
+                val encoded = URLEncoder.encode(trimmedQuery, "UTF-8")
+                val url = URL("$baseUrl/search?q=$encoded&filter=music_songs")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 3000
                 if (conn.responseCode == 200) {
@@ -101,8 +99,8 @@ class YouTubeRepository(private val context: Context) {
                     for (i in 0 until items.length()) {
                         val item = items.optJSONObject(i)
                         if (item != null && item.optString("type") == "stream") {
-                            val id = item.optString("url").substringAfter("v=", "") [cite: 14]
-                            results.add(OnlineSong(id, item.optString("title"), item.optString("uploaderName"), item.optString("thumbnail"), null)) [cite: 15, 16]
+                            val id = item.optString("url").substringAfter("v=", "")
+                            results.add(OnlineSong(id, item.optString("title"), item.optString("uploaderName"), item.optString("thumbnail"), null))
                         }
                     }
                     if (results.isNotEmpty()) return@withContext results
@@ -118,7 +116,7 @@ class YouTubeRepository(private val context: Context) {
             results.addAll(searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey2))
         }
 
-        results [cite: 19]
+        results
     }
 
     private suspend fun searchViaYoutubeOfficial(query: String, apiKey: String): List<OnlineSong> = withContext(Dispatchers.IO) {
@@ -128,7 +126,8 @@ class YouTubeRepository(private val context: Context) {
             val url = URL("https://www.googleapis.com/youtube/v3/search?part=snippet&q=$encoded&type=video&videoCategoryId=10&maxResults=15&key=$apiKey")
             val conn = url.openConnection() as HttpURLConnection
             if (conn.responseCode == 200) {
-                val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+                val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(jsonText)
                 val items = json.optJSONArray("items") ?: JSONArray()
                 for (i in 0 until items.length()) {
                     val item = items.getJSONObject(i)
@@ -146,9 +145,9 @@ class YouTubeRepository(private val context: Context) {
 
     private fun extractVideoId(url: String): String {
         return try {
-            if (url.contains("youtu.be/")) url.substringAfter("youtu.be/").substringBefore("?").split("/").last() [cite: 20]
-            else if (url.contains("v=")) url.substringAfter("v=").substringBefore("&") [cite: 20]
-            else url [cite: 20]
+            if (url.contains("youtu.be/")) url.substringAfter("youtu.be/").substringBefore("?").split("/").last()
+            else if (url.contains("v=")) url.substringAfter("v=").substringBefore("&")
+            else url
         } catch (e: Exception) { url }
     }
 }
