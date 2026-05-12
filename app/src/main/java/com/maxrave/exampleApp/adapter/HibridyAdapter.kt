@@ -53,6 +53,11 @@ class HybridAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MusicViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_song, parent, false)
         return MusicViewHolder(view)
+        // Adicione no ViewHolder
+        itemView.setOnLongClickListener {
+            onLongItemClick(items[adapterPosition])
+            true
+        }
     }
 
     override fun onBindViewHolder(holder: MusicViewHolder, position: Int) {
