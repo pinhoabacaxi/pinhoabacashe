@@ -42,18 +42,21 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        binding.etSearchOnline.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+       binding.etSearchOnline.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE) {
                 val query = binding.etSearchOnline.text.toString().trim()
                 if (query.isNotEmpty()) {
                     performSearch(query)
                 }
-                true
-            } else {
-                false
+                // Importante: Retornar true e fechar o teclado manualmente evita que a Activity feche
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.hideSoftInputFromWindow(binding.etSearchOnline.windowToken, 0)
+                return@setOnEditorActionListener true
             }
+            false
         }
     }
+
 
     private fun handleOnlineClick(onlineSong: OnlineSong) {
         val options = arrayOf("Ouvir Agora (Stream)", "Baixar Música", "Adicionar à Playlist")
