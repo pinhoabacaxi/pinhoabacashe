@@ -43,7 +43,20 @@ class FullPlayerActivity : AppCompatActivity() {
             handler.postDelayed(this, 1000)
         }
     }
-
+    // Dentro da FullPlayerActivity
+    btnOptions.setOnClickListener {
+        val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return@setOnClickListener
+        
+        val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
+            when(action) {
+                "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
+                "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
+                "DOWNLOAD_MP3" -> startDownload(currentTrack, "mp3")
+                "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack)
+            }
+        }
+        bottomSheet.show(supportFragmentManager, "Options")
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_full_player)
