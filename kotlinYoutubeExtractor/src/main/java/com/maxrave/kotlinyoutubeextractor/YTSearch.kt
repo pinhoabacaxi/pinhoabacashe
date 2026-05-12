@@ -42,15 +42,14 @@ class YTSearch(private val context: Context) {
             val requestBody = JSONObject().apply {
                 put("context", JSONObject().apply {
                     put("client", JSONObject().apply {
-                        put("clientName", CLIENT_NAME)
-                        put("clientVersion", CLIENT_VERSION)
-                        put("hl", "pt-BR")
-                        put("gl", "BR")
+                        put("clientName", "WEB")
+                        put("clientVersion", "2.20231017.00.00")
                     })
                 })
                 put("query", query)
+                // Adicionar isso ajuda a evitar que o YT mande apenas "shelfs" ou destaques
+                put("params", "EgWQAQ%3D%3D") 
             }
-
             conn.outputStream.use { it.write(requestBody.toString().toByteArray()) }
 
             val response = conn.inputStream.bufferedReader().use { it.readText() }
