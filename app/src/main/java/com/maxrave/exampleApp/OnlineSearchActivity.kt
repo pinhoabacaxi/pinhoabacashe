@@ -57,7 +57,7 @@ class OnlineSearchActivity : AppCompatActivity() {
         searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 if (!query.isNullOrEmpty()) {
-                    viewModel.search(query)
+                    viewModel.performSearch(query)
                     hideKeyboard()
                 }
                 return true
