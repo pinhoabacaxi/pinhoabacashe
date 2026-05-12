@@ -34,7 +34,6 @@
         android:layout_marginStart="12dp"
         android:ellipsize="end"
         android:maxLines="2"
-        /* Alterado de colorOnSurface para uma cor fixa ou atributo padrão */
         android:textColor="?android:attr/textColorPrimary"
         android:textSize="16sp"
         android:textStyle="bold"
