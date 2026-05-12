@@ -18,9 +18,9 @@ import com.maxrave.kotlinyoutubeextractor.VideoMeta
 class HybridAdapter(
     private val onItemClick: (item: Any, position: Int) -> Unit,
     private val onMoreOptionsClick: (item: Any) -> Unit,
-    private val onFavoriteClick: (item: Any) -> Unit // Adicionado para corrigir os botões que não respondiam
+    private val onFavoriteClick: (item: Any) -> Unit, // Adicionado para corrigir os botões que não respondiam
     private val onLongItemClick: (item: Any) -> Unit // ADICIONE ESTA LINHA
-) : RecyclerView.Adapter<HybridAdapter.MusicViewHolder>() {
+): RecyclerView.Adapter<HybridAdapter.MusicViewHolder>() {
 
     private var items = mutableListOf<Any>()
 
@@ -154,4 +154,5 @@ class HybridAdapter(
         private const val TYPE_LOCAL = 0
         private const val TYPE_ONLINE = 1
     }
+}
 }
