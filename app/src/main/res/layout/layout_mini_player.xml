@@ -11,9 +11,7 @@
     android:layout_marginBottom="12dp"
     app:cardCornerRadius="16dp"
     app:cardElevation="6dp"
-    app:cardBackgroundColor="#222222"
-    android:visibility="gone"
-    tools:visibility="visible">
+    app:cardBackgroundColor="#222222">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -24,7 +22,7 @@
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
             android:layout_height="2dp"
-            android:progress="30"
+            android:progress="0"
             android:progressTint="#FFFFFF"
             android:progressBackgroundTint="#33FFFFFF"
             app:layout_constraintTop_toTopOf="parent" />
@@ -61,7 +59,7 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                tools:text="Nome da Música Online" />
+                tools:text="Título da Música" />
 
             <TextView
                 android:id="@+id/tvMiniArtist"
@@ -72,7 +70,7 @@
                 android:maxLines="1"
                 android:textColor="#FFFFFF"
                 android:textSize="13sp"
-                tools:text="Canal do YouTube" />
+                tools:text="Artista" />
         </LinearLayout>
 
         <ImageButton
