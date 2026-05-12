@@ -75,10 +75,10 @@ dependencies {
     // YouTube Extractor e Dependência de Decifração (JsEvaluator)
     implementation project(':kotlinYoutubeExtractor')
     implementation 'com.github.evgenyneu:js-evaluator-for-android:v6.0.0'
-    implementation "androidx.room:room-runtime:2.6.1"
-    kapt "androidx.room:room-compiler:2.6.1"
-    implementation "androidx.room:room-ktx:2.6.1"
-    implementation "androidx.work:work-runtime-ktx:2.9.0"
+    implementation 'androidx.room:room-runtime:2.6.1'
+    implementation 'androidx.room:room-compiler:2.6.1'
+    implementation 'androidx.room:room-ktx:2.6.1'
+    implementation 'androidx.work:work-runtime-ktx:2.9.0'
     // Imagens
     implementation 'com.github.bumptech.glide:glide:4.15.1'
     
