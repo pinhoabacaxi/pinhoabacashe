@@ -21,6 +21,8 @@ import com.maxrave.kotlinyoutubeextractor.SearchState
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
 import com.maxrave.kotlinyoutubeextractor.viewmodel.SearchViewModel
 import kotlinx.coroutines.launch
+import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 class OnlineSearchActivity : AppCompatActivity() {
 
@@ -112,21 +114,39 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun startStreaming(videoMeta: VideoMeta) {
-        Toast.makeText(this, "Obtendo áudio...", Toast.LENGTH_SHORT).show()
+        // Feedback imediato para o usuário
+        binding.progressBar.visibility = View.VISIBLE
+        
         lifecycleScope.launch {
+            // BYPASS 6: Hotlink Delay
+            // Simula o tempo que um humano levaria para interagir após o clique (800ms a 1.5s)
+            // Isso quebra o padrão de velocidade de um script automatizado.
+            delay(Random.nextLong(800, 1500))
+            
             val fullSong = youtubeRepository.extractMusicInfo(videoMeta.videoId)
+            
+            binding.progressBar.visibility = View.GONE
+            
             if (fullSong?.streamUrl != null) {
                 LocalPlayerManager.playOnline(fullSong, this@OnlineSearchActivity)
             } else {
-                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter link", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter link. Tente novamente.", Toast.LENGTH_SHORT).show()
             }
         }
     }
-
     private fun startDownload(videoMeta: VideoMeta) {
-        Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
+        binding.progressBar.visibility = View.VISIBLE
+        
         lifecycleScope.launch {
+            // BYPASS 6: Hotlink Delay também no download
+            delay(Random.nextLong(1000, 2000))
+            
             youtubeRepository.downloadMusic(videoMeta.videoId)
+            
+            binding.progressBar.visibility = View.GONE
+            Toast.makeText(this@OnlineSearchActivity, "Download solicitado com sucesso", Toast.LENGTH_SHORT).show()
         }
     }
+    
+    // ... (restante dos métodos mantidos)
 }
