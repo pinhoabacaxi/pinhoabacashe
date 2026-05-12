@@ -5,6 +5,7 @@ import android.util.Log
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.kotlinyoutubeextractor.YTExtractor
 import com.maxrave.kotlinyoutubeextractor.getAudioOnly
+import com.maxrave.kotlinyoutubeextractor.bestQuality
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -24,7 +25,7 @@ class YouTubeRepository(private val context: Context) {
         val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://www.youtube.com/watch?v=$videoId"
         try {
             extractor.extract(youtubeUrl)
-            val ytFiles = extractor.YTFiles()
+            val ytFiles = extractor.ytFiles()
             
             // CORREÇÃO: Verificando o tamanho com size() em vez de isEmpty()
             if (ytFiles == null || ytFiles.size() <= 0) {
@@ -32,7 +33,7 @@ class YouTubeRepository(private val context: Context) {
                 return@withContext
             }
 
-            val meta = extractor.VideoMeta()
+            val meta = extractor.videoMeta()
             val bestAudio = ytFiles.getAudioOnly().firstOrNull()
 
             if (meta != null && bestAudio?.url != null) {
@@ -52,7 +53,7 @@ class YouTubeRepository(private val context: Context) {
         val url = if (input.contains("http")) input else "https://www.youtube.com/watch?v=$input"
         try {
             extractor.extract(url)
-            val ytFiles = extractor.YTFiles()
+            val ytFiles = extractor.ytFiles()
             
             // CORREÇÃO: Verificando o tamanho com size() em vez de isEmpty()
             if (ytFiles == null || ytFiles.size() <= 0) {
@@ -60,7 +61,7 @@ class YouTubeRepository(private val context: Context) {
                 return@withContext null
             }
 
-            val meta = extractor.VideoMeta()
+            val meta = extractor.videoMeta()
             val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url
 
             if (meta != null) {
