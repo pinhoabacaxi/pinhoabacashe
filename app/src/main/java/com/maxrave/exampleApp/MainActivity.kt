@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity() {
         setupFiltersAndSearch()
 
         // TODO: Carregar as músicas locais do seu repositório/banco de dados
-        // loadLocalSongs() 
+        loadLocalSongs() 
     }
 
     private fun initViews() {
@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
             },
             onMoreOptionsClick = { item ->
                 // Aqui você pode abrir o dialog_add_to_playlist
-                // showBottomSheetOptions(item)
+                showBottomSheetOptions(item)
             }
         )
 
