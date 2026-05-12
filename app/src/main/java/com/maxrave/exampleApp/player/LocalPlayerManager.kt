@@ -17,7 +17,6 @@ object LocalPlayerManager {
     private var originalQueue = mutableListOf<Any>()
     private var currentVolume = 1.0f 
     
-    // CORREÇÃO: Apenas uma declaração de currentIndex
     var currentIndex: Int = -1
         private set
     
@@ -29,7 +28,6 @@ object LocalPlayerManager {
     enum class RepeatMode { NONE, ONE, ALL }
     var repeatMode: RepeatMode = RepeatMode.NONE
 
-    // Callbacks unificados
     var onTrackChanged: ((Any) -> Unit)? = null 
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
@@ -39,7 +37,7 @@ object LocalPlayerManager {
         prefs = PlayerPrefs(context)
     }
 
-    // --- LÓGICA DE FILA ---
+    // --- LÓGICA DE FILA CORRIGIDA ---
     fun playNext(item: Any) {
         if (playlistQueue.isEmpty()) {
             playlistQueue.add(item)
@@ -48,16 +46,7 @@ object LocalPlayerManager {
             playlistQueue.add(currentIndex + 1, item)
         }
     }
-    fun playPrevious(context: Context) {
-        if (playlist.isEmpty()) return
-    
-        currentTrackIndex = if (currentTrackIndex > 0) {
-            currentTrackIndex - 1
-        } else {
-            playlist.size - 1 // Volta para a última se estiver na primeira
-        }
-        play(context)
-    }
+
     fun addToEnd(item: Any) {
         playlistQueue.add(item)
         if (playlistQueue.size == 1) {
@@ -67,7 +56,6 @@ object LocalPlayerManager {
 
     fun getCurrentQueue() = playlistQueue
 
-    // --- GETTERS E SETTERS ---
     fun getCurrentTrack(): Any? = if (currentIndex in playlistQueue.indices) playlistQueue[currentIndex] else null
     fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
     fun getDuration(): Int = mediaPlayer?.duration ?: 0
@@ -106,7 +94,7 @@ object LocalPlayerManager {
             mediaPlayer?.release()
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(dataSource)
-                setVolume(currentVolume, currentVolume) // Aplica volume interno
+                setVolume(currentVolume, currentVolume)
                 prepareAsync()
                 setOnPreparedListener { 
                     start() 
@@ -137,19 +125,6 @@ object LocalPlayerManager {
         originalQueue = list.toMutableList()
         playlistQueue = if (isShuffle) list.shuffled().toMutableList() else list.toMutableList()
         currentIndex = if (isShuffle) playlistQueue.indexOf(list[index]) else index
-        play(context)
-    }
-
-    fun playOnline(onlineSong: OnlineSong, context: Context) {
-        val existingIndex = playlistQueue.indexOfFirst { 
-            it is OnlineSong && it.videoId == onlineSong.videoId 
-        }
-        if (existingIndex != -1) {
-            currentIndex = existingIndex
-        } else {
-            playlistQueue.add(currentIndex + 1, onlineSong)
-            currentIndex++
-        }
         play(context)
     }
 
@@ -184,19 +159,6 @@ object LocalPlayerManager {
         mediaPlayer?.release()
         mediaPlayer = null
         onPlaybackStatusChanged?.invoke(false)
-    }
-
-    fun removeFromQueue(position: Int) {
-        if (position in playlistQueue.indices) {
-            val removedIsCurrent = (position == currentIndex)
-            playlistQueue.removeAt(position)
-            if (removedIsCurrent) stop() else if (position < currentIndex) currentIndex--
-        }
-    }
-
-    fun restoreToQueue(position: Int, item: Any) {
-        playlistQueue.add(position, item)
-        if (position <= currentIndex) currentIndex++
     }
 
     fun updateService(context: Context, action: String) {
