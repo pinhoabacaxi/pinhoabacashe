@@ -16,12 +16,13 @@ import java.net.URLEncoder
 class YouTubeRepository(private val context: Context) {
 
     private val extractor = YTExtractor(context, CACHING = false, LOGGING = true)
-    // Sua chave de API integrada
+    
+    // Suas duas chaves de API para fallback
     private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
-    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" // Cole sua nova chave aqui
+    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
 
     suspend fun downloadMusic(videoId: String): Unit = withContext(Dispatchers.IO) {
-        val youtubeUrl = "https://www.youtube.com/watch?v=$videoId"
+        val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://www.youtube.com/watch?v=$videoId"
         try {
             extractor.extract(youtubeUrl)
             val meta = extractor.getVideoMeta()
@@ -35,16 +36,15 @@ class YouTubeRepository(private val context: Context) {
                     artist = meta.author ?: "Desconhecido",
                     url = bestAudio.url!!
                 )
-            } else {
-                Log.e("YouTubeRepo", "Metadados não encontrados para download")
             }
         } catch (e: Exception) {
             Log.e("YouTubeRepo", "Erro no download: ${e.message}")
         }
     }
 
-    suspend fun extractMusicInfo(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
-        val url = "https://www.youtube.com/watch?v=$videoId"
+    suspend fun extractMusicInfo(input: String): OnlineSong? = withContext(Dispatchers.IO) {
+        // Se o input já for uma URL, usa ela. Se for só o ID, monta a URL.
+        val url = if (input.contains("http")) input else "https://www.youtube.com/watch?v=$input"
         try {
             extractor.extract(url)
             val meta = extractor.getVideoMeta()
@@ -52,16 +52,16 @@ class YouTubeRepository(private val context: Context) {
 
             if (meta != null && ytFiles != null) {
                 val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url
+                val vId = if (input.contains("http")) extractVideoId(input) else input
+                
                 OnlineSong(
-                    videoId = videoId,
+                    videoId = vId,
                     title = meta.title ?: "Sem título",
-                    author = meta.author ?: "Artista desconhecido",
+                    author = meta.author ?: "Artista",
                     thumbnailUrl = meta.maxResImageUrl,
                     streamUrl = bestAudio
                 )
-            } else {
-                null
-            }
+            } else null
         } catch (e: Exception) {
             Log.e("YouTubeRepo", "Erro na extração: ${e.message}")
             null
@@ -72,34 +72,23 @@ class YouTubeRepository(private val context: Context) {
         val results = mutableListOf<OnlineSong>()
         val trimmedQuery = query.trim()
 
-        // 1. Prioridade: Se for link direto
+        // 1. Prioridade: Links diretos (Processa e já retorna)
         if (trimmedQuery.contains("youtube.com") || trimmedQuery.contains("youtu.be")) {
-            val vId = extractVideoId(trimmedQuery)
-            val info = extractMusicInfo(vId)
+            val info = extractMusicInfo(trimmedQuery)
             if (info != null) results.add(info)
             return@withContext results
         }
 
-        // 2. Tentar APIs Públicas (Piped)
-        val apiInstances = arrayOf(
-            "https://pipedapi.kavin.rocks",
-            "https://api.piped.victr.me",
-            "https://piped-api.privacydev.net"
-        )
-
+        // 2. Fallback: Piped (APIs Públicas)
+        val apiInstances = arrayOf("https://pipedapi.kavin.rocks", "https://api.piped.victr.me")
         for (baseUrl in apiInstances) {
             try {
                 val encoded = URLEncoder.encode(trimmedQuery, "UTF-8")
                 val url = URL("$baseUrl/search?q=$encoded&filter=music_songs")
                 val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "GET"
                 conn.connectTimeout = 3000
-                conn.readTimeout = 3000
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-
                 if (conn.responseCode == 200) {
-                    val response = conn.inputStream.bufferedReader().use { it.readText() }
-                    val items = JSONObject(response).optJSONArray("items") ?: JSONArray()
+                    val items = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONArray("items") ?: JSONArray()
                     for (i in 0 until items.length()) {
                         val item = items.optJSONObject(i)
                         if (item != null && item.optString("type") == "stream") {
@@ -111,70 +100,46 @@ class YouTubeRepository(private val context: Context) {
                     }
                     if (results.isNotEmpty()) return@withContext results
                 }
-            } catch (e: Exception) {
-                Log.e("YouTubeRepo", "Falha na instância $baseUrl")
-            }
+            } catch (e: Exception) { Log.e("YouTubeRepo", "Piped falhou") }
         }
 
-                // 3. FALLBACK OFICIAL 1: Google YouTube API v3 (Chave 1)
+        // 3. Fallback Oficial: Chave 1
         if (results.isEmpty()) {
-            Log.d("YouTubeRepo", "Tentando Google API (Chave 1)...")
-            val officialResults = searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey1)
-            results.addAll(officialResults)
+            results.addAll(searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey1))
         }
 
-        // 4. FALLBACK OFICIAL 2: Google YouTube API v3 (Chave 2) - Só entra se a 1 falhar
-        if (results.isEmpty()) {
-            Log.d("YouTubeRepo", "Chave 1 falhou ou sem resultados. Tentando Chave 2...")
-            val officialResults2 = searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey2)
-            results.addAll(officialResults2)
+        // 4. Fallback Oficial: Chave 2 (se a 1 falhar ou acabar a cota)
+        if (results.isEmpty() && youtubeApiKey2 != "COLE_AQUI_SUA_SEGUNDA_CHAVE") {
+            results.addAll(searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey2))
         }
 
-        results // Retorna o que conseguiu encontrar
+        results
     }
 
-        private suspend fun searchViaYoutubeOfficial(query: String, apiKey: String): List<OnlineSong> = withContext(Dispatchers.IO) {
-            val officialResults = mutableListOf<OnlineSong>()
-            try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
-                val url = URL("https://www.googleapis.com/youtube/v3/search?part=snippet&q=$encoded&type=video&videoCategoryId=10&maxResults=15&key=$apiKey")
-            
-                val conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 5000
-            
-                if (conn.responseCode == 200) {
-                    val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                    val items = json.optJSONArray("items") ?: JSONArray()
-                
-                    for (i in 0 until items.length()) {
-                        val item = items.getJSONObject(i)
-                        val id = item.getJSONObject("id").getString("videoId")
-                        val snippet = item.getJSONObject("snippet")
-                        officialResults.add(OnlineSong(
-                            videoId = id,
-                            title = snippet.getString("title"),
-                            author = snippet.getString("channelTitle"),
-                            thumbnailUrl = snippet.getJSONObject("thumbnails").getJSONObject("high").getString("url"),
-                            streamUrl = null
-                        ))
-                    }
-                } else {
-                    Log.e("YouTubeRepo", "Erro na API Google (Status ${conn.responseCode}). Provavelmente cota esgotada.")
+    private suspend fun searchViaYoutubeOfficial(query: String, apiKey: String): List<OnlineSong> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<OnlineSong>()
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val url = URL("https://www.googleapis.com/youtube/v3/search?part=snippet&q=$encoded&type=video&videoCategoryId=10&maxResults=15&key=$apiKey")
+            val conn = url.openConnection() as HttpURLConnection
+            if (conn.responseCode == 200) {
+                val items = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONArray("items") ?: JSONArray()
+                for (i in 0 until items.length()) {
+                    val item = items.getJSONObject(i)
+                    val id = item.getJSONObject("id").getString("videoId")
+                    val snippet = item.getJSONObject("snippet")
+                    list.add(OnlineSong(id, snippet.getString("title"), snippet.getString("channelTitle"), snippet.getString("thumbnails").getJSONObject("high").getString("url"), null))
                 }
-            } catch (e: Exception) {
-                Log.e("YouTubeRepo", "Erro na busca oficial: ${e.message}")
             }
-            officialResults
-        }
-
+        } catch (e: Exception) { Log.e("YouTubeRepo", "Google API falhou") }
+        list
+    }
 
     private fun extractVideoId(url: String): String {
         return try {
-            when {
-                url.contains("youtu.be/") -> url.substringAfter("youtu.be/").substringBefore("?").split("/").last()
-                url.contains("v=") -> url.substringAfter("v=").substringBefore("&").split("v=").last().split("&").first()
-                else -> url
-            }
+            if (url.contains("youtu.be/")) url.substringAfter("youtu.be/").substringBefore("?").split("/").last()
+            else if (url.contains("v=")) url.substringAfter("v=").substringBefore("&")
+            else url
         } catch (e: Exception) { url }
     }
 }
