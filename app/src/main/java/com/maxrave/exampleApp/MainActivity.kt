@@ -41,7 +41,7 @@ class MainActivity : AppCompatActivity() {
     private var currentList = mutableListOf<Any>() 
     private var filteredList = mutableListOf<Any>() 
 
-    // Mini Player
+    // Elementos do Mini Player
     private lateinit var miniPlayerContainer: MaterialCardView
     private lateinit var tvMiniTitle: TextView
     private lateinit var tvMiniArtist: TextView
@@ -54,9 +54,10 @@ class MainActivity : AppCompatActivity() {
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val audioGranted = permissions[Manifest.permission.READ_MEDIA_AUDIO] ?: permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
+        val audioGranted = permissions[Manifest.permission.READ_MEDIA_AUDIO] 
+            ?: permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
         if (audioGranted) loadLocalSongs()
-        else Toast.makeText(this, "Permissão necessária para ler músicas.", Toast.LENGTH_SHORT).show()
+        else Toast.makeText(this, "Permissão necessária para carregar músicas", Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,20 +83,22 @@ class MainActivity : AppCompatActivity() {
         // Botão de Scan do seu XML
         findViewById<ImageButton>(R.id.btnScan).setOnClickListener {
             loadLocalSongs()
-            Toast.makeText(this, "Atualizando biblioteca...", Toast.LENGTH_SHORT).show()
         }
         
-        // Setup Seguro do MiniPlayer
-        val miniPlayerInclude = findViewById<View>(R.id.includeMiniPlayer)
-        if (miniPlayerInclude != null) {
-            miniPlayerContainer = miniPlayerInclude.findViewById(R.id.miniPlayerContainer)
-            tvMiniTitle = miniPlayerInclude.findViewById(R.id.tvMiniTitle)
-            tvMiniArtist = miniPlayerInclude.findViewById(R.id.tvMiniArtist)
-            ivMiniArt = miniPlayerInclude.findViewById(R.id.ivMiniArt)
-            btnPlayPause = miniPlayerInclude.findViewById(R.id.btnPlayPause)
-            btnNext = miniPlayerInclude.findViewById(R.id.btnNext)
-            btnPrev = miniPlayerInclude.findViewById(R.id.btnPrev)
-            pbMiniProgress = miniPlayerInclude.findViewById(R.id.pbMiniProgress)
+        // CORREÇÃO DO CRASH: O include já é o MaterialCardView
+        val miniPlayerView = findViewById<View>(R.id.includeMiniPlayer)
+        if (miniPlayerView != null) {
+            // Como o ID do include sobrescreve a raiz, miniPlayerView É o MaterialCardView
+            miniPlayerContainer = miniPlayerView as MaterialCardView
+            
+            // Buscamos os filhos dentro dele
+            tvMiniTitle = miniPlayerView.findViewById(R.id.tvMiniTitle)
+            tvMiniArtist = miniPlayerView.findViewById(R.id.tvMiniArtist)
+            ivMiniArt = miniPlayerView.findViewById(R.id.ivMiniArt)
+            btnPlayPause = miniPlayerView.findViewById(R.id.btnPlayPause)
+            btnNext = miniPlayerView.findViewById(R.id.btnNext)
+            btnPrev = miniPlayerView.findViewById(R.id.btnPrev)
+            pbMiniProgress = miniPlayerView.findViewById(R.id.pbMiniProgress)
 
             miniPlayerContainer.setOnClickListener {
                 startActivity(Intent(this, FullPlayerActivity::class.java))
@@ -106,10 +109,11 @@ class MainActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         hybridAdapter = HybridAdapter(
             onItemClick = { item, position ->
+                // Play na lista atual (filtrada) para manter a ordem da tela
                 LocalPlayerManager.setQueueAndPlay(filteredList.toList(), position, this)
             },
-            onMoreOptionsClick = { item -> /* Abrir Menu */ },
-            onFavoriteClick = { item -> /* Lógica de Favoritar */ }
+            onMoreOptionsClick = { item -> /* Futuro: BottomSheet */ },
+            onFavoriteClick = { item -> toggleFavorite(item) }
         )
 
         rvSongs.apply {
@@ -119,44 +123,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFiltersAndSearch() {
-        // IDs sincronizados com seu XML
+        // Chip "Todas"
         findViewById<Chip>(R.id.chipAll).setOnClickListener {
             updateDisplayList(currentList)
         }
 
-        findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
-            // Exemplo: Filtrar apenas locais (você pode mudar para sua lógica de favoritos)
-            val favs = currentList.filterIsInstance<Song>().filter { it.title.contains("Loved", true) }
-            updateDisplayList(favs)
-        }
-
+        // Chip "Recentes" (Ordena por ID decrescente)
         findViewById<Chip>(R.id.chipRecent).setOnClickListener {
-            val recent = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
-            updateDisplayList(recent)
+            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
+            updateDisplayList(sorted)
         }
 
+        // Chip "Favoritas" (Lógica simplificada para exemplo)
+        findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
+            Toast.makeText(this, "Funcionalidade de favoritos em breve", Toast.LENGTH_SHORT).show()
+        }
+
+        // Chip "Buscar Online"
         findViewById<Chip>(R.id.chipOnline).setOnClickListener {
             startActivity(Intent(this, OnlineSearchActivity::class.java))
         }
 
+        // Barra de Pesquisa
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = true
             override fun onQueryTextChange(newText: String?): Boolean {
-                filterSearch(newText)
+                filterList(newText)
                 return true
             }
         })
     }
 
-    private fun updateDisplayList(newList: List<Any>) {
-        filteredList = newList.toMutableList()
-        hybridAdapter.setList(filteredList)
-        tvEmptyState.visibility = if (filteredList.isEmpty()) View.VISIBLE else View.GONE
-    }
-
-    private fun filterSearch(query: String?) {
+    private fun filterList(query: String?) {
         val filter = query ?: ""
-        val result = if (filter.isEmpty()) currentList else {
+        val result = if (filter.isEmpty()) {
+            currentList
+        } else {
             currentList.filter {
                 when (it) {
                     is Song -> it.title.contains(filter, true) || it.artist.contains(filter, true)
@@ -168,6 +170,12 @@ class MainActivity : AppCompatActivity() {
         updateDisplayList(result)
     }
 
+    private fun updateDisplayList(newList: List<Any>) {
+        filteredList = newList.toMutableList()
+        hybridAdapter.setList(filteredList)
+        tvEmptyState.visibility = if (filteredList.isEmpty()) View.VISIBLE else View.GONE
+    }
+
     private fun loadLocalSongs() {
         progressBar.visibility = View.VISIBLE
         lifecycleScope.launch {
@@ -176,7 +184,7 @@ class MainActivity : AppCompatActivity() {
                 currentList = songs.toMutableList()
                 updateDisplayList(currentList)
             } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Erro ao carregar", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Erro ao carregar músicas", Toast.LENGTH_SHORT).show()
             } finally {
                 progressBar.visibility = View.GONE
             }
@@ -184,17 +192,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPermissionsAndLoad() {
-        val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
 
-        if (perms.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) {
-            loadLocalSongs()
-        } else {
-            requestPermissionsLauncher.launch(perms)
+        val missing = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
+
+        if (missing.isEmpty()) loadLocalSongs()
+        else requestPermissionsLauncher.launch(missing.toTypedArray())
     }
 
     private fun setupMiniPlayerObservers() {
@@ -202,15 +213,18 @@ class MainActivity : AppCompatActivity() {
 
         LocalPlayerManager.onTrackChanged = { item ->
             miniPlayerContainer.visibility = View.VISIBLE
-            updateMiniUI(item)
+            updateMiniPlayerUI(item)
         }
 
         LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
-            btnPlayPause.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+            val icon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            btnPlayPause.setImageResource(icon)
         }
 
         LocalPlayerManager.onProgressChanged = { current, total ->
-            if (total > 0) pbMiniProgress.progress = (current * 100 / total).toInt()
+            if (total > 0) {
+                pbMiniProgress.progress = (current * 100 / total).toInt()
+            }
         }
 
         btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
@@ -218,7 +232,7 @@ class MainActivity : AppCompatActivity() {
         btnPrev.setOnClickListener { LocalPlayerManager.previous(this) }
     }
 
-    private fun updateMiniUI(item: Any) {
+    private fun updateMiniPlayerUI(item: Any) {
         when (item) {
             is Song -> {
                 tvMiniTitle.text = item.title
@@ -233,16 +247,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun toggleFavorite(item: Any) {
+        // Implementar persistência depois
+        Toast.makeText(this, "Adicionado aos favoritos", Toast.LENGTH_SHORT).show()
+    }
+
     private fun setupSwipeToDismiss() {
         val swipeHandler = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
             override fun onMove(r: RecyclerView, v: RecyclerView.ViewHolder, t: RecyclerView.ViewHolder) = false
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition
                 val removedItem = filteredList[position]
+                
                 hybridAdapter.removeItem(position)
                 filteredList.removeAt(position)
                 
-                Snackbar.make(rvSongs, "Removido da fila", Snackbar.LENGTH_LONG)
+                Snackbar.make(rvSongs, "Removido da fila atual", Snackbar.LENGTH_LONG)
                     .setAction("DESFAZER") {
                         hybridAdapter.restoreItem(removedItem, position)
                         filteredList.add(position, removedItem)
@@ -258,8 +278,9 @@ class MainActivity : AppCompatActivity() {
             val current = LocalPlayerManager.getCurrentTrack()
             if (current != null) {
                 miniPlayerContainer.visibility = View.VISIBLE
-                updateMiniUI(current)
-                btnPlayPause.setImageResource(if (LocalPlayerManager.isPlaying()) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+                updateMiniPlayerUI(current)
+                val icon = if (LocalPlayerManager.isPlaying()) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+                btnPlayPause.setImageResource(icon)
             }
         }
     }
