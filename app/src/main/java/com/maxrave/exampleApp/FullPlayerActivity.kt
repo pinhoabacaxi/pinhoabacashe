@@ -119,18 +119,14 @@ class FullPlayerActivity : AppCompatActivity() {
         })
     }
 
-    private fun openOptionsMenu() {
+    // Altere o nome da função e a chamada no clique do botão
+private fun showFullPlayerOptions() { // Renomeado de openOptionsMenu
         val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return
         val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
             when(action) {
                 "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
                 "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
-                "DOWNLOAD_MP3" -> {
-                    if (currentTrack is OnlineSong) {
-                        // startDownload(currentTrack, "mp3") -> Implementar conforme sua lógica de Worker
-                        Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                "DOWNLOAD_MP3" -> Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
                 "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack)
             }
         }
