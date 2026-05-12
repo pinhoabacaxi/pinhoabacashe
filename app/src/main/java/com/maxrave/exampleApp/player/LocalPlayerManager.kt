@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.model.OnlineSong
@@ -15,8 +13,11 @@ import com.maxrave.exampleApp.repository.PlayerPrefs
 
 object LocalPlayerManager {
     private var mediaPlayer: MediaPlayer? = null
-    private var songList: List<Song> = emptyList()
-    private var originalList: List<Song> = emptyList()
+    
+    // Lista Híbrida Única: Pode conter Song ou OnlineSong
+    private var playlistQueue = mutableListOf<Any>()
+    private var originalQueue = mutableListOf<Any>()
+    
     var currentIndex: Int = -1
         private set
     
@@ -28,184 +29,98 @@ object LocalPlayerManager {
 
     enum class RepeatMode { NONE, ONE, ALL }
 
-    var currentSong: Song? = null
-        private set
-    var currentOnlineSong: OnlineSong? = null
-        private set
-
-    var onTrackChanged: ((Song) -> Unit)? = null
-    var onOnlineTrackChanged: ((OnlineSong) -> Unit)? = null
+    // Callbacks para atualizar a UI
+    var onTrackChanged: ((Any) -> Unit)? = null // Retorna Song ou OnlineSong
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
-   
-    private val playbackQueue = mutableListOf<Any>()
-    private val hybridQueue = mutableListOf<Any>() // Aceita Song ou OnlineSong
-    private val handler = Handler(Looper.getMainLooper())
-    private val updateProgressRunnable = object : Runnable {
-        override fun run() {
-            mediaPlayer?.let {
-                if (it.isPlaying) {
-                    try {
-                        onProgressChanged?.invoke(it.currentPosition, it.duration)
-                    } catch (e: Exception) { }
-                }
-            }
-            handler.postDelayed(this, 1000)
-        }
-    }
 
     fun init(context: Context) {
-        if (mediaPlayer == null) {
-            mediaPlayer = MediaPlayer()
-            recentManager = RecentSongsManager(context)
-            prefs = PlayerPrefs(context)
-            handler.post(updateProgressRunnable)
+        recentManager = RecentSongsManager(context)
+        prefs = PlayerPrefs(context)
+    }
+
+    // Tocar uma lista (Ex: ao clicar numa música da biblioteca ou playlist)
+    fun setQueueAndPlay(list: List<Any>, index: Int, context: Context) {
+        originalQueue = list.toMutableList()
+        playlistQueue = if (isShuffle) list.shuffled().toMutableList() else list.toMutableList()
+        
+        // Encontrar o novo índice se estiver em modo shuffle
+        currentIndex = if (isShuffle) {
+            playlistQueue.indexOf(list[index])
+        } else {
+            index
         }
+        play(context)
     }
 
-        // No LocalPlayerManager.kt
-
-
-    fun addToQueue(item: Any) {
-        playbackQueue.add(item)
-    }
-
-    fun playFromQueue(index: Int, context: Context) {
-        if (index !in playbackQueue.indices) return
-        currentIndex = index
-    
-        when (val item = playbackQueue[index]) {
-            is Song -> play(context, item)
-            is VideoMeta -> {
-            // Aqui você chama o seu Repository para pegar o streamUrl antes de tocar
-                extractAndPlay(item, context)
-            }
-            is OnlineSong -> playOnline(item, context)
-        }
-    }
-
-   
+    // Tocar música específica do YouTube
     fun playOnline(onlineSong: OnlineSong, context: Context) {
-        val url = onlineSong.streamUrl ?: return
-        
-        currentSong = null
-        currentOnlineSong = onlineSong
+        // Se a música já está na fila, apenas pula para ela. Se não, adiciona após a atual.
+        val existingIndex = playlistQueue.indexOfFirst { it is OnlineSong && it.id == onlineSong.id }
+        if (existingIndex != -1) {
+            currentIndex = existingIndex
+        } else {
+            playlistQueue.add(currentIndex + 1, onlineSong)
+            currentIndex++
+        }
+        play(context)
+    }
 
-        // CORREÇÃO CRUCIAL: Iniciar o serviço IMEDIATAMENTE antes do buffering
-        // Isso evita o crash de 1 minuto pois o serviço já nasce com uma notificação.
-        updateService(context, "ACTION_PREPARE_ONLINE")
+    fun play(context: Context) {
+        if (currentIndex !in playlistQueue.indices) return
+        
+        val currentItem = playlistQueue[currentIndex]
+        val path = when (currentItem) {
+            is Song -> currentItem.path
+            is OnlineSong -> currentItem.streamingUrl ?: return
+            else -> return
+        }
 
         try {
-            mediaPlayer?.apply {
-                reset()
-                setDataSource(url)
-                
-                // Usamos Async para não travar a UI enquanto o YouTube responde
-                prepareAsync() 
-                
-                setOnPreparedListener {
-                    it.start()
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(path)
+                prepareAsync()
+                setOnPreparedListener { 
+                    start()
                     onPlaybackStatusChanged?.invoke(true)
-                    onOnlineTrackChanged?.invoke(onlineSong)
-                    // Atualiza a notificação de "Carregando" para o nome real da música
-                    updateService(context, "ACTION_UPDATE_NOTIFICATION")
+                    updateService(context, "ACTION_PLAY")
                 }
-
-                setOnCompletionListener {
-                    onPlaybackStatusChanged?.invoke(false)
-                    handleCompletion(context)
-                }
-                
-                setOnErrorListener { _, what, extra ->
-                    Log.e("PlayerManager", "Erro no stream: $what, $extra")
-                    onPlaybackStatusChanged?.invoke(false)
-                    false
+                setOnCompletionListener { 
+                    handleCompletion(context) 
                 }
             }
+            onTrackChanged?.invoke(currentItem)
         } catch (e: Exception) {
-            Log.e("PlayerManager", "Falha ao configurar DataSource: ${e.message}")
+            Log.e("PlayerManager", "Erro ao tocar: ${e.message}")
         }
     }
 
-    fun startPlaying(context: Context, list: List<Song>, position: Int) {
-        setList(list)
-        currentIndex = position
-        if (currentIndex in songList.indices) {
-            play(context, songList[currentIndex])
-        }
-    }
-
-    private fun setList(list: List<Song>) {
-        this.originalList = list
-        this.songList = if (isShuffle) list.shuffled() else list
-    }
-    // No LocalPlayerManager.kt
-
-    fun addToQueue(item: Any) {
-        hybridQueue.add(item)
-    // Se quiser, avise a UI que a fila mudou
-    }
-
-    fun playNextInHybridQueue(context: Context) {
-        if (hybridQueue.isEmpty()) return
-    
-        currentIndex++
-        if (currentIndex < hybridQueue.size) {
-            val nextItem = hybridQueue[currentIndex]
-            when (nextItem) {
-                is Song -> play(context, nextItem)
-                is OnlineSong -> playOnline(nextItem, context)
+    // LÓGICA DO SWIPE: Remover da fila
+    fun removeFromQueue(position: Int) {
+        if (position in playlistQueue.indices) {
+            playlistQueue.removeAt(position)
+            
+            if (position == currentIndex) {
+                // Se removeu a que está tocando, para ou pula
+                stop()
+            } else if (position < currentIndex) {
+                currentIndex--
             }
         }
     }
 
-    fun play(context: Context, song: Song? = null) {
-        val targetSong = song ?: if (currentIndex in songList.indices) songList[currentIndex] else return
-        
-        currentIndex = songList.indexOfFirst { it.id == targetSong.id }
-        currentSong = targetSong
-        currentOnlineSong = null
-
-        try {
-            mediaPlayer?.apply {
-                reset()
-                val trackUri = android.content.ContentUris.withAppendedId(
-                    android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    targetSong.id
-                )
-                setDataSource(context, trackUri)
-                prepare()
-                start()
-                
-                setOnCompletionListener {
-                    handleCompletion(context)
-                }
-            }
-            
-            recentManager?.addSongToRecent(targetSong.id)
-            onTrackChanged?.invoke(targetSong)
-            onPlaybackStatusChanged?.invoke(true)
-            
-            updateService(context, "ACTION_UPDATE_NOTIFICATION")
-            
-        } catch (e: Exception) {
-            Log.e("PlayerManager", "Erro ao tocar local: ${e.message}")
-            next(context)
-        }
+    fun restoreToQueue(position: Int, item: Any) {
+        playlistQueue.add(position, item)
+        if (position <= currentIndex) currentIndex++
     }
 
     private fun handleCompletion(context: Context) {
-        // Se for online, apenas paramos (ou você pode implementar autoplay similar aqui)
-        if (currentOnlineSong != null) {
-            onPlaybackStatusChanged?.invoke(false)
-            return
-        }
-
         when (repeatMode) {
-            RepeatMode.ONE -> play(context, currentSong)
+            RepeatMode.ONE -> play(context)
             RepeatMode.ALL -> next(context)
             RepeatMode.NONE -> {
-                if (currentIndex < songList.size - 1) next(context)
+                if (currentIndex < playlistQueue.size - 1) next(context)
                 else onPlaybackStatusChanged?.invoke(false)
             }
         }
@@ -213,62 +128,42 @@ object LocalPlayerManager {
 
     fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
-            if (it.isPlaying) it.pause() else it.start()
-            onPlaybackStatusChanged?.invoke(it.isPlaying)
-            updateService(context, "ACTION_UPDATE_NOTIFICATION")
+            if (it.isPlaying) {
+                it.pause()
+                onPlaybackStatusChanged?.invoke(false)
+                updateService(context, "ACTION_PAUSE")
+            } else {
+                it.start()
+                onPlaybackStatusChanged?.invoke(true)
+                updateService(context, "ACTION_PLAY")
+            }
         }
     }
 
-    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
-
-    fun seekTo(position: Int) {
-        mediaPlayer?.seekTo(position)
-    }
-
     fun next(context: Context) {
-        if (songList.isEmpty()) return
-        currentIndex = (currentIndex + 1) % songList.size
+        if (playlistQueue.isEmpty()) return
+        currentIndex = (currentIndex + 1) % playlistQueue.size
         play(context)
     }
 
     fun previous(context: Context) {
-        if (songList.isEmpty()) return
-        currentIndex = if (currentIndex > 0) currentIndex - 1 else songList.size - 1
+        if (playlistQueue.isEmpty()) return
+        currentIndex = if (currentIndex > 0) currentIndex - 1 else playlistQueue.size - 1
         play(context)
     }
 
-    fun toggleShuffle() {
-        isShuffle = !isShuffle
-        val current = currentSong
-        songList = if (isShuffle) originalList.shuffled() else originalList
-        current?.let { song ->
-            currentIndex = songList.indexOfFirst { it.id == song.id }
-        }
+    fun stop() {
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
+        onPlaybackStatusChanged?.invoke(false)
     }
 
-    fun toggleRepeat() {
-        repeatMode = when (repeatMode) {
-            RepeatMode.NONE -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.NONE
-        }
-    }
+    fun isPlaying() = mediaPlayer?.isPlaying ?: false
 
-    /**
-     * Gerencia a chamada do serviço de forma segura para evitar crashes
-     */
     fun updateService(context: Context, action: String) {
-        try {
-            val intent = Intent(context, PlaybackService::class.java).apply { 
-                this.action = action 
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        } catch (e: Exception) {
-            Log.e("PlayerManager", "Erro ao iniciar serviço: ${e.message}")
-        }
+        val intent = Intent(context, PlaybackService::class.java).apply { this.action = action }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+        else context.startService(intent)
     }
 }
