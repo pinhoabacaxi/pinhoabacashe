@@ -77,21 +77,18 @@
             android:scaleType="centerCrop"
             android:src="@android:drawable/ic_media_play" />
     </androidx.cardview.widget.CardView>
-
+    
     <SeekBar
         android:id="@+id/seekBarVolume"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:max="100"
-        android:progress="70"
+        android:layout_marginHorizontal="40dp"
+        android:layout_marginTop="32dp"
+        android:progress="50"
+        android:scaleY="1.5" 
         android:progressTint="#FFFFFF"
-        android:thumbTint="#FFFFFF"
-        android:rotation="270"
-        app:layout_constraintBottom_toBottomOf="@id/cardAlbum"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/cardAlbum"
-        app:layout_constraintTop_toTopOf="@id/cardAlbum"
-        app:layout_constraintWidth_max="200dp" />
+        android:thumbTint="#FFFFFF" />
+
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/infoContainer"
