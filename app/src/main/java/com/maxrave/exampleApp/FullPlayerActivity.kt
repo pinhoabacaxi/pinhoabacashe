@@ -102,7 +102,7 @@ class FullPlayerActivity : AppCompatActivity() {
             is Song -> {
                 title = item.title
                 artist = item.artist
-                artSource = item.uri ?: android.R.drawable.ic_media_play
+                artSource = item.path // Mude de item.uri para item.path
             }
             is OnlineSong -> {
                 title = item.title
