@@ -5,17 +5,18 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground">
-    
+    android:background="#121212">
+
     <TextView
         android:id="@+id/tvLibTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="24dp"
         android:text="Sua Biblioteca"
-        android:textSize="24sp"
-        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:textSize="28sp"
+        android:fontFamily="sans-serif-black"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -28,29 +29,43 @@
         android:src="@android:drawable/ic_menu_rotate"
         app:layout_constraintBottom_toBottomOf="@+id/tvLibTitle"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tvLibTitle" />
+        app:layout_constraintTop_toTopOf="@+id/tvLibTitle"
+        app:tint="#FFFFFF" />
 
     <LinearLayout
         android:id="@+id/searchAndFilterContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="8dp"
-        app:layout_constraintTop_toBottomOf="@id/tvLibTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintTop_toBottomOf="@id/tvLibTitle">
 
-        <androidx.appcompat.widget.SearchView
-            android:id="@+id/searchViewLibrary"
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:iconifiedByDefault="false"
-            app:queryHint="Buscar na biblioteca..." />
+            android:layout_height="50dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            app:cardBackgroundColor="#252525"
+            app:cardCornerRadius="25dp"
+            app:cardElevation="0dp">
+
+            <androidx.appcompat.widget.SearchView
+                android:id="@+id/searchViewLibrary"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:iconifiedByDefault="false"
+                app:queryBackground="@android:color/transparent"
+                app:searchIcon="@android:drawable/ic_menu_search"
+                app:queryHint="Buscar na biblioteca..." />
+        </androidx.cardview.widget.CardView>
 
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:scrollbars="none">
         
             <com.google.android.material.chip.ChipGroup
@@ -66,21 +81,27 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:checked="true"
-                    android:text="Todas"/>
+                    android:text="Todas"
+                    app:chipBackgroundColor="@color/chip_background_selector"
+                    android:textColor="@color/chip_text_selector"/>
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipFavorites"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Favoritas"/>
+                    android:text="Favoritas"
+                    app:chipBackgroundColor="@color/chip_background_selector"
+                    android:textColor="@color/chip_text_selector"/>
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipRecent"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Recentes"/>
+                    android:text="Recentes"
+                    app:chipBackgroundColor="@color/chip_background_selector"
+                    android:textColor="@color/chip_text_selector"/>
                 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipOnline"
@@ -88,7 +109,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:chipIcon="@android:drawable/ic_menu_search"
-                    android:text="Buscar Online"/>
+                    app:chipIconTint="#FFFFFF"
+                    android:text="Buscar Online"
+                    app:chipBackgroundColor="#33FFFFFF"
+                    android:textColor="#FFFFFF"/>
 
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
@@ -99,8 +123,8 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
-        android:paddingBottom="80dp"
         android:clipToPadding="false"
+        android:paddingBottom="100dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -109,12 +133,10 @@
     <ProgressBar
         android:id="@+id/progressBar"
         style="@android:style/Widget.ProgressBar.Horizontal"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:indeterminate="true"
         android:visibility="gone"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
@@ -122,6 +144,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Nenhuma música encontrada."
+        android:textColor="#88FFFFFF"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -131,9 +154,8 @@
     <include
         android:id="@+id/includeMiniPlayer"
         layout="@layout/layout_mini_player"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
