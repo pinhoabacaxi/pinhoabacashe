@@ -40,6 +40,7 @@
 
         <activity
             android:name=".OnlineSearchActivity"
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
             android:exported="false"
             android:windowSoftInputMode="stateHidden" />
 
