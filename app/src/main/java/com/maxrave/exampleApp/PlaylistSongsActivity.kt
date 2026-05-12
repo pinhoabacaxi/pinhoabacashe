@@ -93,6 +93,9 @@ class PlaylistSongsActivity : AppCompatActivity() {
                     }
                 }
                 hybridAdapter.setList(mappedList)
+                
+                // CORREÇÃO: Usando o binding e verificando a visibilidade corretamente
+                // Se o ID no XML for tvEmptyState, o binding será binding.tvEmptyState
                 binding.tvEmptyState.visibility = if (mappedList.isEmpty()) View.VISIBLE else View.GONE
             } else {
                 binding.tvEmptyState.visibility = View.VISIBLE
