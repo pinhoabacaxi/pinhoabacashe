@@ -22,7 +22,7 @@ import android.app.NotificationManager
 class PlaybackService : Service() {
 
     private val CHANNEL_ID = "music_player_channel"
-    private val NOTIFICATION_ID = 101
+    private val NOTIFICATION_ID = 1001
 
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
