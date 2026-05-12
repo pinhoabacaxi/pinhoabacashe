@@ -80,17 +80,32 @@ class PlaybackService : Service() {
      */
     private fun updateGeneralNotification() {
         val currentTrack = LocalPlayerManager.getCurrentTrack()
-        when (currentTrack) {
-            is Song -> showNotification(currentTrack)
-            is OnlineSong -> showOnlineNotification(currentTrack)
-            else -> {
-                // Se não houver nada, mas o serviço foi chamado, mantém o placeholder ou para
-                if (LocalPlayerManager.isPlaying()) {
-                    val placeholder = createPlaceholderNotification()
-                    startForegroundServiceSafe(placeholder)
-                }
-            }
+        val isPlaying = LocalPlayerManager.isPlaying()
+        
+        val notification = when (currentTrack) {
+            is Song -> buildNotification(currentTrack.title, currentTrack.artist, currentTrack.path, isPlaying)
+            is OnlineSong -> buildNotification(currentTrack.title, currentTrack.author, currentTrack.thumbnailUrl, isPlaying)
+            else -> createPlaceholderNotification()
         }
+        
+        startForegroundServiceSafe(notification)
+    }
+    private fun buildNotification(title: String, artist: String, artPath: Any?, isPlaying: Boolean): Notification {
+        val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(artist)
+            .setSmallIcon(R.drawable.ic_music_note) // Substitua pelo seu ícone de nota
+            .setOngoing(isPlaying)
+            .setSilent(true)
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
+                .setShowActionsInCompactView(0, 1, 2))
+            .addAction(android.R.drawable.ic_media_previous, "Anterior", getPendingAction("ACTION_PREVIOUS"))
+            .addAction(playPauseIcon, "Play/Pause", getPendingAction("ACTION_PLAY_PAUSE"))
+            .addAction(android.R.drawable.ic_media_next, "Próxima", getPendingAction("ACTION_NEXT"))
+            .setContentIntent(getMainContentIntent())
+            .build()
     }
 
     private fun createPlaceholderNotification(): Notification {
