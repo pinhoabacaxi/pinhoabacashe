@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'kotlin-kapt' // ESSENCIAL: Adicionado para o Room funcionar com kapt
 }
 
 android {
@@ -16,7 +17,6 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         
-        // Mantido para sua chave oficial do Google
         buildConfigField "String", "YOUTUBE_API_KEY", "\"${project.properties['YOUTUBE_API_KEY']}\""
     }
 
@@ -27,9 +27,8 @@ android {
 
     buildTypes {
         release {
-            // Alterado para true para que as regras do proguard-rules.pro sejam aplicadas
             minifyEnabled true 
-            shrinkResources true // Remove recursos não utilizados para diminuir o APK
+            shrinkResources true 
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
@@ -46,6 +45,13 @@ android {
     kotlinOptions {
         jvmTarget = '11'
     }
+
+    // RESOLVE O ERRO DE DUPLICATE CLASSES (CONFLITO DE ANOTAÇÕES)
+    configurations {
+        all {
+            exclude group: 'com.intellij', module: 'annotations'
+        }
+    }
 }
 
 dependencies {
@@ -56,32 +62,37 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.media:media:1.6.0'
-    // Extensões para Activity e Fragment (para usar o 'by viewModels()')
+    
+    // Extensões KTX (Activity e Fragment)
     implementation "androidx.activity:activity-ktx:1.8.2"
     implementation "androidx.fragment:fragment-ktx:1.6.2"
+    
+    // WorkManager (Removida a duplicidade)
     implementation "androidx.work:work-runtime-ktx:2.9.0"
-    // Ciclo de vida e ViewModel
+    
+    // Lifecycle e Coroutines (Unificadas na versão 2.7.0)
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0"
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1'
+    
+    // Imagens e Efeitos
+    implementation 'com.github.bumptech.glide:glide:4.15.1'
+    implementation 'jp.wasabeef:glide-transformations:4.3.0' 
+    
     // Rede e JSON
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
     implementation 'com.squareup.okhttp3:logging-interceptor:4.10.0'
-    // Lifecycle e Coroutines (Essencial para o Repository e Extractor)
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1'
-    implementation 'jp.wasabeef:glide-transformations:4.3.0' 
-    // YouTube Extractor e Dependência de Decifração (JsEvaluator)
+    
+    // Room Database
+    implementation "androidx.room:room-runtime:2.6.1"
+    kapt "androidx.room:room-compiler:2.6.1"
+    implementation "androidx.room:room-ktx:2.6.1"
+    
+    // YouTube Extractor e JS Evaluator
     implementation project(':kotlinYoutubeExtractor')
     implementation 'com.github.evgenyneu:js-evaluator-for-android:v6.0.0'
-    implementation 'androidx.room:room-runtime:2.6.1'
-    implementation 'androidx.room:room-compiler:2.6.1'
-    implementation 'androidx.room:room-ktx:2.6.1'
-    implementation 'androidx.work:work-runtime-ktx:2.9.0'
-    // Imagens
-    implementation 'com.github.bumptech.glide:glide:4.15.1'
-    
+
     // Testes
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
