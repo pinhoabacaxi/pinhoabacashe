@@ -74,7 +74,27 @@ class MainActivity : AppCompatActivity() {
         
         checkPermissionsAndLoad()
     }
-
+    hybridAdapter = HybridAdapter(
+        onItemClick = { ... },
+        onLongItemClick = { item ->
+            if (item is OnlineSong) {
+                showQuickActionDialog(item)
+            }
+        }
+    )
+    
+    private fun showQuickActionDialog(song: OnlineSong) {
+        AlertDialog.Builder(this)
+            .setTitle(song.title)
+            .setItems(arrayOf("Adicionar ao final (Baixar e Tocar)")) { _, _ ->
+                // 1. Inicia download em background
+                startDownload(song, "mp3")
+                // 2. Adiciona à fila temporária
+                LocalPlayerManager.addToEnd(song)
+                Toast.makeText(this, "Baixando e adicionando à fila...", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
     private fun initViews() {
         rvSongs = findViewById(R.id.rvSongs)
         tvEmptyState = findViewById(R.id.tvEmptyState)
