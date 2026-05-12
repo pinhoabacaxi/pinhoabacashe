@@ -99,7 +99,12 @@ class MainActivity : AppCompatActivity() {
             val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
             updateDisplayList(sorted.toMutableList())
         }
-        
+        // Localize o botão de busca (ex: um ImageButton com id btnOnlineSearch)
+        findViewById<ImageButton>(R.id.btnOnlineSearch).setOnClickListener {
+            val intent = Intent(this, OnlineSearchActivity::class.java)
+            startActivity(intent)
+        }
+
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(q: String?): Boolean = true
             override fun onQueryTextChange(newText: String?): Boolean {
