@@ -2,6 +2,8 @@ package com.maxrave.exampleApp.model
 
 import android.os.Parcel
 import android.os.Parcelable
+import android.content.ContentUris // Adicione este
+import android.net.Uri            // Adicione este
 
 data class Song(
     val id: Long,
