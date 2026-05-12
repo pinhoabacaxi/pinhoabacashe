@@ -1,5 +1,6 @@
 package com.maxrave.kotlinyoutubeextractor.viewmodel
 
+import android.util.Log
 import android.app.Application // ESTA LINHA É ESSENCIAL
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
