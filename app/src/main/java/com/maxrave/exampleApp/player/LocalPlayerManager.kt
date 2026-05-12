@@ -13,12 +13,11 @@ import com.maxrave.exampleApp.repository.PlayerPrefs
 
 object LocalPlayerManager {
     private var mediaPlayer: MediaPlayer? = null
-    private var currentQueue = mutableListOf<Any>()
-    private var currentIndex = 0
     private var playlistQueue = mutableListOf<Any>()
     private var originalQueue = mutableListOf<Any>()
-    private var currentVolume = 1.0f // 0.0 a 1.0
+    private var currentVolume = 1.0f 
     
+    // CORREÇÃO: Apenas uma declaração de currentIndex
     var currentIndex: Int = -1
         private set
     
@@ -29,78 +28,44 @@ object LocalPlayerManager {
     
     enum class RepeatMode { NONE, ONE, ALL }
     var repeatMode: RepeatMode = RepeatMode.NONE
-    // Callbacks unificados (Removida a duplicação)
+
+    // Callbacks unificados
     var onTrackChanged: ((Any) -> Unit)? = null 
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
 
-
-    // 1. Tocar a seguir (Play Next)
-    fun playNext(item: Any) {
-        if (playlistQueue.isEmpty()) {
-            playlistQueue.add(item)
-            currentIndex = 0 // Se estava vazio, essa passa a ser a atual
-        } else {
-            playlistQueue.add(currentIndex + 1, item)
-        }
-    }
-    // 3. Obter a fila atual (para o Adapter saber que mudou)
-    fun getCurrentQueue() = playlistQueue
-    
-    // 2. Adicionar ao final da fila (Add to Queue)
-    fun addToEnd(item: Any) {
-        playlistQueue.add(item)
-        if (playlistQueue.size == 1) {
-            currentIndex = 0 // Se era a única, seta o índice
-        }
-    }
     fun init(context: Context) {
         recentManager = RecentSongsManager(context)
         prefs = PlayerPrefs(context)
     }
 
-    // --- GETTERS PARA O FULL PLAYER ---
+    // --- LÓGICA DE FILA ---
+    fun playNext(item: Any) {
+        if (playlistQueue.isEmpty()) {
+            playlistQueue.add(item)
+            currentIndex = 0 
+        } else {
+            playlistQueue.add(currentIndex + 1, item)
+        }
+    }
+
+    fun addToEnd(item: Any) {
+        playlistQueue.add(item)
+        if (playlistQueue.size == 1) {
+            currentIndex = 0 
+        }
+    }
+
+    fun getCurrentQueue() = playlistQueue
+
+    // --- GETTERS E SETTERS ---
     fun getCurrentTrack(): Any? = if (currentIndex in playlistQueue.indices) playlistQueue[currentIndex] else null
-    
     fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
-    
     fun getDuration(): Int = mediaPlayer?.duration ?: 0
+    fun isPlaying() = mediaPlayer?.isPlaying ?: false
 
     fun seekTo(pos: Int) {
         mediaPlayer?.seekTo(pos)
-    }
-
-    fun isPlaying() = mediaPlayer?.isPlaying ?: false
-
-    // --- LÓGICA DE REPRODUÇÃO ---
-    fun play(context: Context) {
-        val track = getCurrentTrack() ?: return
-        
-        // Ajustado para os nomes de campos corretos do seu modelo
-        val dataSource = when (track) {
-            is Song -> track.path 
-            is OnlineSong -> track.url // Mude para track.streamingUrl se o erro persistir
-            else -> return
-        }
-
-        try {
-            mediaPlayer?.release()
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(dataSource)
-                prepareAsync()
-                setOnPreparedListener { 
-                    start() 
-                    onPlaybackStatusChanged?.invoke(true)
-                    updateService(context, "ACTION_PLAY")
-                }
-                setOnCompletionListener { 
-                    handleCompletion(context) 
-                }
-            }
-            onTrackChanged?.invoke(track)
-        } catch (e: Exception) { 
-            Log.e("PlayerManager", "Erro ao tocar: ${e.message}")
-        }
     }
 
     fun setVolume(volume: Float) {
@@ -119,38 +84,57 @@ object LocalPlayerManager {
         return repeatMode
     }
 
+    // --- REPRODUÇÃO ---
+    fun play(context: Context) {
+        val track = getCurrentTrack() ?: return
+        val dataSource = when (track) {
+            is Song -> track.path 
+            is OnlineSong -> track.url 
+            else -> return
+        }
+
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(dataSource)
+                setVolume(currentVolume, currentVolume) // Aplica volume interno
+                prepareAsync()
+                setOnPreparedListener { 
+                    start() 
+                    onPlaybackStatusChanged?.invoke(true)
+                    updateService(context, "ACTION_PLAY")
+                }
+                setOnCompletionListener { 
+                    handleCompletion(context) 
+                }
+            }
+            onTrackChanged?.invoke(track)
+        } catch (e: Exception) { 
+            Log.e("PlayerManager", "Erro ao tocar: ${e.message}")
+        }
+    }
+
     private fun handleCompletion(context: Context) {
         when (repeatMode) {
-            RepeatMode.ONE -> play(context) // Toca a mesma de novo
-            RepeatMode.ALL -> next(context) // Vai para a próxima, volta ao início se for a última
+            RepeatMode.ONE -> play(context) 
+            RepeatMode.ALL -> next(context) 
             RepeatMode.NONE -> {
-                if (currentIndex < playlistQueue.size - 1) {
-                    next(context)
-                } else {
-                    stop()
-                }
+                if (currentIndex < playlistQueue.size - 1) next(context) else stop()
             }
         }
     }
-    
+
     fun setQueueAndPlay(list: List<Any>, index: Int, context: Context) {
         originalQueue = list.toMutableList()
         playlistQueue = if (isShuffle) list.shuffled().toMutableList() else list.toMutableList()
-        
-        currentIndex = if (isShuffle) {
-            playlistQueue.indexOf(list[index])
-        } else {
-            index
-        }
+        currentIndex = if (isShuffle) playlistQueue.indexOf(list[index]) else index
         play(context)
     }
 
     fun playOnline(onlineSong: OnlineSong, context: Context) {
-        // Verificando pelo videoId conforme seu erro de compilação anterior
         val existingIndex = playlistQueue.indexOfFirst { 
             it is OnlineSong && it.videoId == onlineSong.videoId 
         }
-        
         if (existingIndex != -1) {
             currentIndex = existingIndex
         } else {
@@ -160,7 +144,6 @@ object LocalPlayerManager {
         play(context)
     }
 
-    // --- CONTROLES ---
     fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
             if (it.isPlaying) {
@@ -187,7 +170,6 @@ object LocalPlayerManager {
         play(context)
     }
 
-    
     fun stop() {
         mediaPlayer?.stop()
         mediaPlayer?.release()
@@ -195,17 +177,11 @@ object LocalPlayerManager {
         onPlaybackStatusChanged?.invoke(false)
     }
 
-    // --- LÓGICA DO SWIPE ---
     fun removeFromQueue(position: Int) {
         if (position in playlistQueue.indices) {
             val removedIsCurrent = (position == currentIndex)
             playlistQueue.removeAt(position)
-            
-            if (removedIsCurrent) {
-                stop()
-            } else if (position < currentIndex) {
-                currentIndex--
-            }
+            if (removedIsCurrent) stop() else if (position < currentIndex) currentIndex--
         }
     }
 
