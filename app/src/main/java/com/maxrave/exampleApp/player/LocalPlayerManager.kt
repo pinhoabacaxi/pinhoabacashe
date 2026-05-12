@@ -16,7 +16,10 @@ object LocalPlayerManager {
     private var playlistQueue = mutableListOf<Any>()
     private var originalQueue = mutableListOf<Any>()
     private var currentVolume = 1.0f 
-    
+    // NOVO: Guarda a música atual para consulta rápida
+    private var currentTrack: Any? = null
+    // NOVO: Lista de ouvintes para não sobrescrever um ao outro
+    private val listeners = mutableListOf<PlayerListener>()
     var currentIndex: Int = -1
         private set
     
@@ -65,8 +68,7 @@ object LocalPlayerManager {
     }
 
     fun getCurrentQueue() = playlistQueue
-
-    fun getCurrentTrack(): Any? = if (currentIndex in playlistQueue.indices) playlistQueue[currentIndex] else null
+    fun getCurrentTrack(): Any? = currentTrack
     fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
     fun getDuration(): Int = mediaPlayer?.duration ?: 0
     fun isPlaying() = mediaPlayer?.isPlaying ?: false
