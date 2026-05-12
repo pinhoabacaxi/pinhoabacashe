@@ -115,13 +115,13 @@
                     app:chipBackgroundColor="#333333" />
 
                 <com.google.android.material.chip.Chip
-                    android:id="@+id/chipOnline"
-                    style="@style/Widget.MaterialComponents.Chip.Action"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Buscar Online"
-                    android:textColor="#FFFFFF"
-                    app:chipBackgroundColor="#1DB954" />
+                    <ImageButton
+                        android:id="@+id/btnOnlineSearch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:src="@android:drawable/ic_menu_search"
+                        android:contentDescription="Busca Online" />
+
 
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
