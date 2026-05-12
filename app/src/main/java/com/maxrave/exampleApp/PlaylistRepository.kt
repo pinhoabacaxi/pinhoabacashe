@@ -16,9 +16,18 @@ class PlaylistRepository(context: Context) {
         return dao.getAllPlaylists()
     }
 
+    suspend fun deletePlaylist(playlist: Playlist) {
+        dao.deletePlaylist(playlist)
+    }
+
+    // --- GERENCIAMENTO DE MÚSICAS ---
     suspend fun addSongToPlaylist(playlistId: Long, song: SongEntity) {
         dao.insertSong(song)
         dao.addSongToPlaylist(PlaylistSongCrossRef(playlistId, song.id))
+    }
+
+    suspend fun removeSongFromPlaylist(playlistId: Long, songId: String) {
+        dao.removeSongFromPlaylist(playlistId, songId)
     }
 
     suspend fun getSongsFromPlaylist(playlistId: Long): List<PlaylistWithSongs> {
@@ -26,16 +35,11 @@ class PlaylistRepository(context: Context) {
     }
 
     // --- FILTROS ---
-    suspend fun getSongsByArtist(artist: String): List<SongEntity> {
-        // Implemente a query no MusicDao se necessário
-        return emptyList() 
-    }
-    
     suspend fun getAllArtists(): List<String> {
         return dao.getUniqueArtists()
     }
 
-    // --- FAVORITOS (Implementado) ---
+    // --- FAVORITOS ---
     suspend fun isFavorite(songId: String): Boolean {
         return dao.isFavorite(songId)
     }
