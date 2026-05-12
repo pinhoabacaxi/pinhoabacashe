@@ -26,3 +26,8 @@ data class PlaylistSongCrossRef(
     val playlistId: Long,
     val songId: String
 )
+@Entity
+    (tableName = "favorites")
+    data class FavoriteEntity(
+        @PrimaryKey val songId: String // O ID da música (path ou URL)
+    )
