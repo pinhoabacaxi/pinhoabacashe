@@ -10,7 +10,7 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Singleton simples para manter a sessão viva entre busca e extração
+// Singleton para manter a sessão ativa entre busca e extração
 object YouTubeSession {
     var visitorData: String? = null
     var cookies: String? = null
@@ -25,20 +25,30 @@ class YTSearch(private val context: Context) {
     suspend fun search(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
         val searchResults = mutableListOf<VideoMeta>()
         
-        // ... (verificação de conectividade mantida) ...
+        // Verificação de Conectividade
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = cm.activeNetworkInfo
+        if (activeNetwork == null || !activeNetwork.isConnectedOrConnecting) {
+            Log.e(LOG_TAG, "Dispositivo sem conexão de rede.")
+            return@withContext searchResults
+        }
 
         try {
+            Log.d(LOG_TAG, "Iniciando busca para: $query")
+            
             val apiUrl = "https://youtubei.googleapis.com/youtubei/v1/search?prettyPrint=false"
             val url = URL(apiUrl)
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             
-            // BYPASS 4: TLS/User-Agent Consistente
+            // BYPASS 4 & 5: TLS, Host e Origin para Consistência de Contexto
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
             conn.setRequestProperty("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
+            conn.setRequestProperty("Host", "youtubei.googleapis.com")
+            conn.setRequestProperty("Origin", "https://www.youtube.com")
             
-            // BYPASS 2: Enviar cookies se já tivermos (para parecer um retorno de usuário)
+            // BYPASS 2: Enviar cookies se já existirem
             YouTubeSession.cookies?.let { conn.setRequestProperty("Cookie", it) }
 
             val requestBody = JSONObject().apply {
@@ -48,7 +58,7 @@ class YTSearch(private val context: Context) {
                         put("clientVersion", CLIENT_VERSION)
                         put("hl", "pt-BR")
                         put("gl", "BR")
-                        // BYPASS 5: Se já tivermos visitorData, enviamos para manter consistência
+                        // Envia VisitorData se disponível
                         YouTubeSession.visitorData?.let { put("visitorData", it) }
                     })
                 })
@@ -58,7 +68,7 @@ class YTSearch(private val context: Context) {
 
             conn.outputStream.use { it.write(requestBody.toString().toByteArray()) }
 
-            // BYPASS 2: Capturar novos Cookies e VisitorData da resposta
+            // BYPASS 2: Capturar novos Cookies
             val cookieHeader = conn.headerFields["Set-Cookie"]
             if (cookieHeader != null) {
                 YouTubeSession.cookies = cookieHeader.joinToString("; ")
@@ -67,7 +77,7 @@ class YTSearch(private val context: Context) {
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val jsonResponse = JSONObject(response)
 
-            // SALVANDO O VISITOR DATA PARA O REPOSITORY USAR NO BYPASS DO PLAYER
+            // Salva VisitorData para uso posterior no Repository
             val responseContext = jsonResponse.optJSONObject("responseContext")
             val vData = responseContext?.optString("visitorData")
             if (!vData.isNullOrEmpty()) {
@@ -75,10 +85,69 @@ class YTSearch(private val context: Context) {
                 Log.d(LOG_TAG, "Bypass 2: VisitorData capturado: $vData")
             }
 
-            // ... (resto da lógica de mapeamento de vídeo mantida igual) ...
+            // Lógica de Mapeamento do JSON (Restaurada)
+            val contentsObj = jsonResponse.optJSONObject("contents")
+            
+            var itemsArray: JSONArray? = contentsObj
+                ?.optJSONObject("twoColumnSearchResultsRenderer")
+                ?.optJSONObject("primaryContents")
+                ?.optJSONObject("sectionListRenderer")
+                ?.optJSONArray("contents")
+                ?.optJSONObject(0)
+                ?.optJSONObject("itemSectionRenderer")
+                ?.optJSONArray("contents")
+
+            if (itemsArray == null) {
+                itemsArray = contentsObj
+                    ?.optJSONObject("sectionListRenderer")
+                    ?.optJSONArray("contents")
+                    ?.optJSONObject(0)
+                    ?.optJSONObject("itemSectionRenderer")
+                    ?.optJSONArray("contents")
+            }
+
+            if (itemsArray != null) {
+                Log.d(LOG_TAG, "Resultados encontrados: ${itemsArray.length()}")
+                for (i in 0 until itemsArray.length()) {
+                    val item = itemsArray.optJSONObject(i)
+                    val videoRenderer = item?.optJSONObject("videoRenderer") 
+                        ?: item?.optJSONObject("musicVideoRenderer")
+                    
+                    if (videoRenderer != null) {
+                        val videoId = videoRenderer.getString("videoId")
+                        val title = videoRenderer.optJSONObject("title")
+                            ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "Sem título"
+                            
+                        val author = videoRenderer.optJSONObject("longBylineText")
+                            ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
+                            ?: videoRenderer.optJSONObject("shortBylineText")
+                            ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "Desconhecido"
+                        
+                        val thumbnailArray = videoRenderer.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                        val thumbUrl = if (thumbnailArray != null && thumbnailArray.length() > 0) {
+                            thumbnailArray.optJSONObject(thumbnailArray.length() - 1)?.optString("url") ?: ""
+                        } else ""
+
+                        searchResults.add(VideoMeta(
+                            videoId = videoId,
+                            title = title,
+                            author = author,
+                            channelId = "",
+                            duration = 0L,
+                            viewCount = 0L,
+                            isLiveStream = false,
+                            description = "",
+                            thumbnailUrl = thumbUrl
+                        ))
+                    }
+                }
+            } else {
+                Log.e(LOG_TAG, "Caminho de 'contents' não mapeado no JSON.")
+            }
 
         } catch (e: Exception) {
             Log.e(LOG_TAG, "Erro crítico na busca: ${e.message}")
+            e.printStackTrace()
         }
         
         return@withContext searchResults
