@@ -63,6 +63,13 @@ class MainActivity : AppCompatActivity() {
         setupFiltersAndSearch()
         setupSwipeToDismiss()
         checkPermissionsAndLoad()
+        // No OnCreate da MainActivity
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+ 
     }
 
     private fun setupRecyclerView() {
