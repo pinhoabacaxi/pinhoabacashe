@@ -18,7 +18,7 @@ class YouTubeRepository(private val context: Context) {
     private val extractor = YTExtractor(context, CACHING = false, LOGGING = true)
     
     private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
-    private val youtubeApiKey2 = "COLE_AQUI_SUA_SEGUNDA_CHAVE" 
+    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
 
     suspend fun downloadMusic(videoId: String): Unit = withContext(Dispatchers.IO) {
         val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://www.youtube.com/watch?v=$videoId"
