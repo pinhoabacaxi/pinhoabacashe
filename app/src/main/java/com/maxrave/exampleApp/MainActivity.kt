@@ -125,7 +125,20 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
+    private fun startDownload(song: OnlineSong, format: String) {
+        val downloadRequest = androidx.work.OneTimeWorkRequestBuilder<MusicDownloadWorker>()
+            .setInputData(androidx.work.workDataOf(
+                "URL" to song.url,
+                "FILE_NAME" to "${song.title.replace(" ", "_")}.$format"
+            ))
+            .addTag("download_${song.videoId}")
+            .build()
+    
+        androidx.work.WorkManager.getInstance(this).enqueue(downloadRequest)
+        
+        Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
+    }
+    
     private fun setupRecyclerView() {
         hybridAdapter = HybridAdapter(
             onItemClick = { item, position ->
