@@ -1,3 +1,8 @@
+package com.maxrave.exampleApp.Room
+
+import androidx.room.*
+import android.content.Context
+
 @Dao
 interface MusicDao {
     // Playlists
