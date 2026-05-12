@@ -18,6 +18,7 @@ class YouTubeRepository(private val context: Context) {
     private val extractor = YTExtractor(context, CACHING = false, LOGGING = true)
     // Sua chave de API integrada
     private val youtubeApiKey = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
+    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" // Cole sua nova chave aqui
 
     suspend fun downloadMusic(videoId: String): Unit = withContext(Dispatchers.IO) {
         val youtubeUrl = "https://www.youtube.com/watch?v=$videoId"
