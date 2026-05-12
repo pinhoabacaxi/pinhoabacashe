@@ -6,13 +6,16 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.net.URLDecoder
 
 class YTSearch {
     private val LOG_TAG = "YTSearch"
     private val CLIENT_NAME = "ANDROID_MUSIC"
     private val CLIENT_VERSION = "6.45.52"
 
-    // Mantenha como suspend function. Ela será chamada pelo ViewModel.
+    /**
+     * Realiza a busca no YouTube via InnerTube API.
+     */
     suspend fun search(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
         val searchResults = mutableListOf<VideoMeta>()
         try {
@@ -23,6 +26,7 @@ class YTSearch {
             conn.setRequestProperty("User-Agent", "com.google.android.youtube/19.05.36 (Linux; U; Android 14)")
             conn.doOutput = true
 
+            // Montagem do corpo da requisição JSON
             val requestBody = JSONObject().apply {
                 put("context", JSONObject().apply {
                     put("client", JSONObject().apply {
@@ -40,8 +44,7 @@ class YTSearch {
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val jsonResponse = JSONObject(response)
 
-            // CORREÇÃO: Usando a variável jsonResponse para extrair os vídeos
-            // O caminho no JSON da InnerTube é longo: contents -> sectionListRenderer -> ... -> contents
+            // Navegação segura no JSON da InnerTube
             val contents = jsonResponse.optJSONObject("contents")
                 ?.optJSONObject("sectionListRenderer")
                 ?.optJSONArray("contents")
@@ -52,20 +55,29 @@ class YTSearch {
             if (contents != null) {
                 for (i in 0 until contents.length()) {
                     val item = contents.optJSONObject(i)
-                    // Procuramos pelo vídeo ou música
+                    
+                    // Suporta tanto vídeos normais quanto resultados do YouTube Music
                     val videoRenderer = item?.optJSONObject("videoRenderer") 
                         ?: item?.optJSONObject("musicVideoRenderer")
                     
                     if (videoRenderer != null) {
                         val videoId = videoRenderer.getString("videoId")
-                        val title = videoRenderer.getJSONObject("title")
-                            .getJSONArray("runs").getJSONObject(0).getString("text")
-                        val author = videoRenderer.optJSONObject("longBylineText")
-                            ?.getJSONArray("runs")?.getJSONObject(0)?.getString("text") ?: "Desconhecido"
                         
-                        // Extração da melhor Thumbnail
-                        val thumbnailArray = videoRenderer.getJSONObject("thumbnail").getJSONArray("thumbnails")
-                        val thumbUrl = thumbnailArray.getJSONObject(thumbnailArray.length() - 1).getString("url")
+                        // Extração do Título
+                        val title = videoRenderer.optJSONObject("title")
+                            ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "Sem título"
+                            
+                        // Extração do Autor/Canal
+                        val author = videoRenderer.optJSONObject("longBylineText")
+                            ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
+                            ?: videoRenderer.optJSONObject("shortBylineText")
+                            ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "Desconhecido"
+                        
+                        // Extração da Thumbnail de melhor resolução
+                        val thumbnailArray = videoRenderer.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                        val thumbUrl = if (thumbnailArray != null && thumbnailArray.length() > 0) {
+                            thumbnailArray.optJSONObject(thumbnailArray.length() - 1)?.optString("url") ?: ""
+                        } else ""
 
                         searchResults.add(VideoMeta(
                             videoId = videoId,
@@ -81,6 +93,11 @@ class YTSearch {
                     }
                 }
             }
+        } catch (e: Exception) {
+            Log.e(LOG_TAG, "Erro na busca InnerTube: ${e.message}")
         }
+        
+        // Retorno obrigatório da lista (vazia ou preenchida)
+        return@withContext searchResults
     }
 }
