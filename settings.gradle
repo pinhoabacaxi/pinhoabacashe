@@ -3,23 +3,17 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
-
-        maven {
-            url 'https://jitpack.io'
-        }
     }
 }
-
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' } // ADICIONE ESTA LINHA
+        // O JitPack precisa estar aqui para o app encontrar o JsEvaluator
+        maven { url 'https://jitpack.io' } 
     }
 }
-
-rootProject.name = "Kotlin Youtube Extractor"
-
+rootProject.name = "Pinhoabacaxi Musics"
 include ':app'
 include ':kotlinYoutubeExtractor'
