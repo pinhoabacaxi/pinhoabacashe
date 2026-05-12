@@ -31,7 +31,7 @@ class YTSearch(private val context: Context) {
         try {
             Log.d(LOG_TAG, "Iniciando busca para: $query")
             
-            val apiUrl = "https://www.youtubei.googleapis.com/youtubei/v1/search?prettyPrint=false"
+            val apiUrl = "https://youtubei.googleapis.com/youtubei/v1/search?prettyPrint=false"
             val conn = URL(apiUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
