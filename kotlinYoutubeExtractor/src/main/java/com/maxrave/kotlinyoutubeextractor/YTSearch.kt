@@ -59,20 +59,28 @@ class YTSearch {
                 if (videoRenderer != null) {
                     val videoId = videoRenderer.getString("videoId")
                     val title = videoRenderer.getJSONObject("title").getJSONArray("runs").getJSONObject(0).getString("text")
-                    val author = videoRenderer.getJSONObject("longBylineText").getJSONArray("runs").getJSONObject(0).getString("text")
                     
-                    // Extração simples da duração (vem como String "3:45")
-                    val durationText = videoRenderer.optJSONObject("lengthText")?.getJSONArray("runs")?.getJSONObject(0)?.getString("text") ?: "0:00"
+                    // Autor (Canal)
+                    val author = videoRenderer.optJSONObject("longBylineText")
+                        ?.getJSONArray("runs")?.getJSONObject(0)?.getString("text") ?: "Desconhecido"
+                    
+                    // Extração da Thumbnail (Pegamos a última da lista, que costuma ser a de maior resolução)
+                    val thumbnailArray = videoRenderer.getJSONObject("thumbnail").getJSONArray("thumbnails")
+                    val thumbUrl = thumbnailArray.getJSONObject(thumbnailArray.length() - 1).getString("url")
+                    
+                    val durationText = videoRenderer.optJSONObject("lengthText")
+                        ?.getJSONArray("runs")?.getJSONObject(0)?.getString("text") ?: "0:00"
 
                     searchResults.add(VideoMeta(
                         videoId = videoId,
                         title = title,
                         author = author,
-                        channelId = "", // Opcional na busca
-                        duration = 0L, // Pode ser convertido de durationText se necessário
+                        channelId = "",
+                        duration = 0L, 
                         viewCount = 0L,
                         isLiveStream = false,
-                        description = durationText // Usando o campo descrição para guardar a duração temporariamente
+                        description = durationText,
+                        thumbnailUrl = thumbUrl // Atribuindo a URL da imagem
                     ))
                 }
             }
