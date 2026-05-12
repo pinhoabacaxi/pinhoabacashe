@@ -51,6 +51,9 @@ object LocalPlayerManager {
         currentTrack?.let { listener.onTrackChanged(it) }
         listener.onStatusChanged(isPlaying())
     }
+    fun unsubscribe(listener: PlayerListener) {
+        listeners.remove(listener)
+    }
     // --- LÓGICA DE FILA CORRIGIDA ---
     fun playNext(item: Any) {
         if (playlistQueue.isEmpty()) {
