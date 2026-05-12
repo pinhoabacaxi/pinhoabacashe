@@ -25,22 +25,15 @@ class PlaylistSongsActivity : AppCompatActivity() {
         binding = ActivityPlaylistSongsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Recupera dados da Intent
         playlistId = intent.getLongExtra("PLAYLIST_ID", -1)
         val playlistName = intent.getStringExtra("PLAYLIST_NAME") ?: "Playlist"
         
-        // Configura a Toolbar/CollapsingToolbar
         binding.collapsingToolbar.title = playlistName
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        binding.toolbar.setNavigationOnClickListener { onBackPressed() }
-
-        repository = PlaylistRepository(this)
         
+        repository = PlaylistRepository(this)
         setupRecyclerView()
         loadPlaylistSongs()
 
-        // Botão flutuante para tocar tudo em modo aleatório
         binding.fabPlayShuffle.setOnClickListener {
             val list = hybridAdapter.getList()
             if (list.isNotEmpty()) {
@@ -54,20 +47,16 @@ class PlaylistSongsActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         hybridAdapter = HybridAdapter(
             onItemClick = { item, position ->
-                // Ao clicar, define a fila como sendo as músicas desta playlist
                 LocalPlayerManager.setQueueAndPlay(hybridAdapter.getList(), position, this)
                 startActivity(Intent(this, FullPlayerActivity::class.java))
             },
             onMoreOptionsClick = { item ->
-                // Aqui você pode abrir um BottomSheet para remover da playlist
-                showSongOptions(item)
+                // Futuro: Abrir menu para remover da playlist
             },
             onFavoriteClick = { item ->
-                // Lógica de favoritar (opcional nesta tela)
+                // Opcional: Lógica de favoritos rápida
             },
-            onLongItemClick = { item ->
-                // Ação rápida ao segurar
-            }
+            onLongItemClick = { item -> }
         )
 
         binding.rvPlaylistSongs.apply {
@@ -84,37 +73,30 @@ class PlaylistSongsActivity : AppCompatActivity() {
                 val mappedList = songsFromDb.map { entity ->
                     if (entity.isOnline) {
                         OnlineSong(
-                            videoId = entity.id,
-                            title = entity.title,
-                            author = entity.artist,
-                            thumbnailUrl = entity.thumbnailUrl ?: "",
+                            videoId = entity.id, 
+                            title = entity.title, 
+                            author = entity.artist, 
+                            thumbnailUrl = entity.thumbnailUrl ?: "", 
                             url = entity.sourcePath,
-                            duration = "0" 
+                            duration = "0"
                         )
                     } else {
                         Song(
                             id = entity.id.toLongOrNull() ?: 0L,
-                            title = entity.title,
-                            artist = entity.artist,
+                            title = entity.title, 
+                            artist = entity.artist, 
                             path = entity.sourcePath,
                             album = "Playlist", 
-                            duration = 0,
+                            duration = 0, 
                             albumArtUri = null
                         )
                     }
                 }
-                
                 hybridAdapter.setList(mappedList)
-                
-                // Gerencia o estado vazio
                 binding.tvEmptyState.visibility = if (mappedList.isEmpty()) View.VISIBLE else View.GONE
             } else {
                 binding.tvEmptyState.visibility = View.VISIBLE
             }
         }
-    }
-
-    private fun showSongOptions(item: Any) {
-        // Implementação futura do menu de opções (ex: remover desta playlist)
     }
 }
