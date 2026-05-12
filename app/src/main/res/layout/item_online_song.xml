@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:padding="8dp"
@@ -24,7 +25,8 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:background="#333" />
+            android:background="#252525"
+            tools:src="@android:drawable/ic_menu_gallery" />
     </androidx.cardview.widget.CardView>
 
     <TextView
@@ -34,22 +36,35 @@
         android:layout_marginStart="12dp"
         android:ellipsize="end"
         android:maxLines="2"
-        android:textColor="?android:attr/textColorPrimary"
+        android:textColor="#FFFFFF"
         android:textSize="16sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@id/cardThumbnail"
-        app:layout_constraintTop_toTopOf="@id/cardThumbnail" />
+        app:layout_constraintTop_toTopOf="@id/cardThumbnail"
+        tools:text="Nome do Vídeo Extraído do YouTube" />
 
     <TextView
         android:id="@+id/tvOnlineChannel"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:textColor="?android:attr/textColorSecondary"
+        android:textColor="#88FFFFFF"
         android:textSize="14sp"
+        android:alpha="0.7"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="@id/tvOnlineTitle"
-        app:layout_constraintTop_toBottomOf="@id/tvOnlineTitle" />
+        app:layout_constraintTop_toBottomOf="@id/tvOnlineTitle"
+        tools:text="Nome do Canal" />
+
+    <ImageView
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="4dp"
+        android:src="@drawable/ic_cloud"
+        app:tint="#44FFFFFF"
+        app:layout_constraintStart_toStartOf="@id/tvOnlineTitle"
+        app:layout_constraintTop_toBottomOf="@id/tvOnlineChannel"
+        tools:ignore="ContentDescription" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
