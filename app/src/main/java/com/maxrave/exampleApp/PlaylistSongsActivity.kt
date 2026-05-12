@@ -64,13 +64,26 @@ class PlaylistSongsActivity : AppCompatActivity() {
                 }
             }
         )
-
+        findViewById<RecyclerView>(R.id.rvPlaylists).apply {
+            layoutManager = LinearLayoutManager(this@PlaylistActivity)
+            adapter = playlistAdapter
+        }
+        
         binding.rvPlaylistSongs.apply {
             layoutManager = LinearLayoutManager(this@PlaylistSongsActivity)
             adapter = hybridAdapter
         }
     }
-
+    private fun loadPlaylists() {
+        lifecycleScope.launch {
+            val list = repository.getAllPlaylists()
+            playlistAdapter.updateList(list)
+            
+            // Controla o Empty State (se a lista estiver vazia, mostra o aviso)
+            findViewById<View>(R.id.emptyStatePlaylists).visibility = 
+                if (list.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
     private fun loadPlaylistSongs() {
         lifecycleScope.launch {
             val result = repository.getSongsFromPlaylist(playlistId)
