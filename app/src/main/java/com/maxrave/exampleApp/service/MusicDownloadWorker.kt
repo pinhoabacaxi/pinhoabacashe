@@ -15,6 +15,7 @@ import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import android.content.pm.ServiceInfo
 
 class MusicDownloadWorker(
     private val context: Context,
@@ -75,14 +76,19 @@ class MusicDownloadWorker(
         }
     }
 
-    private fun createForegroundInfo(fileName: String): ForegroundInfo {
-        val channelId = "download_channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId, "Downloads", NotificationManager.IMPORTANCE_LOW
+    private fun createForegroundInfo(notification: Notification): ForegroundInfo {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // Para Android 10+ e obrigatório no Android 14 (API 34)
+            ForegroundInfo(
+                NOTIFICATION_ID, // O ID numérico da sua notificação
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC // <-- O SEGREDO ESTÁ AQUI
             )
-            notificationManager.createNotificationChannel(channel)
+        } else {
+        // Para versões mais antigas do Android
+            ForegroundInfo(NOTIFICATION_ID, notification)
         }
+    }
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setContentTitle("Baixando Música")
