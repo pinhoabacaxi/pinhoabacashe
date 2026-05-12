@@ -36,20 +36,35 @@ class PlaylistSongsActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
+        // 1. Criamos o Adapter com os novos parâmetros
         songAdapter = SongAdapter(
-            emptyList(),
-            FavoriteManager(this),
-            onSongClick = { song ->
-                // Ao clicar, toca a playlist atual começando desta música
-                // LocalPlayerManager deve receber a lista filtrada
+            songs = emptyList(), // Esta lista será preenchida pelo seu carregador de músicas
+            favoriteManager = FavoriteManager(this),
+            onSongClick = { song, position -> 
+                // 2. IMPORTANTE: Usamos a lista atual do adapter para garantir que 
+                // a fila de reprodução respeite a ordem da playlist
+                val currentPlaylist = songAdapter.getSongsList() // Ver nota abaixo
+                LocalPlayerManager.setQueueAndPlay(currentPlaylist, position, this)
+                
+                // Abre o FullPlayer para o utilizador ver o que está a tocar
+                startActivity(Intent(this, FullPlayerActivity::class.java))
             },
-            onFavClick = { /* Lógica de favorito */ },
-            onLongClick = { /* Opção de remover da playlist */ }
+            onFavClick = { song -> 
+                // Lógica para alternar favorito
+                favoriteManager.toggleFavorite(song.id)
+                // O notifyItemChanged já é tratado dentro do Adapter que corrigimos
+            },
+            onLongClick = { song -> 
+                // Exibir diálogo de opções (Remover, Adicionar à outra playlist, etc)
+                showBottomSheetOptions(song) 
+            }
         )
-        binding.rvPlaylistSongs.layoutManager = LinearLayoutManager(this)
-        binding.rvPlaylistSongs.adapter = songAdapter
+    
+        binding.rvPlaylistSongs.apply {
+            layoutManager = LinearLayoutManager(this@PlaylistSongsActivity)
+            adapter = songAdapter
+        }
     }
-
     private fun loadPlaylistSongs() {
         lifecycleScope.launch {
             val allSongs = musicLoader.loadLocalSongs()
