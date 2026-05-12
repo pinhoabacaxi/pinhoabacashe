@@ -82,7 +82,37 @@ class FullPlayerActivity : AppCompatActivity() {
             LocalPlayerManager.isShuffle = !LocalPlayerManager.isShuffle
             btnShuffle.alpha = if (LocalPlayerManager.isShuffle) 1.0f else 0.5f
         }
-
+        btnRepeat.setOnClickListener {
+            val newMode = LocalPlayerManager.toggleRepeatMode()
+            updateRepeatButtonUI(newMode)
+        }
+        // 2. Lógica do Botão Favorito (Supondo que você tenha um btnFavorite no XML)
+        btnFavorite.setOnClickListener {
+            val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return@setOnClickListener
+            val trackId = if (currentTrack is Song) currentTrack.id.toString() else (currentTrack as OnlineSong).videoId
+            
+            lifecycleScope.launch {
+                val isFav = repository.isFavorite(trackId)
+                if (isFav) {
+                    repository.removeFavorite(trackId)
+                    btnFavorite.setImageResource(R.drawable.ic_heart_outline)
+                } else {
+                    repository.addFavorite(trackId)
+                    btnFavorite.setImageResource(R.drawable.ic_heart_filled)
+                }
+            }
+        }
+        // 3. Volume Interno (Adicione um SeekBar de volume no seu XML)
+        seekBarVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    val volume = progress / 100f
+                    LocalPlayerManager.setVolume(volume)
+                }
+            }
+            override fun onStartTrackingTouch(p0: SeekBar?) {}
+            override fun onStopTrackingTouch(p0: SeekBar?) {}
+        })
         btnOptions.setOnClickListener {
             val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return@setOnClickListener
             val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
@@ -162,6 +192,22 @@ class FullPlayerActivity : AppCompatActivity() {
         handler.post(updateProgressAction)
     }
 
+    private fun updateRepeatButtonUI(mode: LocalPlayerManager.RepeatMode) {
+        when (mode) {
+            LocalPlayerManager.RepeatMode.NONE -> {
+                btnRepeat.setImageResource(R.id.ic_repeat)
+                btnRepeat.alpha = 0.5f // Desativado
+            }
+            LocalPlayerManager.RepeatMode.ALL -> {
+                btnRepeat.setImageResource(R.id.ic_repeat)
+                btnRepeat.alpha = 1.0f // Repetir tudo
+            }
+            LocalPlayerManager.RepeatMode.ONE -> {
+                btnRepeat.setImageResource(R.id.ic_repeat_one)
+                btnRepeat.alpha = 1.0f // Repetir uma
+            }
+        }
+    }
     private fun updateUI(track: Any) {
         val title = if (track is Song) track.title else (track as OnlineSong).title
         val artist = if (track is Song) track.artist else (track as OnlineSong).author
