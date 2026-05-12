@@ -30,6 +30,7 @@ import com.maxrave.exampleApp.repository.MusicLoader
 import com.maxrave.exampleApp.repository.PlaylistRepository
 import com.maxrave.exampleApp.service.MusicDownloadWorker
 import kotlinx.coroutines.launch
+import com.maxrave.exampleApp.service.MusicDownloadWorker
 
 class MainActivity : AppCompatActivity() {
 
@@ -226,6 +227,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMiniPlayerUI() {
         miniPlayerContainer = findViewById(R.id.includeMiniPlayer)
+        // Se o include no activity_main tem o id includeMiniPlayer, 
+        // os componentes internos são acessados normalmente pelo id deles:
         tvMiniTitle = findViewById(R.id.tvMiniPlayerTitle)
         ivMiniArt = findViewById(R.id.ivMiniPlayerArt)
         btnPlayPause = findViewById(R.id.btnMiniPlayPause)
