@@ -30,8 +30,6 @@ import com.maxrave.exampleApp.repository.MusicLoader
 import com.maxrave.exampleApp.repository.PlaylistRepository
 import com.maxrave.exampleApp.service.MusicDownloadWorker
 import kotlinx.coroutines.launch
-import com.maxrave.exampleApp.service.MusicDownloadWorker
-import android.widget.ProgressBar
 
 class MainActivity : AppCompatActivity() {
 
@@ -43,15 +41,16 @@ class MainActivity : AppCompatActivity() {
     private var currentList = mutableListOf<Any>()
     private var filteredList = mutableListOf<Any>()
 
+    // Variáveis do Mini Player (Sincronizadas com seu layoutplayer.xml)
     private lateinit var miniPlayerContainer: View
     private lateinit var tvMiniTitle: TextView
+    private lateinit var tvMiniArtist: TextView
     private lateinit var ivMiniArt: ImageView
     private lateinit var btnPlayPause: ImageButton
-    private lateinit var btnNext: ImageButton // Adicionado
-    private lateinit var btnPrev: ImageButton // Adicionado
-    private lateinit var pbMiniProgress: ProgressBar // Adicionado
-    private lateinit var tvMiniArtist: TextView // Adicionado
-    
+    private lateinit var btnNext: ImageButton
+    private lateinit var btnPrev: ImageButton
+    private lateinit var pbMiniProgress: ProgressBar
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -63,7 +62,7 @@ class MainActivity : AppCompatActivity() {
         setupMiniPlayerUI()
         setupRecyclerView()
         setupFiltersAndSearch()
-        setupSwipeToDismiss()
+        setupSwipeToDismiss() // Agora dentro da classe corretamente
         checkPermissionsAndLoad()
     }
 
@@ -83,12 +82,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFiltersAndSearch() {
-        // 1. Chip "Todas"
-        findViewById<Chip>(R.id.chipAll).setOnClickListener { 
-            updateDisplayList(currentList) 
-        }
+        findViewById<Chip>(R.id.chipAll).setOnClickListener { updateDisplayList(currentList) }
     
-        // 2. Chip "Favoritas"
         findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
             lifecycleScope.launch {
                 val favorites = currentList.filter { item ->
@@ -99,28 +94,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
     
-        // 3. Chip "Playlists"
         findViewById<Chip>(R.id.chipPlaylists).setOnClickListener {
             startActivity(Intent(this, PlaylistActivity::class.java))
         }
-        
-        // 4. Chip "Recentes"
-        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
-            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
-            updateDisplayList(sorted.toMutableList())
-        }
 
-        // 5. Chip "Online"
-        findViewById<Chip>(R.id.chipOnline).setOnClickListener {
-            try {
-                val intent = Intent(this, Class.forName("com.maxrave.exampleApp.OnlineSearchActivity"))
-                startActivity(intent)
-            } catch (e: Exception) {
-                Toast.makeText(this, "Busca Online não disponível", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // 6. Barra de Pesquisa
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(q: String?): Boolean = true
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -174,42 +151,22 @@ class MainActivity : AppCompatActivity() {
             .setItems(options) { _, which ->
                 when (options[which]) {
                     "Baixar e Tocar" -> startDownload(item as OnlineSong)
-                    "Adicionar à Playlist" -> showAddToPlaylistDialog(item)
+                    "Adicionar à Playlist" -> {} // Implementar lógica de playlist
                 }
             }.show()
     }
 
     private fun startDownload(song: OnlineSong) {
-        val data = workDataOf(
-            "URL" to song.url,
-            "FILE_NAME" to "${song.title}.mp3"
-        )
-        val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
-            .setInputData(data)
-            .build()
-        
+        val data = workDataOf("URL" to song.url, "FILE_NAME" to "${song.title}.mp3")
+        val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
         WorkManager.getInstance(this).enqueue(request)
-        Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun showAddToPlaylistDialog(item: Any) {
-        lifecycleScope.launch {
-            val playlists = repository.getAllPlaylists()
-            val names = playlists.map { it.name }.toTypedArray()
-            
-            AlertDialog.Builder(this@MainActivity)
-                .setTitle("Escolha a Playlist")
-                .setItems(names) { _, which ->
-                    // Lógica para salvar no banco de dados da playlist
-                    Toast.makeText(this@MainActivity, "Adicionado a ${names[which]}", Toast.LENGTH_SHORT).show()
-                }.show()
-        }
+        Toast.makeText(this, "Baixando...", Toast.LENGTH_SHORT).show()
     }
 
     private fun checkPermissionsAndLoad() {
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
             Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-
+        
         if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
             loadSongs()
         } else {
@@ -218,7 +175,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) loadSongs() else Toast.makeText(this, "Permissão negada", Toast.LENGTH_SHORT).show()
+        if (isGranted) loadSongs() else Toast.makeText(this, "Permissão necessária para carregar músicas", Toast.LENGTH_SHORT).show()
     }
 
     private fun loadSongs() {
@@ -231,10 +188,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupMiniPlayerUI() {
-        // O container é o include do layoutplayer
         miniPlayerContainer = findViewById(R.id.includeMiniPlayer)
-        
-        // Mapeamento EXATO dos IDs do seu XML
         tvMiniTitle = findViewById(R.id.tvMiniTitle)
         tvMiniArtist = findViewById(R.id.tvMiniArtist)
         ivMiniArt = findViewById(R.id.ivMiniArt)
@@ -243,22 +197,19 @@ class MainActivity : AppCompatActivity() {
         btnPrev = findViewById(R.id.btnPrev)
         pbMiniProgress = findViewById(R.id.pbMiniProgress)
 
-        // Listeners dos botões
         btnPlayPause.setOnClickListener {
             LocalPlayerManager.togglePlayPause(this)
             updatePlayPauseButton()
         }
 
-        btnNext.setOnClickListener {
+        btnNext.setOnClickListener { 
             LocalPlayerManager.playNext(this)
-            val current = LocalPlayerManager.getCurrentTrack()
-            if (current != null) updateMiniPlayerUI(current)
+            LocalPlayerManager.getCurrentTrack()?.let { updateMiniPlayerUI(it) }
         }
 
-        btnPrev.setOnClickListener {
+        btnPrev.setOnClickListener { 
             LocalPlayerManager.playPrevious(this)
-            val current = LocalPlayerManager.getCurrentTrack()
-            if (current != null) updateMiniPlayerUI(current)
+            LocalPlayerManager.getCurrentTrack()?.let { updateMiniPlayerUI(it) }
         }
 
         miniPlayerContainer.setOnClickListener {
@@ -266,19 +217,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-        miniPlayerContainer.setOnClickListener {
-            startActivity(Intent(this, FullPlayerActivity::class.java))
-        }
-    }
-
-   private fun updateMiniPlayerUI(item: Any) {
+    private fun updateMiniPlayerUI(item: Any) {
         miniPlayerContainer.visibility = View.VISIBLE
-        
         when (item) {
             is Song -> {
                 tvMiniTitle.text = item.title
                 tvMiniArtist.text = item.artist
-                ivMiniArt.setImageResource(android.R.drawable.ic_media_play) // Ou use Glide para o albumArt
+                ivMiniArt.setImageResource(android.R.drawable.ic_media_play)
             }
             is OnlineSong -> {
                 tvMiniTitle.text = item.title
@@ -294,7 +239,6 @@ class MainActivity : AppCompatActivity() {
             android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
         btnPlayPause.setImageResource(icon)
     }
-}
 
     private fun setupSwipeToDismiss() {
         val helper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
