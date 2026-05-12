@@ -74,6 +74,9 @@ class SongAdapter(
     
     override fun getItemCount(): Int = songs.size
    
+    fun getSongsList(): List<Song> {
+        return songs // 'songs' é a lista que você já tem no adapter
+    }
     fun updateList(newSongs: List<Song>) {
         this.songs = newSongs
         this.songsFull = newSongs
