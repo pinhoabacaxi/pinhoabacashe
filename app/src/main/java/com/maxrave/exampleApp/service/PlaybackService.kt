@@ -17,6 +17,9 @@ import com.maxrave.exampleApp.receiver.NotificationReceiver
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.util.Log // Resolve o erro do Log
+import com.maxrave.exampleApp.R // Resolve o erro do R (Ajuste se o pacote for diferente)
+import com.maxrave.exampleApp.model.OnlineSong // Resolve o erro do OnlineSong
 
 
 class PlaybackService : Service() {
