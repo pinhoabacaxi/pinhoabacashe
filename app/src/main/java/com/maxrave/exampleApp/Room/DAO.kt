@@ -23,4 +23,10 @@ interface MusicDao {
 
     @Query("DELETE FROM playlist_song_cross_ref WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: String)
+
+    @Query("SELECT DISTINCT artist FROM songs") 
+    suspend fun getUniqueArtists(): List<String>
+    
+    @Query("SELECT DISTINCT album FROM songs") 
+    suspend fun getUniqueAlbums(): List<String>
 }
