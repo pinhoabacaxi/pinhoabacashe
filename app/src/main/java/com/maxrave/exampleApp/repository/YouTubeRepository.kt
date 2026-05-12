@@ -125,36 +125,40 @@ class YouTubeRepository(private val context: Context) {
         results
     }
 
-    private suspend fun searchViaYoutubeOfficial(query: String): List<OnlineSong> = withContext(Dispatchers.IO) {
-        val officialResults = mutableListOf<OnlineSong>()
-        try {
-            val encoded = URLEncoder.encode(query, "UTF-8")
-            // videoCategoryId=10 filtra por músicas
-            val url = URL("https://www.googleapis.com/youtube/v3/search?part=snippet&q=$encoded&type=video&videoCategoryId=10&maxResults=15&key=$youtubeApiKey")
+        private suspend fun searchViaYoutubeOfficial(query: String, apiKey: String): List<OnlineSong> = withContext(Dispatchers.IO) {
+            val officialResults = mutableListOf<OnlineSong>()
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val url = URL("https://www.googleapis.com/youtube/v3/search?part=snippet&q=$encoded&type=video&videoCategoryId=10&maxResults=15&key=$apiKey")
             
-            val conn = url.openConnection() as HttpURLConnection
-            if (conn.responseCode == 200) {
-                val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                val items = json.optJSONArray("items") ?: JSONArray()
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+            
+                if (conn.responseCode == 200) {
+                    val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+                    val items = json.optJSONArray("items") ?: JSONArray()
                 
-                for (i in 0 until items.length()) {
-                    val item = items.getJSONObject(i)
-                    val id = item.getJSONObject("id").getString("videoId")
-                    val snippet = item.getJSONObject("snippet")
-                    officialResults.add(OnlineSong(
-                        videoId = id,
-                        title = snippet.getString("title"),
-                        author = snippet.getString("channelTitle"),
-                        thumbnailUrl = snippet.getJSONObject("thumbnails").getJSONObject("high").getString("url"),
-                        streamUrl = null
-                    ))
+                    for (i in 0 until items.length()) {
+                        val item = items.getJSONObject(i)
+                        val id = item.getJSONObject("id").getString("videoId")
+                        val snippet = item.getJSONObject("snippet")
+                        officialResults.add(OnlineSong(
+                            videoId = id,
+                            title = snippet.getString("title"),
+                            author = snippet.getString("channelTitle"),
+                            thumbnailUrl = snippet.getJSONObject("thumbnails").getJSONObject("high").getString("url"),
+                            streamUrl = null
+                        ))
+                    }
+                } else {
+                    Log.e("YouTubeRepo", "Erro na API Google (Status ${conn.responseCode}). Provavelmente cota esgotada.")
                 }
+            } catch (e: Exception) {
+                Log.e("YouTubeRepo", "Erro na busca oficial: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("YouTubeRepo", "Erro Google API: ${e.message}")
+            officialResults
         }
-        officialResults
-    }
+
 
     private fun extractVideoId(url: String): String {
         return try {
