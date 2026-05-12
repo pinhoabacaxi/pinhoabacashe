@@ -22,7 +22,7 @@ class YouTubeRepository(private val context: Context) {
     private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
 
     suspend fun downloadMusic(videoId: String): Unit = withContext(Dispatchers.IO) {
-        val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://www.youtube.com/watch?v=$videoId"
+        val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://youtube.com/watch?v=$videoId"
         try {
             extractor.extract(youtubeUrl)
             val ytFiles = extractor.ytFiles
@@ -50,7 +50,7 @@ class YouTubeRepository(private val context: Context) {
     }
 
     suspend fun extractMusicInfo(input: String): OnlineSong? = withContext(Dispatchers.IO) {
-        val url = if (input.contains("http")) input else "https://www.youtube.com/watch?v=$input"
+        val url = if (input.contains("http")) input else "https://youtube.com/watch?v=$input"
         try {
             extractor.extract(url)
             val ytFiles = extractor.ytFiles
