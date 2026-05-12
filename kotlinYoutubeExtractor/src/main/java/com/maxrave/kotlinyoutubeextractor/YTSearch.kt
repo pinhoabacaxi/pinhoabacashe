@@ -6,7 +6,47 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.maxrave.kotlinyoutubeextractor.SearchState
+import com.maxrave.kotlinyoutubeextractor.VideoMeta
+import com.maxrave.kotlinyoutubeextractor.YTSearch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
+sealed class SearchState {
+    object Idle : SearchState()
+    object Loading : SearchState()
+    data class Success(val results: List<VideoMeta>) : SearchState()
+    data class Error(val message: String) : SearchState()
+}
+class SearchViewModel : ViewModel() {
+
+    private val ytSearch = YTSearch()
+
+    // Usamos StateFlow para gerir o estado da UI de forma reativa
+    private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
+    val searchState: StateFlow<SearchState> get() = _searchState
+
+    fun performSearch(query: String) {
+        if (query.isBlank()) return
+
+        viewModelScope.launch {
+            _searchState.value = SearchState.Loading
+            try {
+                val results = ytSearch.search(query)
+                if (results.isEmpty()) {
+                    _searchState.value = SearchState.Error("Nenhum resultado encontrado.")
+                } else {
+                    _searchState.value = SearchState.Success(results)
+                }
+            } catch (e: Exception) {
+                _searchState.value = SearchState.Error("Erro na ligação: ${e.message}")
+            }
+        }
+    }
+}
 class YTSearch {
     private val LOG_TAG = "YTSearch"
     private val CLIENT_NAME = "ANDROID_MUSIC"
