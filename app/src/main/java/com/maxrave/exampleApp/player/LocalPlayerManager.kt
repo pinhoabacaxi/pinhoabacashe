@@ -48,7 +48,16 @@ object LocalPlayerManager {
             playlistQueue.add(currentIndex + 1, item)
         }
     }
-
+    fun playPrevious(context: Context) {
+        if (playlist.isEmpty()) return
+    
+        currentTrackIndex = if (currentTrackIndex > 0) {
+            currentTrackIndex - 1
+        } else {
+            playlist.size - 1 // Volta para a última se estiver na primeira
+        }
+        play(context)
+    }
     fun addToEnd(item: Any) {
         playlistQueue.add(item)
         if (playlistQueue.size == 1) {
