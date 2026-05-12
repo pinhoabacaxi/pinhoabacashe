@@ -56,7 +56,9 @@ class YTSearch(private val context: Context) {
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val jsonResponse = JSONObject(response)
 
-            // 3. Navegação no JSON da InnerTube
+            // LOG PARA VER O JSON COMPLETO (Se for muito grande, ele corta, mas ajuda)
+            Log.d(LOG_TAG, "Resposta recebida (JSON): ${response.take(500)}...")
+
             val contents = jsonResponse.optJSONObject("contents")
                 ?.optJSONObject("sectionListRenderer")
                 ?.optJSONArray("contents")
@@ -64,11 +66,12 @@ class YTSearch(private val context: Context) {
                 ?.optJSONObject("itemSectionRenderer")
                 ?.optJSONArray("contents")
 
-            if (contents != null) {
+            if (contents == null) {
+                Log.e(LOG_TAG, "ERRO: Não foi possível encontrar a lista de vídeos no JSON. O YouTube pode ter mudado a estrutura.")
+            } else {
+                Log.d(LOG_TAG, "Vídeos encontrados no JSON: ${contents.length()}")
                 for (i in 0 until contents.length()) {
                     val item = contents.optJSONObject(i)
-                    
-                    // Suporta tanto vídeos normais quanto resultados do YouTube Music
                     val videoRenderer = item?.optJSONObject("videoRenderer") 
                         ?: item?.optJSONObject("musicVideoRenderer")
                     
@@ -101,6 +104,8 @@ class YTSearch(private val context: Context) {
                             isLiveStream = false,
                             description = "",
                             thumbnailUrl = thumbUrl
+                        // ... (resto do código de extração igual ao anterior)
+                        Log.d(LOG_TAG, "Vídeo mapeado: $title")
                         ))
                     }
                 }
@@ -112,3 +117,6 @@ class YTSearch(private val context: Context) {
         return@withContext searchResults
     }
 }
+
+                    
+               
