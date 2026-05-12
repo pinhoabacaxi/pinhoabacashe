@@ -7,8 +7,10 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URLDecoder
+import android.content.Context // Import necessário
+import android.net.ConnectivityManager // Import necessário
 
-class YTSearch {
+class YTSearch(private val context: Context) {
     private val LOG_TAG = "YTSearch"
     private val CLIENT_NAME = "ANDROID_MUSIC"
     private val CLIENT_VERSION = "6.45.52"
@@ -16,6 +18,12 @@ class YTSearch {
     /**
      * Realiza a busca no YouTube via InnerTube API.
      */
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = cm.activeNetworkInfo
+        if (activeNetwork == null || !activeNetwork.isConnectedOrConnecting) {
+            Log.e(LOG_TAG, "Dispositivo sem conexão de rede.")
+            return@withContext emptyList()
+        }
     suspend fun search(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
         val searchResults = mutableListOf<VideoMeta>()
         try {
