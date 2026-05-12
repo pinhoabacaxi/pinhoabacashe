@@ -49,7 +49,8 @@ class YTExtractor(
     private val patPlayerResponse = Pattern.compile("ytInitialPlayerResponse\\s*=\\s*(\\{.+?\\});")
     private val patPlayerResponseAlternative = Pattern.compile("var\\s+ytInitialPlayerResponse\\s*=\\s*(\\{.+?\\});")
     private val patPlayerResponseEmbedded = Pattern.compile("window\\[\"ytInitialPlayerResponse\"\\]\\s*=\\s*(\\{.+?\\});")
-    
+    // Adicione este Pattern
+    private val patPlayerConfig = Pattern.compile("ytplayer\\.config\\s*=\\s*(\\{.+?\\});")
     private val patSigEncUrl = Pattern.compile("url=(.+?)(\\u0026|$)")
     private val patSignature = Pattern.compile("s=(.+?)(\\u0026|$)")
     
@@ -83,39 +84,62 @@ class YTExtractor(
     private fun getStreamUrls(): SparseArray<YtFile>? {
         var pageHtml = ""
         val ytFilesResult = SparseArray<YtFile>()
-
+        val encSignatures = SparseArray<String>() // Não esqueça de declarar esta lista aqui
+    
         try {
-            // Mudança na URL: Usamos o parâmetro 'get_video_info' simulado via watch
-            // O parâmetro 'bpctr' e 'has_verified' ajudam a pular restrições de idade
+            // 1. CONFIGURAÇÃO DA CONEXÃO E DOWNLOAD
             val getUrl = URL("https://www.youtube.com/watch?v=$videoID&bpctr=9999999999&has_verified=1&el=embedded&hl=en")
             val urlConnection = getUrl.openConnection() as HttpURLConnection
             
-            // Headers Críticos para 2026
             urlConnection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
             urlConnection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
-            urlConnection.setRequestProperty("X-Youtube-Client-Name", "1") // 1 = WEB, 2 = MWEB, 3 = ANDROID
+            urlConnection.setRequestProperty("X-Youtube-Client-Name", "1")
             urlConnection.setRequestProperty("X-Youtube-Client-Version", "2.20240510.01.00")
-            
-            // Forçar um Cookie de consentimento para evitar a tela de "Aceite os termos"
             urlConnection.setRequestProperty("Cookie", "CONSENT=YES+cb.20230531-04-p0.en+FX+999")
+    
             urlConnection.inputStream.bufferedReader().use { pageHtml = it.readText() }
             urlConnection.disconnect()
-
+    
+            if (pageHtml.isEmpty()) return null
+    
+            // 2. BUSCA DO JSON (Lógica de Fallback)
             var jsonStr: String? = null
-            listOf(patPlayerResponse, patPlayerResponseAlternative, patPlayerResponseEmbedded).forEach { pat ->
+            val matchers = listOf(patPlayerResponse, patPlayerResponseAlternative, patPlayerResponseEmbedded)
+    
+            for (pat in matchers) {
                 val mat = pat.matcher(pageHtml)
-                if (mat.find()) jsonStr = mat.group(1)
+                if (mat.find()) {
+                    jsonStr = mat.group(1)
+                    break
+                }
             }
-
-            if (jsonStr == null) return null
-
+    
+            // Plano B: Se não achou nos padrões normais, tenta no Config
+            if (jsonStr == null) {
+                val matConfig = patPlayerConfig.matcher(pageHtml)
+                if (matConfig.find()) {
+                    try {
+                        val configJson = JSONObject(matConfig.group(1))
+                        jsonStr = configJson.getJSONObject("args").getString("player_response")
+                    } catch (e: Exception) {
+                        Log.e(LOG_TAG, "Erro ao extrair do patPlayerConfig")
+                    }
+                }
+            }
+    
+            if (jsonStr == null) {
+                Log.e(LOG_TAG, "streamingData não encontrado (JSON nulo)")
+                return null
+            }
+    
+            // 3. PROCESSAMENTO DOS DADOS
             val ytPlayerResponse = JSONObject(jsonStr!!)
             val streamingData = ytPlayerResponse.optJSONObject("streamingData") ?: return null
-
+    
             val allFormats = mutableListOf<JSONObject>()
             streamingData.optJSONArray("formats")?.let { for(i in 0 until it.length()) allFormats.add(it.getJSONObject(i)) }
             streamingData.optJSONArray("adaptiveFormats")?.let { for(i in 0 until it.length()) allFormats.add(it.getJSONObject(i)) }
-
+    
             for (formatJson in allFormats) {
                 val itag = formatJson.getInt("itag")
                 if (FORMAT_MAP[itag] != null) {
@@ -136,8 +160,8 @@ class YTExtractor(
                     }
                 }
             }
-
-            // Extração de Meta
+    
+            // 4. METADADOS E ASSINATURAS
             ytPlayerResponse.optJSONObject("videoDetails")?.let { details ->
                 videoMeta = VideoMeta(
                     details.optString("videoId"),
@@ -150,44 +174,44 @@ class YTExtractor(
                     details.optString("shortDescription", "")
                 )
             }
-
+    
             if (encSignatures.size() > 0) {
                 processSignatures(pageHtml, encSignatures, ytFilesResult)
             }
-
+    
         } catch (e: Exception) {
             if (LOGGING) Log.e(LOG_TAG, "Erro na extração: ${e.message}")
             return null
         }
+    
         return if (ytFilesResult.size() > 0) ytFilesResult else null
     }
-
-    private fun processSignatures(pageHtml: String, encSignatures: SparseArray<String>, ytFiles: SparseArray<YtFile>) {
-        val matJs = Pattern.compile("/s/player/([a-zA-Z0-9_-]+?)/player_ias\\.vflset/[a-zA-Z0-9_-]+?/(?:base|embed)\\.js").matcher(pageHtml)
-        if (matJs.find()) {
-            decipherJsFileName = matJs.group(0)
-            decipherSignature(encSignatures)
-
-            lock.lock()
-            try {
-                jsExecuting.await(7, TimeUnit.SECONDS)
-            } finally {
-                lock.unlock()
-            }
-
-            decipheredSignature?.let { sigStr ->
-                val sigs = sigStr.split("\n")
-                for (i in 0 until encSignatures.size()) {
-                    val key = encSignatures.keyAt(i)
-                    if (i < sigs.size) {
-                        val originalFile = ytFiles[key]
-                        val decipheredUrl = originalFile.url + "&sig=${sigs[i]}"
-                        ytFiles.put(key, YtFile(originalFile.meta, decipheredUrl))
+        private fun processSignatures(pageHtml: String, encSignatures: SparseArray<String>, ytFiles: SparseArray<YtFile>) {
+            val matJs = Pattern.compile("/s/player/([a-zA-Z0-9_-]+?)/player_ias\\.vflset/[a-zA-Z0-9_-]+?/(?:base|embed)\\.js").matcher(pageHtml)
+            if (matJs.find()) {
+                decipherJsFileName = matJs.group(0)
+                decipherSignature(encSignatures)
+    
+                lock.lock()
+                try {
+                    jsExecuting.await(7, TimeUnit.SECONDS)
+                } finally {
+                    lock.unlock()
+                }
+    
+                decipheredSignature?.let { sigStr ->
+                    val sigs = sigStr.split("\n")
+                    for (i in 0 until encSignatures.size()) {
+                        val key = encSignatures.keyAt(i)
+                        if (i < sigs.size) {
+                            val originalFile = ytFiles[key]
+                            val decipheredUrl = originalFile.url + "&sig=${sigs[i]}"
+                            ytFiles.put(key, YtFile(originalFile.meta, decipheredUrl))
+                        }
                     }
                 }
             }
         }
-    }
 
     private fun decipherSignature(encSignatures: SparseArray<String>) {
         try {
