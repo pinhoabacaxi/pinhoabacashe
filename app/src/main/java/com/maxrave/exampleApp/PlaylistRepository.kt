@@ -15,7 +15,14 @@ class PlaylistRepository(context: Context) {
     suspend fun getAllPlaylists(): List<Playlist> {
         return dao.getAllPlaylists()
     }
-
+    // No seu PlaylistRepository.kt
+    suspend fun getSongsByArtist(artist: String): List<SongEntity> {
+        return dao.getSongsByArtist(artist)
+    }
+    
+    suspend fun getAllArtists(): List<String> {
+        return dao.getUniqueArtists()
+    }
     suspend fun addSongToPlaylist(playlistId: Long, song: SongEntity) {
         // 1. Insere a música na tabela geral (ignora se já existir)
         dao.insertSong(song)
