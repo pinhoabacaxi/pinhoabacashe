@@ -101,7 +101,7 @@ class OnlineSearchActivity : AppCompatActivity() {
                         author = videoMeta.author,
                         thumbnailUrl = videoMeta.thumbnailUrl,
                         url = streamData.url, // URL final de streaming do YouTube
-                        duration = videoMeta.duration
+                        duration = videoMeta.duration.toString()
                     )
                     
                     binding.progressBar.visibility = View.GONE
