@@ -1,4 +1,7 @@
+package com.maxrave.exampleApp.Room
+
 import androidx.room.*
+import android.content.Context
 
 @Entity(tableName = "playlists")
 data class Playlist(
