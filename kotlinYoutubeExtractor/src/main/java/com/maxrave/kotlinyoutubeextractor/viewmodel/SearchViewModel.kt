@@ -8,10 +8,10 @@ import com.maxrave.kotlinyoutubeextractor.YTSearch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import androidx.lifecycle.AndroidViewModel
 
-class SearchViewModel : ViewModel() {
-    private val ytSearch = YTSearch()
-
+class SearchViewModel(application: Application) : AndroidViewModel(application) {
+    private val ytSearch = YTSearch(application.applicationContext)
     // Usando explicitamente o tipo SearchState
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState
