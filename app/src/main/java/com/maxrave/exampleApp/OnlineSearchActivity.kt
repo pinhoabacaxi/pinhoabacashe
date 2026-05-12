@@ -6,6 +6,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager // Importação para o teclado
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -16,10 +17,15 @@ import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.YouTubeRepository
 import kotlinx.coroutines.launch
+import com.maxrave.kotlinyoutubeextractor.SearchState
+import com.maxrave.kotlinyoutubeextractor.viewmodel.SearchViewModel
 
 class OnlineSearchActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityOnlineSearchBinding
+    private val viewModel: SearchViewModel by viewModels()
+    // 2. Seu Adapter do RecyclerView
+    private lateinit var adapter: SearchAdapter
     private lateinit var adapter: OnlineSongAdapter
     private lateinit var youtubeRepository: YouTubeRepository
 
@@ -31,16 +37,50 @@ class OnlineSearchActivity : AppCompatActivity() {
         youtubeRepository = YouTubeRepository(this)
         setupRecyclerView()
         setupListeners()
+        observeViewModel()
+    }
+    private fun observeViewModel() {
+        // O código que você postou entra exatamente aqui:
+        lifecycleScope.launch {
+            viewModel.searchState.collect { state ->
+                when(state) {
+                    is SearchState.Loading -> {
+                        binding.progressBar.visibility = View.VISIBLE
+                        binding.recyclerViewResults.visibility = View.GONE
+                    }
+                    is SearchState.Success -> {
+                        binding.progressBar.visibility = View.GONE
+                        binding.recyclerViewResults.visibility = View.VISIBLE
+                        // Atualiza o adapter com a lista de VideoMeta
+                        adapter.submitList(state.results)
+                    }
+                    is SearchState.Error -> {
+                        binding.progressBar.visibility = View.GONE
+                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_SHORT).show()
+                    }
+                    is SearchState.Idle -> {
+                        binding.progressBar.visibility = View.GONE
+                    }
+                }
+            }
+        }
+    }
+    private fun setupSearchListener() {
+        binding.buttonSearch.setOnClickListener {
+            val query = binding.editTextSearch.text.toString()
+            if (query.isNotEmpty()) {
+                // 3. Dispara a busca no ViewModel
+                viewModel.performSearch(query)
+            }
+        }
     }
 
     private fun setupRecyclerView() {
-        adapter = OnlineSongAdapter(
-            onItemClick = { onlineSong ->
-                handleOnlineClick(onlineSong)
-            }
-        )
-        binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)
-        binding.rvOnlineResults.adapter = adapter
+        adapter = SearchAdapter { videoMeta ->
+            // Ação ao clicar em um item (ex: abrir o player)
+        }
+        binding.recyclerViewResults.layoutManager = LinearLayoutManager(this)
+        binding.recyclerViewResults.adapter = adapter
     }
 
     private fun setupListeners() {
