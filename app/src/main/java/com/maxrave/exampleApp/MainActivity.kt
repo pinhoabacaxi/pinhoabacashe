@@ -104,6 +104,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun checkPermissionsAndLoad() {
+        val permissions = mutableListOf<String>()
+        
+        // Permissão de Áudio
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
+            // ESSENCIAL: Permissão de Notificação para o Player aparecer na barra de status
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+    
+        val missingPermissions = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+    
+        if (missingPermissions.isEmpty()) {
+            loadLocalSongs()
+        } else {
+            // Usa o launcher para pedir todas as que faltam de uma vez
+            requestPermissionsLauncher.launch(missingPermissions.toTypedArray())
+        }
+    }
     private fun setupRecyclerView() {
         hybridAdapter = HybridAdapter(
             onItemClick = { item, position ->
@@ -229,17 +252,6 @@ class MainActivity : AppCompatActivity() {
         hybridAdapter.setList(filteredList)
     }
 
-    private fun checkPermissionsAndLoad() {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
-            Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-            
-        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
-            loadLocalSongs()
-        } else {
-            requestPermissionLauncher.launch(permission)
-        }
-    }
-
     private fun loadLocalSongs() {
         lifecycleScope.launch {
             try {
@@ -260,13 +272,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Sincroniza a UI do mini player caso algo tenha mudado (ex: volta do FullPlayer)
-        val current = LocalPlayerManager.getCurrentTrack()
-        if (current != null) {
-            miniPlayerContainer.visibility = View.VISIBLE
-            updateMiniPlayerUI(current)
-            val icon = if (LocalPlayerManager.isPlaying()) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-            btnPlayPause.setImageResource(icon)
+        // Só executa se o miniPlayerContainer foi inicializado corretamente no initViews
+        if (::miniPlayerContainer.isInitialized) {
+            val current = LocalPlayerManager.getCurrentTrack()
+            if (current != null) {
+                miniPlayerContainer.visibility = View.VISIBLE
+                updateMiniPlayerUI(current)
+                val icon = if (LocalPlayerManager.isPlaying()) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+                btnPlayPause.setImageResource(icon)
+            }
         }
     }
 }
