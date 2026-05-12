@@ -121,6 +121,7 @@
                         android:layout_height="wrap_content"
                         android:src="@android:drawable/ic_menu_search"
                         android:contentDescription="Busca Online" />
+                </com.google.android.material.chip.Chip>
 
 
             </com.google.android.material.chip.ChipGroup>
