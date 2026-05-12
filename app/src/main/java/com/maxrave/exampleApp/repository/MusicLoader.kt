@@ -11,7 +11,15 @@ class MusicLoader(private val context: Context) {
     suspend fun loadLocalSongs(): List<Song> = withContext(Dispatchers.IO) {
         val songList = mutableListOf<Song>()
         val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        
+        val song = Song(
+            id = id,
+            title = title,
+            artist = artist,
+            album = album,
+            duration = duration,
+            path = data, // O campo 'path' do modelo recebe a variável 'data' do cursor
+            albumId = albumId
+        )
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         
         val projection = arrayOf(
