@@ -81,27 +81,43 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFiltersAndSearch() {
-        // Filtros por Chip
-        findViewById<Chip>(R.id.chipAll).setOnClickListener { updateDisplayList(currentList) }
-        
-        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
-            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
-            updateDisplayList(sorted.toMutableList())
-        }
 
+        // 1. Chip "Todas"
+        findViewById<Chip>(R.id.chipAll).setOnClickListener { 
+            updateDisplayList(currentList) 
+        }
+    
+        // 2. Chip "Favoritas"
         findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
             lifecycleScope.launch {
                 val favorites = currentList.filter { item ->
                     val id = if (item is Song) item.id.toString() else (item as OnlineSong).videoId
                     repository.isFavorite(id)
                 }
-                updateDisplayList(favorites.toMutableList())
+                updateDisplayList(favorites)
             }
         }
-
+    
+        // 3. Chip "Playlists"
         findViewById<Chip>(R.id.chipPlaylists).setOnClickListener {
             startActivity(Intent(this, PlaylistActivity::class.java))
         }
+    
+        // 4. Barra de Pesquisa
+        findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(q: String?): Boolean = true
+            override fun onQueryTextChange(newText: String?): Boolean {
+                filterList(newText)
+                return true
+            }
+        })
+        
+        
+        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
+            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
+            updateDisplayList(sorted.toMutableList())
+        }
+
 
         findViewById<Chip>(R.id.chipOnline).setOnClickListener {
             // Abre sua Activity de busca online (ajuste o nome se necessário)
@@ -112,16 +128,6 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Busca Online não disponível", Toast.LENGTH_SHORT).show()
             }
         }
-
-        // Busca
-        findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(q: String?): Boolean = true
-            override fun onQueryTextChange(newText: String?): Boolean {
-                filterSearch(newText)
-                return true
-            }
-        })
-    }
 
     private fun filterSearch(query: String?) {
         val filtered = if (query.isNullOrBlank()) {
