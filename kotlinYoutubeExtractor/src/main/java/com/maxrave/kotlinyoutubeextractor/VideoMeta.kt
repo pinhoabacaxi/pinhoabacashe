@@ -1,22 +1,22 @@
 package com.maxrave.kotlinyoutubeextractor
 
+import java.io.Serializable
 /**
  * VideoMeta contém todas as informações disponíveis para um vídeo do YouTube, 
  * como título, autor, miniatura, contagem de visualizações, etc. 
  */
 data class VideoMeta(
-    val videoId: String?,
-    val title: String?,
-    val author: String?,
-    val channelId: String?,
-    /**
-     * O comprimento do vídeo em segundos. 
-     */
-    val videoLength: Long,
+    val videoId: String,
+    val title: String,
+    val author: String,
+    val channelId: String,
+    val duration: Long,
     val viewCount: Long,
     val isLiveStream: Boolean,
-    val shortDescription: String?
-) {
+    val description: String,
+    val thumbnailUrl: String = "" // Novo campo adicionado
+) : Serializable
+ {
 
     // 120 x 90
     val thumbUrl: String
