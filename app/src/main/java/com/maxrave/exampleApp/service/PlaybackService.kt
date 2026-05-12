@@ -106,6 +106,21 @@ class PlaybackService : Service() {
             .setOngoing(true) // Impede que o usuário descarte a notificação enquanto carrega
             .build()
     }
+    private fun showOnlineNotification(onlineSong: OnlineSong) {
+        // Aqui você constrói a notificação real com o título e autor da música do YouTube
+        // e usa o .url do streaming que obtivemos no extractor.
+        
+        val notification = NotificationCompat.Builder(this, "playback_channel")
+            .setContentTitle(onlineSong.title)
+            .setContentText(onlineSong.author)
+            .setSmallIcon(R.drawable.ic_music_note)
+            // Adicione controles de Play/Pause se necessário
+            .setOngoing(true)
+            .build()
+    
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, notification)
+    }
     private fun showNotification(song: Song) {
         val isPlaying = LocalPlayerManager.isPlaying()
         
