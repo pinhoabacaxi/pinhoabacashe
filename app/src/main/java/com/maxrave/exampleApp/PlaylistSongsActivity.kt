@@ -6,6 +6,7 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.maxrave.exampleApp.adapter.HybridAdapter
 import com.maxrave.exampleApp.databinding.ActivityPlaylistSongsBinding
 import com.maxrave.exampleApp.model.Song
@@ -28,10 +29,8 @@ class PlaylistSongsActivity : AppCompatActivity() {
         playlistId = intent.getLongExtra("PLAYLIST_ID", -1)
         val playlistName = intent.getStringExtra("PLAYLIST_NAME") ?: "Playlist"
         
-        // Sincroniza o cabeçalho com o nome da playlist
         binding.tvPlaylistName.text = playlistName
         
-        // Configura Toolbar para voltar
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         binding.toolbar.setNavigationOnClickListener { finish() }
@@ -51,16 +50,15 @@ class PlaylistSongsActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
+        // CORREÇÃO: Forçando os tipos dos 4 lambdas para evitar erro do compilador
         hybridAdapter = HybridAdapter(
-            onItemClick = { item, position ->
+            onItemClick = { item: Any, position: Int ->
                 LocalPlayerManager.setQueueAndPlay(hybridAdapter.getList(), position, this)
                 startActivity(Intent(this, FullPlayerActivity::class.java))
             },
-            onMoreOptionsClick = { item -> 
-                // Futuro: Menu de remoção
-            },
-            onFavoriteClick = { item -> },
-            onLongItemClick = { item -> }
+            onMoreOptionsClick = { item: Any -> },
+            onFavoriteClick = { item: Any -> },
+            onLongItemClick = { item: Any -> }
         )
 
         binding.rvPlaylistSongs.apply {
@@ -75,7 +73,6 @@ class PlaylistSongsActivity : AppCompatActivity() {
             if (result.isNotEmpty()) {
                 val songsFromDb = result[0].songs
                 
-                // Atualiza o contador de músicas no layout
                 binding.tvPlaylistInfo.text = "${songsFromDb.size} músicas"
                 
                 val mappedList = songsFromDb.map { entity ->
@@ -88,23 +85,21 @@ class PlaylistSongsActivity : AppCompatActivity() {
                             url = entity.sourcePath,
                             duration = "0"
                         )
-                    // Dentro de loadPlaylistSongs, no mapeamento do Song:
-                    // Dentro de loadPlaylistSongs()
                     } else {
+                        // CORREÇÃO: Passando todos os atributos necessários para compilar
                         Song(
                             id = entity.id.toLongOrNull() ?: 0L,
                             title = entity.title, 
                             artist = entity.artist, 
-                            album = "Playlist",    // <--- Faltava este
-                            duration = 0L,         // <--- Garantir que seja Long (0L)
+                            album = "Playlist",    
+                            duration = 0L,         
                             path = entity.sourcePath,
-                            albumId = 0L           // <--- Faltava este
+                            albumId = 0L           
                         )
                     }
                 }
                 hybridAdapter.setList(mappedList)
                 
-                // Sincronia de visibilidade com o novo TextView tvEmptyState
                 binding.tvEmptyState.visibility = if (mappedList.isEmpty()) View.VISIBLE else View.GONE
             } else {
                 binding.tvPlaylistInfo.text = "0 músicas"
