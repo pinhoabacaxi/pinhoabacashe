@@ -25,8 +25,9 @@ class YTExtractor(
     private val CACHING: Boolean = true, 
     private val LOGGING: Boolean = true
 ) {
-
     private val LOG_TAG = "YTExtractor"
+    private val CLIENT_NAME = "ANDROID_MUSIC"
+    private val CLIENT_VERSION = "6.45.52"
     private val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 
     var ytFiles: SparseArray<YtFile>? = null
@@ -45,17 +46,7 @@ class YTExtractor(
     private val lock: Lock = ReentrantLock()
     private val jsExecuting = lock.newCondition()
 
-    // Patterns de extração
-    private val patPlayerResponse = Pattern.compile("ytInitialPlayerResponse\\s*=\\s*(\\{.+?\\});")
-    private val patPlayerResponseAlternative = Pattern.compile("var\\s+ytInitialPlayerResponse\\s*=\\s*(\\{.+?\\});")
-    private val patPlayerResponseEmbedded = Pattern.compile("window\\[\"ytInitialPlayerResponse\"\\]\\s*=\\s*(\\{.+?\\});")
-    // Adicione este Pattern
-    private val patPlayerConfig = Pattern.compile("ytplayer\\.config\\s*=\\s*(\\{.+?\\});")
-    private val patSigEncUrl = Pattern.compile("url=(.+?)(\\u0026|$)")
-    private val patSignature = Pattern.compile("s=(.+?)(\\u0026|$)")
-    
     private val patSignatureDecFunction = Pattern.compile("(?:\\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{1,4})\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)")
-
     private val FORMAT_MAP = SparseArray<Format>()
 
     init {
@@ -63,163 +54,112 @@ class YTExtractor(
     }
 
     private fun setupFormatMap() {
-        // Formatos MP4 / 3GP
-        FORMAT_MAP.put(17, Format(17, "3gp", 144, Format.VCodec.MPEG4, Format.ACodec.AAC, false))
-        FORMAT_MAP.put(18, Format(18, "mp4", 360, Format.VCodec.H264, Format.ACodec.AAC, false))
-        FORMAT_MAP.put(22, Format(22, "mp4", 720, Format.VCodec.H264, Format.ACodec.AAC, false))
-        
-        // Dash Audio (Os mais importantes para players de música)
         FORMAT_MAP.put(140, Format(140, "m4a", -1, Format.VCodec.NONE, Format.ACodec.AAC, 128, true))
         FORMAT_MAP.put(249, Format(249, "webm", -1, Format.VCodec.NONE, Format.ACodec.OPUS, 50, true))
         FORMAT_MAP.put(250, Format(250, "webm", -1, Format.VCodec.NONE, Format.ACodec.OPUS, 70, true))
         FORMAT_MAP.put(251, Format(251, "webm", -1, Format.VCodec.NONE, Format.ACodec.OPUS, 160, true))
-        
-        // Dash Video
-        FORMAT_MAP.put(134, Format(134, "mp4", 360, Format.VCodec.H264, Format.ACodec.NONE, true))
-        FORMAT_MAP.put(135, Format(135, "mp4", 480, Format.VCodec.H264, Format.ACodec.NONE, true))
-        FORMAT_MAP.put(136, Format(136, "mp4", 720, Format.VCodec.H264, Format.ACodec.NONE, true))
-        FORMAT_MAP.put(137, Format(137, "mp4", 1080, Format.VCodec.H264, Format.ACodec.NONE, true))
+        FORMAT_MAP.put(18, Format(18, "mp4", 360, Format.VCodec.H264, Format.ACodec.AAC, false))
+        FORMAT_MAP.put(22, Format(22, "mp4", 720, Format.VCodec.H264, Format.ACodec.AAC, false))
     }
 
     private fun getStreamUrls(): SparseArray<YtFile>? {
-        var pageHtml = ""
         val ytFilesResult = SparseArray<YtFile>()
         val encSignatures = SparseArray<String>()
-    
-        try {
-            // URL otimizada para pular telas de consentimento e restrições
-            val getUrl = URL("https://www.youtube.com/watch?v=$videoID&bpctr=9999999999&has_verified=1&el=detailpage&hl=en")
-            val urlConnection = getUrl.openConnection() as HttpURLConnection
-            
-            // HEADERS OBRIGATÓRIOS PARA 2026
-            urlConnection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
-            urlConnection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,webp,*/*;q=0.8")
-            urlConnection.setRequestProperty("Accept-Language", "en-US,en;q=0.5")
-            
-            // O YouTube verifica de onde a requisição veio (Referer)
-            urlConnection.setRequestProperty("Referer", "https://www.youtube.com/watch?v=$videoID")
-            urlConnection.setRequestProperty("Origin", "https://www.youtube.com")
-            
-            // Simular que aceitamos cookies (essencial para evitar erro de streamingData)
-            urlConnection.setRequestProperty("Cookie", "CONSENT=YES+cb.20230531-04-p0.en+FX+999; SOCS=CAESEwgDEgk0ODE3Nzk3MTQaAmVuIAEaBgiA_LyaBg")
-    
-            urlConnection.inputStream.bufferedReader().use { pageHtml = it.readText() }
-            urlConnection.disconnect()
-    
-            if (pageHtml.isEmpty()) return null
 
-        // ... (resto da lógica de busca do JSON)
-    
-            // 2. BUSCA DO JSON (Lógica de Fallback)
-            var jsonStr: String? = null
-            val matchers = listOf(patPlayerResponse, patPlayerResponseAlternative, patPlayerResponseEmbedded)
-    
-            for (pat in matchers) {
-                val mat = pat.matcher(pageHtml)
-                if (mat.find()) {
-                    jsonStr = mat.group(1)
-                    break
-                }
+        try {
+            val apiUrl = "https://www.youtubei.googleapis.com/youtubei/v1/player?prettyPrint=false"
+            val url = URL(apiUrl)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("User-Agent", "com.google.android.youtube/19.05.36 (Linux; U; Android 14)")
+            conn.doOutput = true
+
+            val requestBody = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", CLIENT_NAME)
+                        put("clientVersion", CLIENT_VERSION)
+                        put("hl", "pt-BR")
+                        put("gl", "BR")
+                    })
+                })
+                put("videoId", videoID)
             }
-    
-            // Plano B: Se não achou nos padrões normais, tenta no Config
-            if (jsonStr == null) {
-                val matConfig = patPlayerConfig.matcher(pageHtml)
-                if (matConfig.find()) {
-                    try {
-                        val configJson = JSONObject(matConfig.group(1))
-                        jsonStr = configJson.getJSONObject("args").getString("player_response")
-                    } catch (e: Exception) {
-                        Log.e(LOG_TAG, "Erro ao extrair do patPlayerConfig")
-                    }
-                }
-            }
-    
-            if (jsonStr == null) {
-                Log.e(LOG_TAG, "streamingData não encontrado (JSON nulo)")
-                return null
-            }
-    
-            // 3. PROCESSAMENTO DOS DADOS
-            val ytPlayerResponse = JSONObject(jsonStr!!)
-            val streamingData = ytPlayerResponse.optJSONObject("streamingData") ?: return null
-    
+
+            conn.outputStream.use { it.write(requestBody.toString().toByteArray()) }
+
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            val playerResponse = JSONObject(response)
+
+            val streamingData = playerResponse.optJSONObject("streamingData") ?: return null
             val allFormats = mutableListOf<JSONObject>()
             streamingData.optJSONArray("formats")?.let { for(i in 0 until it.length()) allFormats.add(it.getJSONObject(i)) }
             streamingData.optJSONArray("adaptiveFormats")?.let { for(i in 0 until it.length()) allFormats.add(it.getJSONObject(i)) }
-    
+
             for (formatJson in allFormats) {
                 val itag = formatJson.getInt("itag")
                 if (FORMAT_MAP[itag] != null) {
                     if (formatJson.has("url")) {
-                        val url = formatJson.getString("url").replace("\\u0026", "&")
-                        ytFilesResult.put(itag, YtFile(FORMAT_MAP[itag], url))
-                    } else if (formatJson.has("signatureCipher") || formatJson.has("cipher")) {
-                        val cipher = formatJson.getString(if (formatJson.has("signatureCipher")) "signatureCipher" else "cipher")
-                        val matUrl = patSigEncUrl.matcher(cipher)
-                        val matSig = patSignature.matcher(cipher)
+                        ytFilesResult.put(itag, YtFile(FORMAT_MAP[itag], formatJson.getString("url")))
+                    } else if (formatJson.has("signatureCipher")) {
+                        val cipher = formatJson.getString("signatureCipher")
+                        val sigUrl = cipher.split("url=")[1].split("&")[0].let { URLDecoder.decode(it, "UTF-8") }
+                        val s = cipher.split("s=")[1].split("&")[0].let { URLDecoder.decode(it, "UTF-8") }
                         
-                        if (matUrl.find() && matSig.find()) {
-                            val url = URLDecoder.decode(matUrl.group(1), "UTF-8")
-                            val signature = URLDecoder.decode(matSig.group(1), "UTF-8")
-                            ytFilesResult.put(itag, YtFile(FORMAT_MAP[itag], url))
-                            encSignatures.put(itag, signature)
-                        }
+                        ytFilesResult.put(itag, YtFile(FORMAT_MAP[itag], sigUrl))
+                        encSignatures.put(itag, s)
                     }
                 }
             }
-    
-            // 4. METADADOS E ASSINATURAS
-            ytPlayerResponse.optJSONObject("videoDetails")?.let { details ->
+
+            playerResponse.optJSONObject("videoDetails")?.let { details ->
                 videoMeta = VideoMeta(
-                    details.optString("videoId"),
-                    details.optString("title"),
-                    details.optString("author"),
-                    details.optString("channelId"),
+                    details.optString("videoId"), details.optString("title"),
+                    details.optString("author"), details.optString("channelId"),
                     details.optString("lengthSeconds", "0").toLong(),
                     details.optString("viewCount", "0").toLong(),
-                    details.optBoolean("isLiveContent"),
-                    details.optString("shortDescription", "")
+                    details.optBoolean("isLiveContent"), ""
                 )
             }
-    
+
             if (encSignatures.size() > 0) {
-                processSignatures(pageHtml, encSignatures, ytFilesResult)
+                fetchAndProcessSignatures(encSignatures, ytFilesResult)
             }
-    
+
         } catch (e: Exception) {
-            if (LOGGING) Log.e(LOG_TAG, "Erro na extração: ${e.message}")
+            if (LOGGING) Log.e(LOG_TAG, "Erro InnerTube: ${e.message}")
             return null
         }
-    
         return if (ytFilesResult.size() > 0) ytFilesResult else null
     }
-        private fun processSignatures(pageHtml: String, encSignatures: SparseArray<String>, ytFiles: SparseArray<YtFile>) {
-            val matJs = Pattern.compile("/s/player/([a-zA-Z0-9_-]+?)/player_ias\\.vflset/[a-zA-Z0-9_-]+?/(?:base|embed)\\.js").matcher(pageHtml)
+
+    private fun fetchAndProcessSignatures(encSignatures: SparseArray<String>, ytFiles: SparseArray<YtFile>) {
+        try {
+            val watchUrl = URL("https://www.youtube.com/watch?v=$videoID")
+            val html = watchUrl.openConnection().inputStream.bufferedReader().use { it.readText() }
+            val matJs = Pattern.compile("/s/player/[a-zA-Z0-9_-]+?/player_ias\\.vflset/[a-zA-Z0-9_-]+?/(?:base|embed)\\.js").matcher(html)
+            
             if (matJs.find()) {
                 decipherJsFileName = matJs.group(0)
                 decipherSignature(encSignatures)
-    
+                
                 lock.lock()
-                try {
-                    jsExecuting.await(7, TimeUnit.SECONDS)
-                } finally {
-                    lock.unlock()
-                }
-    
+                try { jsExecuting.await(7, TimeUnit.SECONDS) } finally { lock.unlock() }
+
                 decipheredSignature?.let { sigStr ->
                     val sigs = sigStr.split("\n")
                     for (i in 0 until encSignatures.size()) {
                         val key = encSignatures.keyAt(i)
                         if (i < sigs.size) {
-                            val originalFile = ytFiles[key]
-                            val decipheredUrl = originalFile.url + "&sig=${sigs[i]}"
-                            ytFiles.put(key, YtFile(originalFile.meta, decipheredUrl))
+                            val file = ytFiles[key]
+                            ytFiles.put(key, YtFile(file.meta, file.url + "&sig=${sigs[i]}"))
                         }
                     }
                 }
             }
-        }
+        } catch (e: Exception) { Log.e(LOG_TAG, "Erro Signatures: ${e.message}") }
+    }
 
     private fun decipherSignature(encSignatures: SparseArray<String>) {
         try {
@@ -231,8 +171,6 @@ class YTExtractor(
             val mat = patSignatureDecFunction.matcher(jsContent)
             if (mat.find()) {
                 decipherFunctionName = mat.group(1)
-                
-                // Extração robusta do objeto de auxílio (ex: var fO = { ... })
                 val patMainFunct = Pattern.compile("var\\s+${Pattern.quote(decipherFunctionName!!)}\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\);\\s*([a-zA-Z0-9$]{1,4})\\.")
                 val matMain = patMainFunct.matcher(jsContent)
                 if (matMain.find()) {
@@ -246,9 +184,7 @@ class YTExtractor(
                     }
                 }
             }
-        } catch (e: Exception) {
-            Log.e(LOG_TAG, "Erro ao baixar JS: ${e.message}")
-        }
+        } catch (e: Exception) { Log.e(LOG_TAG, "Erro JS: ${e.message}") }
     }
 
     private fun decipherViaWebView(encSignatures: SparseArray<String>) {
@@ -272,7 +208,6 @@ class YTExtractor(
                     } finally { lock.unlock() }
                 }
                 override fun onError(e: String) {
-                    Log.e(LOG_TAG, "JS Error: $e")
                     lock.lock()
                     try { jsExecuting.signal() } finally { lock.unlock() }
                 }
