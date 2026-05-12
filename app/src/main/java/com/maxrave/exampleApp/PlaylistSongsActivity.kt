@@ -17,6 +17,7 @@ class PlaylistSongsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlaylistSongsBinding
     private lateinit var repository: PlaylistRepository
     private lateinit var hybridAdapter: HybridAdapter
+    private lateinit var playlistAdapter: PlaylistAdapter
     private var playlistId: Long = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,15 +43,25 @@ class PlaylistSongsActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        hybridAdapter = HybridAdapter(
-            onItemClick = { item ->
-                val list = hybridAdapter.getList()
-                val pos = list.indexOf(item)
-                LocalPlayerManager.setQueueAndPlay(list, pos, this)
-                startActivity(Intent(this, FullPlayerActivity::class.java))
+        repository = PlaylistRepository(this)
+        
+        playlistAdapter = PlaylistAdapter(
+            playlists = emptyList(),
+            onClick = { playlist ->
+                // Abre as músicas daquela playlist específica
+                val intent = Intent(this, PlaylistSongsActivity::class.java).apply {
+                    putExtra("PLAYLIST_ID", playlist.id)
+                    putExtra("PLAYLIST_NAME", playlist.name)
+                }
+                startActivity(intent)
             },
-            onLongItemClick = { item ->
-                // Aqui você pode mostrar um diálogo para remover da playlist
+            onDelete = { playlist ->
+                // Lógica para deletar do banco de dados Room
+                lifecycleScope.launch {
+                    // Adicione a função delete no seu Repository/DAO
+                    // repository.deletePlaylist(playlist)
+                    loadPlaylists() 
+                }
             }
         )
 
