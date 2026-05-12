@@ -1,7 +1,6 @@
 package com.maxrave.exampleApp.Room
 
 import androidx.room.*
-import android.content.Context
 
 @Entity(tableName = "playlists")
 data class Playlist(
@@ -12,11 +11,11 @@ data class Playlist(
 
 @Entity(tableName = "songs")
 data class SongEntity(
-    @PrimaryKey val id: String, // Usaremos o path ou URL como ID único
+    @PrimaryKey val id: String, 
     val title: String,
     val artist: String,
-    val sourcePath: String,    // Path local ou URL online
-    val thumbnailUrl: String?, // Para músicas online
+    val sourcePath: String,    
+    val thumbnailUrl: String?, 
     val isOnline: Boolean
 )
 
@@ -29,8 +28,8 @@ data class PlaylistSongCrossRef(
     val playlistId: Long,
     val songId: String
 )
-@Entity
-    (tableName = "favorites")
-    data class FavoriteEntity(
-        @PrimaryKey val songId: String // O ID da música (path ou URL)
-    )
+
+@Entity(tableName = "favorites")
+data class FavoriteEntity(
+    @PrimaryKey val songId: String
+)
