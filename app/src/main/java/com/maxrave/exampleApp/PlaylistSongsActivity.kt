@@ -78,5 +78,5 @@ class PlaylistSongsActivity : AppCompatActivity() {
     }
     private fun showBottomSheetOptions(song: Song) {
     // Por enquanto, deixe vazio para o build passar
-}
+    }
 }
