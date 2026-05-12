@@ -20,6 +20,11 @@ object LocalPlayerManager {
     private var currentTrack: Any? = null
     // NOVO: Lista de ouvintes para não sobrescrever um ao outro
     private val listeners = mutableListOf<PlayerListener>()
+
+        interface PlayerListener {
+            fun onTrackChanged(item: Any)
+            fun onStatusChanged(isPlaying: Boolean)
+        }
     var currentIndex: Int = -1
         private set
     
@@ -40,6 +45,12 @@ object LocalPlayerManager {
         prefs = PlayerPrefs(context)
     }
 
+    fun subscribe(listener: PlayerListener) {
+        listeners.add(listener)
+        // Ao se inscrever, já envia o estado atual para a tela
+        currentTrack?.let { listener.onTrackChanged(it) }
+        listener.onStatusChanged(isPlaying())
+    }
     // --- LÓGICA DE FILA CORRIGIDA ---
     fun playNext(item: Any) {
         if (playlistQueue.isEmpty()) {
