@@ -82,16 +82,22 @@ class YTExtractor(
 
     private fun getStreamUrls(): SparseArray<YtFile>? {
         var pageHtml = ""
-        val encSignatures = SparseArray<String>()
         val ytFilesResult = SparseArray<YtFile>()
 
         try {
-            val getUrl = URL("https://www.youtube.com/watch?v=$videoID&has_verified=1&bpctr=9999999999&el=embedded")
+            // Mudança na URL: Usamos o parâmetro 'get_video_info' simulado via watch
+            // O parâmetro 'bpctr' e 'has_verified' ajudam a pular restrições de idade
+            val getUrl = URL("https://www.youtube.com/watch?v=$videoID&bpctr=9999999999&has_verified=1&el=embedded&hl=en")
             val urlConnection = getUrl.openConnection() as HttpURLConnection
-    
-            urlConnection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36")
+            
+            // Headers Críticos para 2026
+            urlConnection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
             urlConnection.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
-            urlConnection.setRequestProperty("Cookie", "CONSENT=PENDING+999; YES+cb.20230531-04-p0.en+FX+999")
+            urlConnection.setRequestProperty("X-Youtube-Client-Name", "1") // 1 = WEB, 2 = MWEB, 3 = ANDROID
+            urlConnection.setRequestProperty("X-Youtube-Client-Version", "2.20240510.01.00")
+            
+            // Forçar um Cookie de consentimento para evitar a tela de "Aceite os termos"
+            urlConnection.setRequestProperty("Cookie", "CONSENT=YES+cb.20230531-04-p0.en+FX+999")
             urlConnection.inputStream.bufferedReader().use { pageHtml = it.readText() }
             urlConnection.disconnect()
 
