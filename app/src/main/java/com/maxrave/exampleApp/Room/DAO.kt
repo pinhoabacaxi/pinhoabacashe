@@ -1,11 +1,10 @@
 package com.maxrave.exampleApp.Room
 
 import androidx.room.*
-import android.content.Context
 
 @Dao
 interface MusicDao {
-    // Playlists
+    // --- PLAYLISTS ---
     @Insert
     suspend fun insertPlaylist(playlist: Playlist): Long
 
@@ -15,7 +14,7 @@ interface MusicDao {
     @Delete
     suspend fun deletePlaylist(playlist: Playlist)
 
-    // Músicas e Relações
+    // --- MÚSICAS E RELAÇÕES ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSong(song: SongEntity)
 
@@ -29,12 +28,14 @@ interface MusicDao {
     @Query("DELETE FROM playlist_song_cross_ref WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: String)
 
+    // --- FILTROS ---
     @Query("SELECT DISTINCT artist FROM songs") 
     suspend fun getUniqueArtists(): List<String>
     
-    @Query("SELECT DISTINCT album FROM songs") 
-    suspend fun getUniqueAlbums(): List<String>
+    // Nota: Para filtrar por álbum, a SongEntity precisaria do campo album. 
+    // Por enquanto, usaremos a ordenação na lista da MainActivity.
   
+    // --- FAVORITOS ---
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE songId = :id)")
     suspend fun isFavorite(id: String): Boolean
     
