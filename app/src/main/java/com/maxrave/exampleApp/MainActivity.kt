@@ -107,7 +107,7 @@ class MainActivity : AppCompatActivity() {
             updateDisplayList(sorted.toMutableList())
         }
         // Localize o botão de busca (ex: um ImageButton com id btnOnlineSearch)
-        findViewById<ImageButton>(R.id.btnOnlineSearch).setOnClickListener {
+        findViewById<Chip>(R.id.btnOnlineSearch).setOnClickListener {
             val intent = Intent(this, OnlineSearchActivity::class.java)
             startActivity(intent)
         }
