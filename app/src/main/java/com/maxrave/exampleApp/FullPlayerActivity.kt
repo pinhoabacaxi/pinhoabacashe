@@ -104,7 +104,24 @@ class FullPlayerActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(s: SeekBar?) {}
         })
     }
-
+    // Dentro da FullPlayerActivity.kt
+    private fun openOptionsMenu() {
+        val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return
+        
+        val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
+            when(action) {
+                "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
+                "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
+                "DOWNLOAD_MP3" -> {
+                    if (currentTrack is OnlineSong) {
+                        startDownload(currentTrack, "mp3") // Chame sua função do WorkManager aqui
+                    }
+                }
+                "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack) // Abra o diálogo do Room aqui
+            }
+        }
+        bottomSheet.show(supportFragmentManager, "Options")
+    }
     private fun showPlaylistSelection(track: Any) {
         lifecycleScope.launch {
             val playlists = repository.getAllPlaylists()
