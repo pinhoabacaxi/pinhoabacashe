@@ -18,13 +18,13 @@ import com.maxrave.kotlinyoutubeextractor.VideoMeta
 class HybridAdapter(
     private val onItemClick: (item: Any, position: Int) -> Unit,
     private val onMoreOptionsClick: (item: Any) -> Unit,
-    private val onFavoriteClick: (item: Any) -> Unit, // Adicionado para corrigir os botões que não respondiam
-    private val onLongItemClick: (item: Any) -> Unit // ADICIONE ESTA LINHA
+    private val onFavoriteClick: (item: Any) -> Unit,
+    private val onLongItemClick: (item: Any) -> Unit
 ): RecyclerView.Adapter<HybridAdapter.MusicViewHolder>() {
 
     private var items = mutableListOf<Any>()
 
-    fun getList(): List<Any> = items // ADICIONE ESTA FUNÇÃO para resolver o erro no PlaylistSongsActivity
+    fun getList(): List<Any> = items
     
     fun setList(newList: List<Any>) {
         items.clear()
@@ -32,7 +32,6 @@ class HybridAdapter(
         notifyDataSetChanged()
     }
 
-    // --- LÓGICA DE SWIPE / REMOÇÃO ---
     fun removeItem(position: Int): Any {
         val removedItem = items[position]
         items.removeAt(position)
@@ -56,11 +55,6 @@ class HybridAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MusicViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_song, parent, false)
         return MusicViewHolder(view)
-        // Adicione no ViewHolder
-        itemView.setOnLongClickListener {
-            onLongItemClick(items[adapterPosition])
-            true
-        }
     }
 
     override fun onBindViewHolder(holder: MusicViewHolder, position: Int) {
@@ -70,7 +64,6 @@ class HybridAdapter(
     override fun getItemCount(): Int = items.size
 
     inner class MusicViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        // Mapeamento de IDs conforme o seu item_song.xml
         private val tvTitle: TextView = itemView.findViewById(R.id.tvSongTitle)
         private val tvArtist: TextView = itemView.findViewById(R.id.tvSongArtist)
         private val ivArt: ImageView = itemView.findViewById(R.id.ivAlbumArt)
@@ -83,28 +76,20 @@ class HybridAdapter(
                 is Song -> {
                     tvTitle.text = item.title
                     tvArtist.text = item.artist
-                    
-                    // Indicador Local (Pasta/Android)
                     ivSourceIndicator.setImageResource(android.R.drawable.ic_menu_save)
                     ivSourceIndicator.alpha = 0.5f
 
-                    // Carrega capa local
                     val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, item.id)
                     Glide.with(itemView.context)
                         .load(uri)
                         .placeholder(android.R.drawable.ic_media_play)
                         .error(android.R.drawable.ic_media_play)
                         .into(ivArt)
-                    
-                    // Atualiza ícone de favorito se a lógica existir no seu model Song
-                    // btnFavorite.setImageResource(if(item.isFavorite) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off)
                 }
                 
                 is OnlineSong -> {
                     tvTitle.text = item.title
                     tvArtist.text = item.author
-                    
-                    // Indicador Online (Nuvem/Globo)
                     ivSourceIndicator.setImageResource(android.R.drawable.ic_menu_search)
                     ivSourceIndicator.alpha = 0.8f
 
@@ -128,22 +113,23 @@ class HybridAdapter(
                 }
             }
 
-            // --- CORREÇÃO DOS CLIQUES ---
+            // --- LISTENERS CORRIGIDOS ---
             
-            // Clique na linha inteira: Dá o Play
+            // Clique simples na música (Play)
             itemView.setOnClickListener { onItemClick(item, position) }
         
+            // Clique longo na música (Ações rápidas)
             itemView.setOnLongClickListener { 
-            onLongItemClick(item)
-            true
-            
-                // Clique no botão de favoritos: Não dá play, apenas executa a ação de favoritar
-            btnFavorite.setOnClickListener {
-                onFavoriteClick(item)
-                // Opcional: animar ou trocar o ícone aqui
+                onLongItemClick(item)
+                true
             }
 
-            // Clique no botão de mais opções (Menu)
+            // Botão de Favoritos
+            btnFavorite.setOnClickListener {
+                onFavoriteClick(item)
+            }
+
+            // Botão de Mais Opções
             btnMore.setOnClickListener { 
                 onMoreOptionsClick(item) 
             }
@@ -154,5 +140,4 @@ class HybridAdapter(
         private const val TYPE_LOCAL = 0
         private const val TYPE_ONLINE = 1
     }
-}
 }
