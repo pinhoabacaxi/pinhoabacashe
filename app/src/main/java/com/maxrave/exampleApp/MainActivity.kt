@@ -83,10 +83,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
+            // Procure a linha onde você cria o HybridAdapter e mude para:
         hybridAdapter = HybridAdapter(
-            onItemClick = { item ->
-                // Pega a posição correta dentro da lista que está sendo exibida no momento
-                val position = filteredList.indexOf(item)
+            onItemClick = { item, position -> // Adicione 'position' aqui
                 LocalPlayerManager.setQueueAndPlay(filteredList, position, this)
             },
             onMoreOptionsClick = { item ->
