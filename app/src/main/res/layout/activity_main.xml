@@ -114,7 +114,7 @@
                     android:textColor="#FFFFFF"
                     app:chipBackgroundColor="#333333" />
 
-                <com.google.android.material.chip.Chip
+                <com.google.android.material.chip.Chip>
                     <ImageButton
                         android:id="@+id/btnOnlineSearch"
                         android:layout_width="wrap_content"
