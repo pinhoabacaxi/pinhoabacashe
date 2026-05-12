@@ -8,7 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.maxrave.exampleApp.model.Song
-import com.maxrave.exampleApp.model.OnlineSong // IMPORTANTE: Importe o seu modelo online
+import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.service.PlaybackService
 import com.maxrave.exampleApp.repository.RecentSongsManager
 import com.maxrave.exampleApp.repository.PlayerPrefs
@@ -28,14 +28,13 @@ object LocalPlayerManager {
 
     enum class RepeatMode { NONE, ONE, ALL }
 
-    // Referência para a música atual (Local ou Online)
     var currentSong: Song? = null
         private set
     var currentOnlineSong: OnlineSong? = null
         private set
 
     var onTrackChanged: ((Song) -> Unit)? = null
-    var onOnlineTrackChanged: ((OnlineSong) -> Unit)? = null // Callback para online
+    var onOnlineTrackChanged: ((OnlineSong) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
 
@@ -46,7 +45,7 @@ object LocalPlayerManager {
                 if (it.isPlaying) {
                     try {
                         onProgressChanged?.invoke(it.currentPosition, it.duration)
-                    } catch (e: Exception) { /* Ignora erro durante o reset */ }
+                    } catch (e: Exception) { }
                 }
             }
             handler.postDelayed(this, 1000)
@@ -68,33 +67,42 @@ object LocalPlayerManager {
     fun playOnline(onlineSong: OnlineSong, context: Context) {
         val url = onlineSong.streamUrl ?: return
         
-        currentSong = null // Limpa a música local atual
+        currentSong = null
         currentOnlineSong = onlineSong
+
+        // CORREÇÃO CRUCIAL: Iniciar o serviço IMEDIATAMENTE antes do buffering
+        // Isso evita o crash de 1 minuto pois o serviço já nasce com uma notificação.
+        updateService(context, "ACTION_PREPARE_ONLINE")
 
         try {
             mediaPlayer?.apply {
                 reset()
                 setDataSource(url)
-                prepareAsync() // Streaming deve ser sempre Async para não travar a UI
+                
+                // Usamos Async para não travar a UI enquanto o YouTube responde
+                prepareAsync() 
                 
                 setOnPreparedListener {
                     it.start()
                     onPlaybackStatusChanged?.invoke(true)
                     onOnlineTrackChanged?.invoke(onlineSong)
+                    // Atualiza a notificação de "Carregando" para o nome real da música
                     updateService(context, "ACTION_UPDATE_NOTIFICATION")
                 }
 
                 setOnCompletionListener {
                     onPlaybackStatusChanged?.invoke(false)
+                    handleCompletion(context)
                 }
                 
                 setOnErrorListener { _, what, extra ->
                     Log.e("PlayerManager", "Erro no stream: $what, $extra")
+                    onPlaybackStatusChanged?.invoke(false)
                     false
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("PlayerManager", "Falha ao configurar DataSource: ${e.message}")
         }
     }
 
@@ -116,7 +124,7 @@ object LocalPlayerManager {
         
         currentIndex = songList.indexOfFirst { it.id == targetSong.id }
         currentSong = targetSong
-        currentOnlineSong = null // Limpa referência online ao tocar local
+        currentOnlineSong = null
 
         try {
             mediaPlayer?.apply {
@@ -128,25 +136,26 @@ object LocalPlayerManager {
                 setDataSource(context, trackUri)
                 prepare()
                 start()
+                
+                setOnCompletionListener {
+                    handleCompletion(context)
+                }
             }
             
             recentManager?.addSongToRecent(targetSong.id)
-            
             onTrackChanged?.invoke(targetSong)
             onPlaybackStatusChanged?.invoke(true)
             
             updateService(context, "ACTION_UPDATE_NOTIFICATION")
             
-            mediaPlayer?.setOnCompletionListener {
-                handleCompletion(context)
-            }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("PlayerManager", "Erro ao tocar local: ${e.message}")
             next(context)
         }
     }
 
     private fun handleCompletion(context: Context) {
+        // Se for online, apenas paramos (ou você pode implementar autoplay similar aqui)
         if (currentOnlineSong != null) {
             onPlaybackStatusChanged?.invoke(false)
             return
@@ -192,7 +201,6 @@ object LocalPlayerManager {
         isShuffle = !isShuffle
         val current = currentSong
         songList = if (isShuffle) originalList.shuffled() else originalList
-        
         current?.let { song ->
             currentIndex = songList.indexOfFirst { it.id == song.id }
         }
@@ -206,12 +214,21 @@ object LocalPlayerManager {
         }
     }
 
-    private fun updateService(context: Context, action: String) {
-        val intent = Intent(context, PlaybackService::class.java).apply { this.action = action }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
+    /**
+     * Gerencia a chamada do serviço de forma segura para evitar crashes
+     */
+    fun updateService(context: Context, action: String) {
+        try {
+            val intent = Intent(context, PlaybackService::class.java).apply { 
+                this.action = action 
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerManager", "Erro ao iniciar serviço: ${e.message}")
         }
     }
 }
