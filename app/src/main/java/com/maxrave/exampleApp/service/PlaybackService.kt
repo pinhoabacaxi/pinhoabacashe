@@ -21,7 +21,7 @@ import com.maxrave.exampleApp.receiver.NotificationReceiver
 class PlaybackService : Service() {
 
     private val CHANNEL_ID = "music_player_channel"
-    private val NOTIFICATION_ID = 1001
+    private val NOTIFICATION_ID = 101
 
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -52,6 +52,16 @@ class PlaybackService : Service() {
         val action = intent?.action ?: return START_NOT_STICKY
     
         // 1. REGRA DE OURO ANDROID 12+: Chame startForeground IMEDIATAMENTE.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(
+            NOTIFICATION_ID, 
+            notification, 
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        )
+    } else {
+        startForeground(NOTIFICATION_ID, notification)
+    }
+
         // Iniciamos com um placeholder e atualizamos logo em seguida.
         val placeholder = createPlaceholderNotification()
         startForegroundServiceSafe(placeholder)
