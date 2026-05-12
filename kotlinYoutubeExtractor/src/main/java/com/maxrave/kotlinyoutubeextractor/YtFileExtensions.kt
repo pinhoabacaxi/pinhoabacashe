@@ -5,7 +5,6 @@ import androidx.core.util.forEach
 
 /**
  * Retorna uma lista de objetos YtFile que contêm apenas áudio.
- * Inclui os itags modernos para M4A (140) e OPUS (249, 250, 251).
  */
 fun SparseArray<YtFile>.getAudioOnly(): List<YtFile> {
     val resultList = mutableListOf<YtFile>()
@@ -22,7 +21,7 @@ fun SparseArray<YtFile>.getAudioOnly(): List<YtFile> {
 }
 
 /**
- * Retorna uma lista de objetos YtFile que contêm vídeo (com ou sem áudio).
+ * Retorna uma lista de objetos YtFile que contêm vídeo.
  */
 fun SparseArray<YtFile>.getVideoOnly(): List<YtFile> {
     val resultList = mutableListOf<YtFile>()
@@ -53,6 +52,19 @@ fun <T> SparseArray<T>.values(): List<T> {
     return list
 }
 
+/**
+ * Retorna o ficheiro com a melhor qualidade de áudio baseada no bitrate.
+ */
+fun List<YtFile>.bestQuality(): YtFile? {
+    return this.maxByOrNull { it.meta?.audioBitrate ?: 0 }
+}
+
+/**
+ * Verifica se o SparseArray está vazio.
+ */
+fun <T> SparseArray<T>.isEmpty(): Boolean {
+    return this.size() == 0
+}
 /**
  * Retorna o ficheiro com a melhor qualidade de áudio baseada no bitrate.
  * Adicionada verificação de nulidade segura para o campo meta.
