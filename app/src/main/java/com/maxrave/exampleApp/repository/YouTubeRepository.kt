@@ -26,7 +26,8 @@ class YouTubeRepository(private val context: Context) {
             extractor.extract(youtubeUrl)
             val ytFiles = extractor.getYTFiles()
             
-            if (ytFiles == null || ytFiles.isEmpty()) {
+            // CORREÇÃO: Verificando o tamanho com size() em vez de isEmpty()
+            if (ytFiles == null || ytFiles.size() <= 0) {
                 Log.e("YouTubeRepo", "Falha ao obter streamingData do YouTube")
                 return@withContext
             }
@@ -53,7 +54,8 @@ class YouTubeRepository(private val context: Context) {
             extractor.extract(url)
             val ytFiles = extractor.getYTFiles()
             
-            if (ytFiles == null || ytFiles.isEmpty()) {
+            // CORREÇÃO: Verificando o tamanho com size() em vez de isEmpty()
+            if (ytFiles == null || ytFiles.size() <= 0) {
                 Log.e("YouTubeRepo", "streamingData nao disponível")
                 return@withContext null
             }
