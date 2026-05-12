@@ -1,3 +1,8 @@
+package com.maxrave.exampleApp.Room
+
+import androidx.room.*
+import android.content.Context
+
 @Database(entities = [Playlist::class, SongEntity::class, PlaylistSongCrossRef::class], version = 1)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun musicDao(): MusicDao
