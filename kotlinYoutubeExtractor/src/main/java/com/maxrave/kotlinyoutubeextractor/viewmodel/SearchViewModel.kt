@@ -1,26 +1,27 @@
 package com.maxrave.kotlinyoutubeextractor.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application // ESTA LINHA É ESSENCIAL
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-// IMPORTANTE: Verifique se este import aponta para onde você criou o SearchState
 import com.maxrave.kotlinyoutubeextractor.SearchState 
 import com.maxrave.kotlinyoutubeextractor.YTSearch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import androidx.lifecycle.AndroidViewModel
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
+    
+    // Inicializamos o YTSearch passando o contexto da aplicação para evitar memory leaks
     private val ytSearch = YTSearch(application.applicationContext)
-    // Usando explicitamente o tipo SearchState
+    
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState
 
     fun performSearch(query: String) {
         viewModelScope.launch {
-            // CORREÇÃO: Use .value para atribuir novos estados
             _searchState.value = SearchState.Loading
             try {
+                // Chamada para a lógica de busca no YouTube
                 val results = ytSearch.search(query)
                 _searchState.value = SearchState.Success(results)
             } catch (e: Exception) {
