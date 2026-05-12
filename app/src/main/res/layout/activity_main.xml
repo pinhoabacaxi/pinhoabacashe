@@ -117,10 +117,13 @@
                 <com.google.android.material.chip.Chip>
                     <ImageButton
                         android:id="@+id/btnOnlineSearch"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_width="48dp" 
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@android:drawable/ic_menu_search"
-                        android:contentDescription="Busca Online" />
+                        android:contentDescription="Busca Online"
+                        app:tint="#FFFFFF" />
+
                 </com.google.android.material.chip.Chip>
 
 
