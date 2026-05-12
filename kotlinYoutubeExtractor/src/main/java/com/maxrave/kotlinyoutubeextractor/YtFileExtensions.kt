@@ -54,6 +54,7 @@ fun <T> SparseArray<T>.values(): List<T> {
 
 /**
  * Retorna o ficheiro com a melhor qualidade de áudio baseada no bitrate.
+ * ESTA FUNÇÃO DEVE APARECER APENAS UMA VEZ.
  */
 fun List<YtFile>.bestQuality(): YtFile? {
     return this.maxByOrNull { it.meta?.audioBitrate ?: 0 }
@@ -64,11 +65,4 @@ fun List<YtFile>.bestQuality(): YtFile? {
  */
 fun <T> SparseArray<T>.isEmpty(): Boolean {
     return this.size() == 0
-}
-/**
- * Retorna o ficheiro com a melhor qualidade de áudio baseada no bitrate.
- * Adicionada verificação de nulidade segura para o campo meta.
- */
-fun List<YtFile>.bestQuality(): YtFile? {
-    return this.maxByOrNull { it.meta?.audioBitrate ?: 0 }
 }
