@@ -37,7 +37,8 @@ object LocalPlayerManager {
     var onOnlineTrackChanged: ((OnlineSong) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
-
+    
+    private val hybridQueue = mutableListOf<Any>() // Aceita Song ou OnlineSong
     private val handler = Handler(Looper.getMainLooper())
     private val updateProgressRunnable = object : Runnable {
         override fun run() {
@@ -117,6 +118,25 @@ object LocalPlayerManager {
     private fun setList(list: List<Song>) {
         this.originalList = list
         this.songList = if (isShuffle) list.shuffled() else list
+    }
+    // No LocalPlayerManager.kt
+
+    fun addToQueue(item: Any) {
+        hybridQueue.add(item)
+    // Se quiser, avise a UI que a fila mudou
+    }
+
+    fun playNextInHybridQueue(context: Context) {
+        if (hybridQueue.isEmpty()) return
+    
+        currentIndex++
+        if (currentIndex < hybridQueue.size) {
+            val nextItem = hybridQueue[currentIndex]
+            when (nextItem) {
+                is Song -> play(context, nextItem)
+                is OnlineSong -> playOnline(nextItem, context)
+            }
+        }
     }
 
     fun play(context: Context, song: Song? = null) {
