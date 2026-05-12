@@ -17,6 +17,7 @@ object LocalPlayerManager {
     private var currentIndex = 0
     private var playlistQueue = mutableListOf<Any>()
     private var originalQueue = mutableListOf<Any>()
+    private var currentVolume = 1.0f // 0.0 a 1.0
     
     var currentIndex: Int = -1
         private set
@@ -25,10 +26,9 @@ object LocalPlayerManager {
     private var prefs: PlayerPrefs? = null
     
     var isShuffle: Boolean = false
-    var repeatMode: RepeatMode = RepeatMode.NONE
     
     enum class RepeatMode { NONE, ONE, ALL }
-    
+    var repeatMode: RepeatMode = RepeatMode.NONE
     // Callbacks unificados (Removida a duplicação)
     var onTrackChanged: ((Any) -> Unit)? = null 
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
@@ -103,6 +103,36 @@ object LocalPlayerManager {
         }
     }
 
+    fun setVolume(volume: Float) {
+        currentVolume = volume
+        mediaPlayer?.setVolume(volume, volume)
+    }
+
+    fun getVolume() = currentVolume
+
+    fun toggleRepeatMode(): RepeatMode {
+        repeatMode = when (repeatMode) {
+            RepeatMode.NONE -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.NONE
+        }
+        return repeatMode
+    }
+
+    private fun handleCompletion(context: Context) {
+        when (repeatMode) {
+            RepeatMode.ONE -> play(context) // Toca a mesma de novo
+            RepeatMode.ALL -> next(context) // Vai para a próxima, volta ao início se for a última
+            RepeatMode.NONE -> {
+                if (currentIndex < playlistQueue.size - 1) {
+                    next(context)
+                } else {
+                    stop()
+                }
+            }
+        }
+    }
+    
     fun setQueueAndPlay(list: List<Any>, index: Int, context: Context) {
         originalQueue = list.toMutableList()
         playlistQueue = if (isShuffle) list.shuffled().toMutableList() else list.toMutableList()
@@ -157,17 +187,7 @@ object LocalPlayerManager {
         play(context)
     }
 
-    private fun handleCompletion(context: Context) {
-        when (repeatMode) {
-            RepeatMode.ONE -> play(context)
-            RepeatMode.ALL -> next(context)
-            RepeatMode.NONE -> {
-                if (currentIndex < playlistQueue.size - 1) next(context)
-                else stop()
-            }
-        }
-    }
-
+    
     fun stop() {
         mediaPlayer?.stop()
         mediaPlayer?.release()
