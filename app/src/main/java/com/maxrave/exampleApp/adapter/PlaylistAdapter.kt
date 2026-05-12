@@ -1,27 +1,33 @@
 package com.maxrave.exampleApp.adapter
 
 import android.view.LayoutInflater
-import android.view.ViewGroup
-import androidx.recyclerview.widget.RecyclerView
-import com.maxrave.exampleApp.databinding.ItemSongBinding // Reutilizando layout de item simples ou similar
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageButton
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.maxrave.exampleApp.R
+import com.maxrave.exampleApp.Room.Playlist
 
 class PlaylistAdapter(
-    private var playlists: List<String>,
-    private val onClick: (String) -> Unit,
-    private val onDelete: (String) -> Unit
+    private var playlists: List<Playlist>,
+    private val onClick: (Playlist) -> Unit,
+    private val onDelete: (Playlist) -> Unit
 ) : RecyclerView.Adapter<PlaylistAdapter.PlaylistViewHolder>() {
 
-    inner class PlaylistViewHolder(val view: View) : RecyclerView.ViewHolder(view) {
-        // Para simplificar, usaremos um TextView simples se não houver layout específico
-        // Aqui assumo um layout básico ou o próprio ItemSongBinding adaptado
-        fun bind(name: String) {
-            // Lógica de bind simplificada
+    inner class PlaylistViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvName: TextView = view.findViewById(R.id.tvPlaylistName)
+        val btnDelete: ImageButton = view.findViewById(R.id.btnDeletePlaylist)
+
+        fun bind(playlist: Playlist) {
+            tvName.text = playlist.name
+            itemView.setOnClickListener { onClick(playlist) }
+            btnDelete.setOnClickListener { onDelete(playlist) }
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaylistViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_playlist, parent, false)
         return PlaylistViewHolder(view)
     }
 
