@@ -67,28 +67,28 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         rvSongs = findViewById(R.id.rvSongs)
         
-        // Captura o include do Mini Player
-        val includeMiniPlayer = findViewById<View>(R.id.includeMiniPlayer)
+        // 1. Referencie o include primeiro
+        val miniPlayerInclude = findViewById<View>(R.id.includeMiniPlayer)
         
-        if (includeMiniPlayer != null) {
-            // Tenta encontrar o container dentro do include
-            miniPlayerContainer = includeMiniPlayer.findViewById(R.id.miniPlayerContainer)
-            
-            // Se miniPlayerContainer for null aqui, o app vai dar crash de novo.
-            // Verifique se o ID no XML do mini player é exatamente 'miniPlayerContainer'
-            tvMiniTitle = includeMiniPlayer.findViewById(R.id.tvMiniTitle)
-            tvMiniArtist = includeMiniPlayer.findViewById(R.id.tvMiniArtist)
-            ivMiniArt = includeMiniPlayer.findViewById(R.id.ivMiniArt)
-            btnPlayPause = includeMiniPlayer.findViewById(R.id.btnPlayPause)
-            btnNext = includeMiniPlayer.findViewById(R.id.btnNext)
-            btnPrev = includeMiniPlayer.findViewById(R.id.btnPrev)
-            pbMiniProgress = includeMiniPlayer.findViewById(R.id.pbMiniProgress)
+        // 2. Busque os componentes de dentro do include
+        // Isso garante que o Kotlin encontre as Views mesmo em layouts complexos
+        if (miniPlayerInclude != null) {
+            miniPlayerContainer = miniPlayerInclude.findViewById(R.id.miniPlayerContainer)
+            tvMiniTitle = miniPlayerInclude.findViewById(R.id.tvMiniTitle)
+            tvMiniArtist = miniPlayerInclude.findViewById(R.id.tvMiniArtist)
+            ivMiniArt = miniPlayerInclude.findViewById(R.id.ivMiniArt)
+            btnPlayPause = miniPlayerInclude.findViewById(R.id.btnPlayPause)
+            btnNext = miniPlayerInclude.findViewById(R.id.btnNext)
+            btnPrev = miniPlayerInclude.findViewById(R.id.btnPrev)
+            pbMiniProgress = miniPlayerInclude.findViewById(R.id.pbMiniProgress)
     
+            // Configura o clique para abrir o player grande
             miniPlayerContainer.setOnClickListener {
                 startActivity(Intent(this, FullPlayerActivity::class.java))
             }
         } else {
-            android.util.Log.e("MainActivity", "ERRO: layout_mini_player não encontrado no XML da MainActivity")
+            // Se cair aqui, é porque o ID 'includeMiniPlayer' não existe na activity_main.xml
+            android.util.Log.e("PlayerError", "Não foi possível encontrar o include do Mini Player")
         }
     }
 
