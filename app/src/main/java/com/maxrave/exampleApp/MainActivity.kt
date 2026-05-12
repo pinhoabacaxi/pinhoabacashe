@@ -20,9 +20,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.bumptech.glide.Glide
-import com.google.android.material.card.MaterialCardView
-import com.google.android.material.chip.Chip
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.chip.Chip
 import com.maxrave.exampleApp.adapter.HybridAdapter
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.model.Song
@@ -39,11 +38,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var musicLoader: MusicLoader
     private lateinit var repository: PlaylistRepository
     
-    // Listas para controle de pesquisa e filtros
     private var currentList = mutableListOf<Any>()
     private var filteredList = mutableListOf<Any>()
 
-    // Mini Player UI
     private lateinit var miniPlayerContainer: View
     private lateinit var tvMiniTitle: TextView
     private lateinit var ivMiniArt: ImageView
@@ -53,7 +50,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Inicialização de componentes
         musicLoader = MusicLoader(this)
         repository = PlaylistRepository(this)
         rvSongs = findViewById(R.id.rvSongs)
@@ -81,7 +77,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFiltersAndSearch() {
-
         // 1. Chip "Todas"
         findViewById<Chip>(R.id.chipAll).setOnClickListener { 
             updateDisplayList(currentList) 
@@ -102,25 +97,15 @@ class MainActivity : AppCompatActivity() {
         findViewById<Chip>(R.id.chipPlaylists).setOnClickListener {
             startActivity(Intent(this, PlaylistActivity::class.java))
         }
-    
-        // 4. Barra de Pesquisa
-        findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(q: String?): Boolean = true
-            override fun onQueryTextChange(newText: String?): Boolean {
-                filterList(newText)
-                return true
-            }
-        })
         
-        
+        // 4. Chip "Recentes"
         findViewById<Chip>(R.id.chipRecent).setOnClickListener {
             val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
             updateDisplayList(sorted.toMutableList())
         }
 
-
+        // 5. Chip "Online"
         findViewById<Chip>(R.id.chipOnline).setOnClickListener {
-            // Abre sua Activity de busca online (ajuste o nome se necessário)
             try {
                 val intent = Intent(this, Class.forName("com.maxrave.exampleApp.OnlineSearchActivity"))
                 startActivity(intent)
@@ -129,7 +114,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    private fun filterSearch(query: String?) {
+        // 6. Barra de Pesquisa
+        findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(q: String?): Boolean = true
+            override fun onQueryTextChange(newText: String?): Boolean {
+                filterList(newText)
+                return true
+            }
+        })
+    }
+
+    private fun filterList(query: String?) {
         val filtered = if (query.isNullOrBlank()) {
             currentList
         } else {
@@ -205,8 +200,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- PERMISSÕES E CARREGAMENTO ---
-
     private fun checkPermissionsAndLoad() {
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
             Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
@@ -231,8 +224,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- MINI PLAYER ---
-
     private fun setupMiniPlayerUI() {
         miniPlayerContainer = findViewById(R.id.includeMiniPlayer)
         tvMiniTitle = findViewById(R.id.tvMiniPlayerTitle)
@@ -241,10 +232,10 @@ class MainActivity : AppCompatActivity() {
 
         btnPlayPause.setOnClickListener {
             if (LocalPlayerManager.isPlaying()) {
-                LocalPlayerManager.pause()
+                LocalPlayerManager.togglePlayPause(this)
                 btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
             } else {
-                LocalPlayerManager.resume()
+                LocalPlayerManager.togglePlayPause(this)
                 btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
             }
         }
@@ -258,7 +249,6 @@ class MainActivity : AppCompatActivity() {
         miniPlayerContainer.visibility = View.VISIBLE
         if (item is Song) {
             tvMiniTitle.text = item.title
-            // Glide para carregar a capa se houver
         } else if (item is OnlineSong) {
             tvMiniTitle.text = item.title
             Glide.with(this).load(item.thumbnailUrl).into(ivMiniArt)
@@ -282,5 +272,4 @@ class MainActivity : AppCompatActivity() {
         })
         helper.attachToRecyclerView(rvSongs)
     }
-}
 }
