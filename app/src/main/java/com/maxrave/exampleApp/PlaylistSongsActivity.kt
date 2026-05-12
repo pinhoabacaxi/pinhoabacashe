@@ -28,7 +28,13 @@ class PlaylistSongsActivity : AppCompatActivity() {
         playlistId = intent.getLongExtra("PLAYLIST_ID", -1)
         val playlistName = intent.getStringExtra("PLAYLIST_NAME") ?: "Playlist"
         
-        binding.collapsingToolbar.title = playlistName
+        // Sincroniza o cabeçalho com o nome da playlist
+        binding.tvPlaylistName.text = playlistName
+        
+        // Configura Toolbar para voltar
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        binding.toolbar.setNavigationOnClickListener { finish() }
         
         repository = PlaylistRepository(this)
         setupRecyclerView()
@@ -50,12 +56,10 @@ class PlaylistSongsActivity : AppCompatActivity() {
                 LocalPlayerManager.setQueueAndPlay(hybridAdapter.getList(), position, this)
                 startActivity(Intent(this, FullPlayerActivity::class.java))
             },
-            onMoreOptionsClick = { item ->
-                // Futuro: Abrir menu para remover da playlist
+            onMoreOptionsClick = { item -> 
+                // Futuro: Menu de remoção
             },
-            onFavoriteClick = { item ->
-                // Opcional: Lógica de favoritos rápida
-            },
+            onFavoriteClick = { item -> },
             onLongItemClick = { item -> }
         )
 
@@ -70,6 +74,10 @@ class PlaylistSongsActivity : AppCompatActivity() {
             val result = repository.getSongsFromPlaylist(playlistId)
             if (result.isNotEmpty()) {
                 val songsFromDb = result[0].songs
+                
+                // Atualiza o contador de músicas no layout
+                binding.tvPlaylistInfo.text = "${songsFromDb.size} músicas"
+                
                 val mappedList = songsFromDb.map { entity ->
                     if (entity.isOnline) {
                         OnlineSong(
@@ -94,10 +102,10 @@ class PlaylistSongsActivity : AppCompatActivity() {
                 }
                 hybridAdapter.setList(mappedList)
                 
-                // CORREÇÃO: Usando o binding e verificando a visibilidade corretamente
-                // Se o ID no XML for tvEmptyState, o binding será binding.tvEmptyState
+                // Sincronia de visibilidade com o novo TextView tvEmptyState
                 binding.tvEmptyState.visibility = if (mappedList.isEmpty()) View.VISIBLE else View.GONE
             } else {
+                binding.tvPlaylistInfo.text = "0 músicas"
                 binding.tvEmptyState.visibility = View.VISIBLE
             }
         }
