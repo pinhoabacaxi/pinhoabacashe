@@ -19,10 +19,13 @@ class HybridAdapter(
     private val onItemClick: (item: Any, position: Int) -> Unit,
     private val onMoreOptionsClick: (item: Any) -> Unit,
     private val onFavoriteClick: (item: Any) -> Unit // Adicionado para corrigir os botões que não respondiam
+    private val onLongItemClick: (item: Any) -> Unit // ADICIONE ESTA LINHA
 ) : RecyclerView.Adapter<HybridAdapter.MusicViewHolder>() {
 
     private var items = mutableListOf<Any>()
 
+    fun getList(): List<Any> = items // ADICIONE ESTA FUNÇÃO para resolver o erro no PlaylistSongsActivity
+    
     fun setList(newList: List<Any>) {
         items.clear()
         items.addAll(newList)
@@ -128,11 +131,13 @@ class HybridAdapter(
             // --- CORREÇÃO DOS CLIQUES ---
             
             // Clique na linha inteira: Dá o Play
-            itemView.setOnClickListener { 
-                onItemClick(item, position) 
-            }
-
-            // Clique no botão de favoritos: Não dá play, apenas executa a ação de favoritar
+            itemView.setOnClickListener { onItemClick(item, position) }
+        
+            itemView.setOnLongClickListener { 
+            onLongItemClick(item)
+            true
+            
+                // Clique no botão de favoritos: Não dá play, apenas executa a ação de favoritar
             btnFavorite.setOnClickListener {
                 onFavoriteClick(item)
                 // Opcional: animar ou trocar o ícone aqui
