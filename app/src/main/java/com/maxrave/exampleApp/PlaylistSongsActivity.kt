@@ -1,82 +1,80 @@
 package com.maxrave.exampleApp
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.maxrave.exampleApp.adapter.SongAdapter
+import com.maxrave.exampleApp.adapter.HybridAdapter
 import com.maxrave.exampleApp.databinding.ActivityPlaylistSongsBinding
 import com.maxrave.exampleApp.model.Song
+import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.player.LocalPlayerManager
-import com.maxrave.exampleApp.repository.FavoriteManager
-import com.maxrave.exampleApp.repository.MusicLoader
-import com.maxrave.exampleApp.repository.PlaylistManager
+import com.maxrave.exampleApp.repository.PlaylistRepository
 import kotlinx.coroutines.launch
-import android.content.Intent
 
 class PlaylistSongsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlaylistSongsBinding
-    private lateinit var playlistName: String
-    private lateinit var songAdapter: SongAdapter
-    private lateinit var playlistManager: PlaylistManager
-    private lateinit var musicLoader: MusicLoader
-    private lateinit var favoriteManager: FavoriteManager // Certifique-se que esta linha existe
-    // ... resto do código
-    
+    private lateinit var repository: PlaylistRepository
+    private lateinit var hybridAdapter: HybridAdapter
+    private var playlistId: Long = -1
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPlaylistSongsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        playlistName = intent.getStringExtra("PLAYLIST_NAME") ?: ""
-        binding.tvPlaylistName.text = playlistName
-
-        playlistManager = PlaylistManager(this)
-        musicLoader = MusicLoader(this)
-
+        playlistId = intent.getLongExtra("PLAYLIST_ID", -1)
+        val playlistName = intent.getStringExtra("PLAYLIST_NAME") ?: "Playlist"
+        binding.collapsingToolbar.title = playlistName
+        
+        repository = PlaylistRepository(this)
         setupRecyclerView()
         loadPlaylistSongs()
+
+        binding.fabPlayShuffle.setOnClickListener {
+            if (hybridAdapter.itemCount > 0) {
+                LocalPlayerManager.isShuffle = true
+                LocalPlayerManager.setQueueAndPlay(hybridAdapter.getList(), 0, this)
+                startActivity(Intent(this, FullPlayerActivity::class.java))
+            }
+        }
     }
 
     private fun setupRecyclerView() {
-        // 1. Criamos o Adapter com os novos parâmetros
-        songAdapter = SongAdapter(
-            songs = emptyList(), // Esta lista será preenchida pelo seu carregador de músicas
-            favoriteManager = FavoriteManager(this),
-            onSongClick = { song, position -> 
-                // 2. IMPORTANTE: Usamos a lista atual do adapter para garantir que 
-                // a fila de reprodução respeite a ordem da playlist
-                val currentPlaylist = songAdapter.getSongsList() // Ver nota abaixo
-                LocalPlayerManager.setQueueAndPlay(currentPlaylist, position, this)
-                
-                // Abre o FullPlayer para o utilizador ver o que está a tocar
+        hybridAdapter = HybridAdapter(
+            onItemClick = { item ->
+                val list = hybridAdapter.getList()
+                val pos = list.indexOf(item)
+                LocalPlayerManager.setQueueAndPlay(list, pos, this)
                 startActivity(Intent(this, FullPlayerActivity::class.java))
             },
-            onFavClick = { song -> 
-                // Lógica para alternar favorito
-                favoriteManager.toggleFavorite(song.id)
-                // O notifyItemChanged já é tratado dentro do Adapter que corrigimos
-            },
-            onLongClick = { song -> 
-                // Exibir diálogo de opções (Remover, Adicionar à outra playlist, etc)
-                showBottomSheetOptions(song) 
+            onLongItemClick = { item ->
+                // Aqui você pode mostrar um diálogo para remover da playlist
             }
         )
-    
+
         binding.rvPlaylistSongs.apply {
             layoutManager = LinearLayoutManager(this@PlaylistSongsActivity)
-            adapter = songAdapter
+            adapter = hybridAdapter
         }
     }
+
     private fun loadPlaylistSongs() {
         lifecycleScope.launch {
-            val allSongs = musicLoader.loadLocalSongs()
-            val songIds = playlistManager.getSongIdsFromPlaylist(playlistName)
-            val filteredSongs = allSongs.filter { songIds.contains(it.id.toString()) }
-            songAdapter.updateList(filteredSongs)
+            val result = repository.getSongsFromPlaylist(playlistId)
+            if (result.isNotEmpty()) {
+                val songsFromDb = result[0].songs
+                val mappedList = songsFromDb.map { entity ->
+                    if (entity.isOnline) {
+                        OnlineSong(entity.id, entity.title, entity.artist, entity.thumbnailUrl ?: "", entity.sourcePath)
+                    } else {
+                        // Mapeia para o seu modelo Song local
+                        Song(entity.id.toLong(), entity.title, entity.artist, "", 0, entity.sourcePath, null)
+                    }
+                }
+                hybridAdapter.setList(mappedList.toMutableList())
+            }
         }
-    }
-    private fun showBottomSheetOptions(song: Song) {
-    // Por enquanto, deixe vazio para o build passar
     }
 }
