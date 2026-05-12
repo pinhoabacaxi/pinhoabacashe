@@ -50,17 +50,19 @@ class OnlineSearchActivity : AppCompatActivity() {
         }
     }
 
+    // No setupSearchInput, use o ID correto do layout premium (searchViewOnline)
     private fun setupSearchInput() {
-        binding.etSearchOnline.setOnEditorActionListener { v, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                val query = v.text.toString()
-                if (query.isNotEmpty()) {
+        val searchView = binding.cardSearchContainer.findViewById<androidx.appcompat.widget.SearchView>(R.id.searchViewOnline)
+        searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                if (!query.isNullOrEmpty()) {
                     viewModel.search(query)
                     hideKeyboard()
                 }
-                true
-            } else false
-        }
+                return true
+            }
+            override fun onQueryTextChange(newText: String?): Boolean = true
+        })
     }
 
     private fun observeViewModel() {
