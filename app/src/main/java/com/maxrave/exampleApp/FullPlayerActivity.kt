@@ -21,6 +21,7 @@ import com.maxrave.exampleApp.Room.FavoriteEntity
 import jp.wasabeef.glide.transformations.BlurTransformation
 import com.bumptech.glide.request.RequestOptions
 import kotlinx.coroutines.launch
+import com.maxrave.exampleApp.service.MusicDownloadWorker
 
 class FullPlayerActivity : AppCompatActivity() {
 
