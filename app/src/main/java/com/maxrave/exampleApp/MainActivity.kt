@@ -153,11 +153,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMiniPlayerObservers() {
         // Observa mudanças de música
+        if (!::btnPlayPause.isInitialized) return
+
         LocalPlayerManager.onTrackChanged = { item ->
             miniPlayerContainer.visibility = View.VISIBLE
             updateMiniPlayerUI(item)
         }
-
         // Observa Play/Pause
         LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
             val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
