@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
+        btnOnlineSearch = findViewById(R.id.btnOnlineSearch)
         musicLoader = MusicLoader(this)
         repository = PlaylistRepository(this)
         rvSongs = findViewById(R.id.rvSongs)
