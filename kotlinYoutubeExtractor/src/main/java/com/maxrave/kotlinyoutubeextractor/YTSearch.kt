@@ -1,14 +1,13 @@
 package com.maxrave.kotlinyoutubeextractor
 
+import android.content.Context
+import android.net.ConnectivityManager
 import android.util.Log
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.URLDecoder
-import android.content.Context // Import necessário
-import android.net.ConnectivityManager // Import necessário
 
 class YTSearch(private val context: Context) {
     private val LOG_TAG = "YTSearch"
@@ -18,18 +17,20 @@ class YTSearch(private val context: Context) {
     /**
      * Realiza a busca no YouTube via InnerTube API.
      */
-    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    suspend fun search(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
+        val searchResults = mutableListOf<VideoMeta>()
+        
+        // 1. Verificação de Conexão (Movida para dentro da função)
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val activeNetwork = cm.activeNetworkInfo
         if (activeNetwork == null || !activeNetwork.isConnectedOrConnecting) {
             Log.e(LOG_TAG, "Dispositivo sem conexão de rede.")
-            return@withContext emptyList()
+            return@withContext searchResults // Retorna lista vazia se estiver offline
         }
-    suspend fun search(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
-        val searchResults = mutableListOf<VideoMeta>()
+
         try {
-            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val networkInfo = connectivityManager.activeNetworkInfo
-            Log.d(LOG_TAG, "Rede conectada: ${networkInfo?.isConnected == true}")
+            Log.d(LOG_TAG, "Iniciando busca para: $query")
+            
             val apiUrl = "https://www.youtubei.googleapis.com/youtubei/v1/search?prettyPrint=false"
             val conn = URL(apiUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -37,7 +38,7 @@ class YTSearch(private val context: Context) {
             conn.setRequestProperty("User-Agent", "com.google.android.youtube/19.05.36 (Linux; U; Android 14)")
             conn.doOutput = true
 
-            // Montagem do corpo da requisição JSON
+            // 2. Montagem do corpo da requisição JSON
             val requestBody = JSONObject().apply {
                 put("context", JSONObject().apply {
                     put("client", JSONObject().apply {
@@ -55,7 +56,7 @@ class YTSearch(private val context: Context) {
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val jsonResponse = JSONObject(response)
 
-            // Navegação segura no JSON da InnerTube
+            // 3. Navegação no JSON da InnerTube
             val contents = jsonResponse.optJSONObject("contents")
                 ?.optJSONObject("sectionListRenderer")
                 ?.optJSONArray("contents")
@@ -108,7 +109,6 @@ class YTSearch(private val context: Context) {
             Log.e(LOG_TAG, "Erro na busca InnerTube: ${e.message}")
         }
         
-        // Retorno obrigatório da lista (vazia ou preenchida)
         return@withContext searchResults
     }
 }
