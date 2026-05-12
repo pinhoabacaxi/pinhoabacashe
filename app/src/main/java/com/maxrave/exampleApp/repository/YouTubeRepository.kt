@@ -11,8 +11,6 @@ import java.net.URL
 
 class YouTubeRepository(private val context: Context) {
     private val TAG = "YouTubeRepo"
-    private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
-    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
 
     // Função que a Activity usa para o Stream
     suspend fun extractMusicInfo(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
