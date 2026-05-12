@@ -49,6 +49,7 @@ class YouTubeRepository(private val context: Context) {
 
             if (meta != null && ytFiles != null) {
                 val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url
+            // Retorno de sucesso
                 OnlineSong(
                     videoId = videoId,
                     title = meta.title ?: "Sem título",
@@ -57,13 +58,15 @@ class YouTubeRepository(private val context: Context) {
                     streamUrl = bestAudio
                 )
             } else {
-                null
+            // ESSA PARTE RESOLVE O ERRO: Retorno caso o IF falhe
+                null 
             }
-        } catch (e: Exception) {
+        }catch (e: Exception) {
             Log.e("YouTubeRepo", "Erro na extração: ${e.message}")
-            null
+            null // Retorno caso ocorra erro
         }
     }
+
 
     suspend fun searchTracks(query: String): List<OnlineSong> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineSong>()
