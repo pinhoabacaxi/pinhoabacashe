@@ -116,29 +116,61 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFiltersAndSearch() {
-        findViewById<Chip>(R.id.chipAll).setOnClickListener { updateDisplayList(currentList) }
-
-        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
-            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
-            updateDisplayList(sorted)
+        // 1. Chip "Todas" - Reseta para a lista original [cite: 34]
+        findViewById<Chip>(R.id.chipAll).setOnClickListener { 
+            updateDisplayList(currentList) 
         }
-
+    
+        // 2. Chip "Favoritas" - Consulta o Repository para filtrar [cite: 36]
         findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
             lifecycleScope.launch {
-                // Filtra apenas o que o repositório diz que é favorito
                 val favorites = currentList.filter { item ->
                     val id = if (item is Song) item.id.toString() else (item as OnlineSong).videoId
-                    repository.isFavorite(id)
+                    repository.isFavorite(id) // Usa a função que adicionamos ao Repository
                 }
                 updateDisplayList(favorites)
             }
         }
-
-        findViewById<Chip>(R.id.chipOnline).setOnClickListener {
-            // Abre sua Activity de busca no YouTube/API
-            val intent = Intent(this, Class.forName("com.maxrave.exampleApp.OnlineSearchActivity"))
+    
+        // 3. Chip "Recentes" - Ordena por ID decrescente [cite: 35]
+        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
+            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
+            updateDisplayList(sorted)
+        }
+    
+        // 4. Chip "Artistas" - Ordena a lista local por nome de artista
+        findViewById<Chip>(R.id.chipArtists).setOnClickListener {
+            val sorted = currentList.filterIsInstance<Song>().sortedBy { it.artist }
+            updateDisplayList(sorted)
+        }
+    
+        // 5. Chip "Álbuns" - Ordena a lista local por nome de álbum
+        findViewById<Chip>(R.id.chipAlbums).setOnClickListener {
+            val sorted = currentList.filterIsInstance<Song>().sortedBy { it.album }
+            updateDisplayList(sorted)
+        }
+    
+        // 6. Chip "Playlists" - ABRE A NOVA ACTIVITY DE PASTAS
+        findViewById<Chip>(R.id.chipPlaylists).setOnClickListener {
+            val intent = Intent(this, PlaylistActivity::class.java)
             startActivity(intent)
         }
+    
+        // 7. Chip "Buscar Online" - Abre a busca [cite: 36]
+        findViewById<Chip>(R.id.chipOnline).setOnClickListener {
+            val intent = Intent(this, OnlineSearchActivity::class.java)
+            startActivity(intent)
+        }
+    
+        // 8. Barra de Pesquisa (SearchView) [cite: 36]
+        findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(q: String?): Boolean = true
+            override fun onQueryTextChange(newText: String?): Boolean {
+                filterList(newText) // Chama a função de filtro de texto [cite: 37]
+                return true
+            }
+        })
+    }
 
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(q: String?): Boolean = true
