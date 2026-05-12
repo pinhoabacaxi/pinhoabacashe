@@ -5,9 +5,9 @@ import com.maxrave.exampleApp.Room.*
 
 class PlaylistRepository(context: Context) {
     
-    // Instancia o banco de dados
     private val dao = AppDatabase.getDatabase(context).musicDao()
 
+    // --- PLAYLISTS ---
     suspend fun createPlaylist(name: String): Long {
         return dao.insertPlaylist(Playlist(name = name))
     }
@@ -15,22 +15,36 @@ class PlaylistRepository(context: Context) {
     suspend fun getAllPlaylists(): List<Playlist> {
         return dao.getAllPlaylists()
     }
-    // No seu PlaylistRepository.kt
-    suspend fun getSongsByArtist(artist: String): List<SongEntity> {
-        return dao.getSongsByArtist(artist)
-    }
-    
-    suspend fun getAllArtists(): List<String> {
-        return dao.getUniqueArtists()
-    }
+
     suspend fun addSongToPlaylist(playlistId: Long, song: SongEntity) {
-        // 1. Insere a música na tabela geral (ignora se já existir)
         dao.insertSong(song)
-        // 2. Cria o vínculo entre a música e a playlist
         dao.addSongToPlaylist(PlaylistSongCrossRef(playlistId, song.id))
     }
 
     suspend fun getSongsFromPlaylist(playlistId: Long): List<PlaylistWithSongs> {
         return dao.getSongsFromPlaylist(playlistId)
+    }
+
+    // --- FILTROS ---
+    suspend fun getSongsByArtist(artist: String): List<SongEntity> {
+        // Implemente a query no MusicDao se necessário
+        return emptyList() 
+    }
+    
+    suspend fun getAllArtists(): List<String> {
+        return dao.getUniqueArtists()
+    }
+
+    // --- FAVORITOS (Implementado) ---
+    suspend fun isFavorite(songId: String): Boolean {
+        return dao.isFavorite(songId)
+    }
+
+    suspend fun addFavorite(songId: String) {
+        dao.addFavorite(FavoriteEntity(songId))
+    }
+
+    suspend fun removeFavorite(songId: String) {
+        dao.removeFavorite(FavoriteEntity(songId))
     }
 }
