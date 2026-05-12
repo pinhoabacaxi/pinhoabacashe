@@ -2,6 +2,7 @@ package com.maxrave.exampleApp
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -17,7 +18,6 @@ class PlaylistSongsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlaylistSongsBinding
     private lateinit var repository: PlaylistRepository
     private lateinit var hybridAdapter: HybridAdapter
-    private lateinit var playlistAdapter: PlaylistAdapter
     private var playlistId: Long = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,65 +25,57 @@ class PlaylistSongsActivity : AppCompatActivity() {
         binding = ActivityPlaylistSongsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Recupera dados da Intent
         playlistId = intent.getLongExtra("PLAYLIST_ID", -1)
         val playlistName = intent.getStringExtra("PLAYLIST_NAME") ?: "Playlist"
-        binding.collapsingToolbar.title = playlistName
         
+        // Configura a Toolbar/CollapsingToolbar
+        binding.collapsingToolbar.title = playlistName
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        binding.toolbar.setNavigationOnClickListener { onBackPressed() }
+
         repository = PlaylistRepository(this)
+        
         setupRecyclerView()
         loadPlaylistSongs()
 
+        // Botão flutuante para tocar tudo em modo aleatório
         binding.fabPlayShuffle.setOnClickListener {
-            if (hybridAdapter.itemCount > 0) {
+            val list = hybridAdapter.getList()
+            if (list.isNotEmpty()) {
                 LocalPlayerManager.isShuffle = true
-                LocalPlayerManager.setQueueAndPlay(hybridAdapter.getList(), 0, this)
+                LocalPlayerManager.setQueueAndPlay(list, 0, this)
                 startActivity(Intent(this, FullPlayerActivity::class.java))
             }
         }
     }
 
     private fun setupRecyclerView() {
-        repository = PlaylistRepository(this)
-        
-        playlistAdapter = PlaylistAdapter(
-            playlists = emptyList(),
-            onClick = { playlist ->
-                // Abre as músicas daquela playlist específica
-                val intent = Intent(this, PlaylistSongsActivity::class.java).apply {
-                    putExtra("PLAYLIST_ID", playlist.id)
-                    putExtra("PLAYLIST_NAME", playlist.name)
-                }
-                startActivity(intent)
+        hybridAdapter = HybridAdapter(
+            onItemClick = { item, position ->
+                // Ao clicar, define a fila como sendo as músicas desta playlist
+                LocalPlayerManager.setQueueAndPlay(hybridAdapter.getList(), position, this)
+                startActivity(Intent(this, FullPlayerActivity::class.java))
             },
-            onDelete = { playlist ->
-                // Lógica para deletar do banco de dados Room
-                lifecycleScope.launch {
-                    // Adicione a função delete no seu Repository/DAO
-                    // repository.deletePlaylist(playlist)
-                    loadPlaylists() 
-                }
+            onMoreOptionsClick = { item ->
+                // Aqui você pode abrir um BottomSheet para remover da playlist
+                showSongOptions(item)
+            },
+            onFavoriteClick = { item ->
+                // Lógica de favoritar (opcional nesta tela)
+            },
+            onLongItemClick = { item ->
+                // Ação rápida ao segurar
             }
         )
-        findViewById<RecyclerView>(R.id.rvPlaylists).apply {
-            layoutManager = LinearLayoutManager(this@PlaylistActivity)
-            adapter = playlistAdapter
-        }
-        
+
         binding.rvPlaylistSongs.apply {
             layoutManager = LinearLayoutManager(this@PlaylistSongsActivity)
             adapter = hybridAdapter
         }
     }
-    private fun loadPlaylists() {
-        lifecycleScope.launch {
-            val list = repository.getAllPlaylists()
-            playlistAdapter.updateList(list)
-            
-            // Controla o Empty State (se a lista estiver vazia, mostra o aviso)
-            findViewById<View>(R.id.emptyStatePlaylists).visibility = 
-                if (list.isEmpty()) View.VISIBLE else View.GONE
-        }
-    }
+
     private fun loadPlaylistSongs() {
         lifecycleScope.launch {
             val result = repository.getSongsFromPlaylist(playlistId)
@@ -92,27 +84,37 @@ class PlaylistSongsActivity : AppCompatActivity() {
                 val mappedList = songsFromDb.map { entity ->
                     if (entity.isOnline) {
                         OnlineSong(
-                            videoId = entity.id, 
-                            title = entity.title, 
-                            author = entity.artist, 
-                            thumbnailUrl = entity.thumbnailUrl ?: "", 
+                            videoId = entity.id,
+                            title = entity.title,
+                            author = entity.artist,
+                            thumbnailUrl = entity.thumbnailUrl ?: "",
                             url = entity.sourcePath,
-                            duration = "0" // ADICIONE UM VALOR PADRÃO SE O MODELO EXIGIR
+                            duration = "0" 
                         )
                     } else {
                         Song(
-                            id = entity.id.toLongOrNull() ?: 0L, // Proteção contra nulo
-                            title = entity.title, 
-                            artist = entity.artist, 
+                            id = entity.id.toLongOrNull() ?: 0L,
+                            title = entity.title,
+                            artist = entity.artist,
                             path = entity.sourcePath,
-                            album = "", // VALORES PADRÃO
-                            duration = 0, 
+                            album = "Playlist", 
+                            duration = 0,
                             albumArtUri = null
                         )
                     }
                 }
-                hybridAdapter.setList(mappedList.toMutableList())
+                
+                hybridAdapter.setList(mappedList)
+                
+                // Gerencia o estado vazio
+                binding.tvEmptyState.visibility = if (mappedList.isEmpty()) View.VISIBLE else View.GONE
+            } else {
+                binding.tvEmptyState.visibility = View.VISIBLE
             }
         }
+    }
+
+    private fun showSongOptions(item: Any) {
+        // Implementação futura do menu de opções (ex: remover desta playlist)
     }
 }
