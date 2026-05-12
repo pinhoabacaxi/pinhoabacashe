@@ -1,8 +1,10 @@
 package com.maxrave.exampleApp
 
+import android.content.Context // Importação que faltava
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager // Importação para o teclado
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -42,31 +44,31 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-       binding.etSearchOnline.setOnEditorActionListener { _, actionId, _ ->
+        binding.etSearchOnline.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE) {
                 val query = binding.etSearchOnline.text.toString().trim()
                 if (query.isNotEmpty()) {
                     performSearch(query)
                 }
-                // Importante: Retornar true e fechar o teclado manualmente evita que a Activity feche
-                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                
+                // Esconder teclado corretamente
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(binding.etSearchOnline.windowToken, 0)
+                
                 return@setOnEditorActionListener true
             }
             false
         }
     }
 
-
     private fun handleOnlineClick(onlineSong: OnlineSong) {
-        val options = arrayOf("Ouvir Agora (Stream)", "Baixar Música", "Adicionar à Playlist")
+        val options = arrayOf("Ouvir Agora (Stream)", "Baixar Música")
         AlertDialog.Builder(this)
             .setTitle(onlineSong.title)
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> startStreaming(onlineSong)
                     1 -> startDownload(onlineSong)
-                    2 -> showPlaylistSelector(onlineSong)
                 }
             }
             .show()
@@ -79,20 +81,15 @@ class OnlineSearchActivity : AppCompatActivity() {
             if (fullSong?.streamUrl != null) {
                 LocalPlayerManager.playOnline(fullSong, this@OnlineSearchActivity)
             } else {
-                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter link de áudio", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter link", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun startDownload(onlineSong: OnlineSong) {
-        Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
         lifecycleScope.launch {
             youtubeRepository.downloadMusic(onlineSong.videoId)
         }
-    }
-
-    private fun showPlaylistSelector(onlineSong: OnlineSong) {
-        Toast.makeText(this, "Funcionalidade de playlist em breve", Toast.LENGTH_SHORT).show()
     }
 
     private fun performSearch(query: String) {
@@ -101,7 +98,7 @@ class OnlineSearchActivity : AppCompatActivity() {
             val results = youtubeRepository.searchTracks(query)
             binding.progressBar.visibility = View.GONE
             if (results.isEmpty()) {
-                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado encontrado", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@OnlineSearchActivity, "Nenhum resultado", Toast.LENGTH_SHORT).show()
             } else {
                 adapter.updateList(results)
             }
