@@ -170,7 +170,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startDownload(song: OnlineSong) {
         val data = workDataOf("URL" to song.url, "FILE_NAME" to "${song.title}.mp3")
-        val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
+        val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST).build()
         WorkManager.getInstance(this).enqueue(request)
         Toast.makeText(this, "Download iniciado", Toast.LENGTH_SHORT).show()
     }
