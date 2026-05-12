@@ -13,7 +13,8 @@ import com.maxrave.exampleApp.repository.PlayerPrefs
 
 object LocalPlayerManager {
     private var mediaPlayer: MediaPlayer? = null
-    
+    private var currentQueue = mutableListOf<Any>()
+    private var currentIndex = 0
     private var playlistQueue = mutableListOf<Any>()
     private var originalQueue = mutableListOf<Any>()
     
@@ -33,6 +34,20 @@ object LocalPlayerManager {
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
 
+
+    // 1. Tocar a seguir (Play Next)
+    fun playNext(item: Any) {
+        if (currentQueue.isEmpty()) {
+            currentQueue.add(item)
+        } else {
+            currentQueue.add(currentIndex + 1, item)
+        }
+    }
+
+    // 2. Adicionar ao final da fila (Add to Queue)
+    fun addToEnd(item: Any) {
+        currentQueue.add(item)
+    }
     fun init(context: Context) {
         recentManager = RecentSongsManager(context)
         prefs = PlayerPrefs(context)
