@@ -1,55 +1,106 @@
 package com.maxrave.exampleApp.service
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
 import android.os.Environment
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import androidx.work.workDataOf
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
-import java.net.URL
+import java.io.InputStream
 
-class MusicDownloadWorker(appContext: Context, params: WorkerParameters) :
-    CoroutineWorker(appContext, params) {
+class MusicDownloadWorker(
+    private val context: Context,
+    workerParams: WorkerParameters
+) : CoroutineWorker(context, workerParams) {
+
+    private val notificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     override suspend fun doWork(): Result {
-        val videoUrl = inputData.getString("URL") ?: return Result.failure()
-        val fileName = inputData.getString("FILE_NAME") ?: "download_${System.currentTimeMillis()}.mp3"
-        
+        val audioUrl = inputData.getString("URL") ?: return Result.failure()
+        val fileName = inputData.getString("FILE_NAME") ?: "downloaded_music.mp3"
+
+        // Configura a notificação de primeiro plano (obrigatório para Android 12+)
+        setForeground(createForegroundInfo(fileName))
+
         return try {
-            // Caminho: /Android/data/com.maxrave.exampleApp/files/Music/
-            val directory = File(applicationContext.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "AppDownloads")
+            val client = OkHttpClient()
+            val request = Request.Builder().url(audioUrl).build()
+            val response = client.newCall(request).execute()
+
+            if (!response.isSuccessful) return Result.failure()
+
+            val body = response.body ?: return Result.failure()
+            val inputStream: InputStream = body.byteStream()
+
+            // Define o diretório de destino: Pasta de Músicas padrão do Android
+            // Isso garante que o MusicLoader.kt encontre o arquivo via MediaStore
+            val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
             if (!directory.exists()) directory.mkdirs()
-            
-            val outputFile = File(directory, fileName)
-            
-            // Início do download
-            Log.d("DownloadWorker", "Iniciando download: $videoUrl")
-            
-            val connection = URL(videoUrl).openConnection()
-            connection.connect()
-            
-            val inputStream = connection.getInputStream()
-            val outputStream = FileOutputStream(outputFile)
-            
-            val data = ByteArray(4096)
-            var count: Int
-            while (inputStream.read(data).also { count = it } != -1) {
-                outputStream.write(data, 0, count)
+
+            val file = File(directory, fileName)
+            val outputStream = FileOutputStream(file)
+
+            val buffer = ByteArray(8 * 1024)
+            var bytesRead: Int
+            val fileSize = body.contentLength()
+            var downloadedBytes = 0L
+
+            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                outputStream.write(buffer, 0, bytesRead)
+                downloadedBytes += bytesRead
+                
+                // Atualiza o progresso da notificação opcionalmente
+                val progress = (downloadedBytes * 100 / fileSize).toInt()
+                updateNotification(fileName, progress)
             }
-            
+
             outputStream.flush()
             outputStream.close()
             inputStream.close()
 
-            Log.d("DownloadWorker", "Download concluído: ${outputFile.absolutePath}")
-            
-            // Retorna o caminho do arquivo para o app saber onde a música está agora
-            Result.success(workDataOf("FILE_PATH" to outputFile.absolutePath))
+            Log.d("DownloadWorker", "Sucesso: Arquivo salvo em ${file.absolutePath}")
+            Result.success()
         } catch (e: Exception) {
             Log.e("DownloadWorker", "Erro no download: ${e.message}")
             Result.failure()
         }
+    }
+
+    private fun createForegroundInfo(fileName: String): ForegroundInfo {
+        val channelId = "download_channel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId, "Downloads", NotificationManager.IMPORTANCE_LOW
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setContentTitle("Baixando Música")
+            .setContentText(fileName)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setOngoing(true)
+            .build()
+
+        return ForegroundInfo(101, notification)
+    }
+
+    private fun updateNotification(fileName: String, progress: Int) {
+        val notification = NotificationCompat.Builder(context, "download_channel")
+            .setContentTitle("Baixando: $fileName")
+            .setContentText("$progress%")
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setProgress(100, progress, false)
+            .build()
+        notificationManager.notify(101, notification)
     }
 }
