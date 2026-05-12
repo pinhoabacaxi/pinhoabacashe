@@ -1,10 +1,8 @@
 package com.maxrave.exampleApp
 
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.SeekBar
@@ -13,15 +11,13 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.resource.bitmap.BitmapTransitionOptions
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.transition.Transition
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.PlaylistRepository
 import com.maxrave.exampleApp.Room.SongEntity
+import com.maxrave.exampleApp.Room.FavoriteEntity
 import jp.wasabeef.glide.transformations.BlurTransformation
 import com.bumptech.glide.request.RequestOptions
 import kotlinx.coroutines.launch
@@ -33,6 +29,7 @@ class FullPlayerActivity : AppCompatActivity() {
     private lateinit var tvTitle: TextView
     private lateinit var tvArtist: TextView
     private lateinit var seekBar: SeekBar
+    private lateinit var seekBarVolume: SeekBar
     private lateinit var tvCurrentTime: TextView
     private lateinit var tvTotalTime: TextView
     private lateinit var btnPlayPause: FloatingActionButton
@@ -40,7 +37,8 @@ class FullPlayerActivity : AppCompatActivity() {
     private lateinit var btnPrev: ImageButton
     private lateinit var btnShuffle: ImageButton
     private lateinit var btnRepeat: ImageButton
-    private lateinit var btnOptions: ImageButton // Novo botão de opções
+    private lateinit var btnOptions: ImageButton
+    private lateinit var btnFavorite: ImageButton
     
     private lateinit var repository: PlaylistRepository
     private val handler = Handler(Looper.getMainLooper())
@@ -58,9 +56,10 @@ class FullPlayerActivity : AppCompatActivity() {
     private fun initViews() {
         ivAlbumArt = findViewById(R.id.ivAlbumArt)
         ivBackgroundBlur = findViewById(R.id.ivBackgroundBlur)
-        tvTitle = findViewById(R.id.tvTitle)
-        tvArtist = findViewById(R.id.tvArtist)
+        tvTitle = findViewById(R.id.tvSongTitle)
+        tvArtist = findViewById(R.id.tvSongArtist)
         seekBar = findViewById(R.id.seekBar)
+        seekBarVolume = findViewById(R.id.seekBarVolume)
         tvCurrentTime = findViewById(R.id.tvCurrentTime)
         tvTotalTime = findViewById(R.id.tvTotalTime)
         btnPlayPause = findViewById(R.id.btnPlayPause)
@@ -68,7 +67,13 @@ class FullPlayerActivity : AppCompatActivity() {
         btnPrev = findViewById(R.id.btnPrev)
         btnShuffle = findViewById(R.id.btnShuffle)
         btnRepeat = findViewById(R.id.btnRepeat)
-        btnOptions = findViewById(R.id.btnMoreOptions) // Certifique-se que este ID existe no XML
+        btnOptions = findViewById(R.id.btnMoreOptions)
+        btnFavorite = findViewById(R.id.btnFavorite)
+
+        // Configuração inicial da UI
+        tvTitle.isSelected = true // Ativa Marquee
+        updateRepeatButtonUI(LocalPlayerManager.repeatMode)
+        seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt()
     }
 
     private fun setupListeners() {
@@ -82,29 +87,28 @@ class FullPlayerActivity : AppCompatActivity() {
             LocalPlayerManager.isShuffle = !LocalPlayerManager.isShuffle
             btnShuffle.alpha = if (LocalPlayerManager.isShuffle) 1.0f else 0.5f
         }
+
         btnRepeat.setOnClickListener {
             val newMode = LocalPlayerManager.toggleRepeatMode()
             updateRepeatButtonUI(newMode)
         }
-        // 2. Lógica do Botão Favorito (Supondo que você tenha um btnFavorite no XML)
-        btnFavorite.setOnClickListener {
-            val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return@setOnClickListener
-            val trackId = if (currentTrack is Song) currentTrack.id.toString() else (currentTrack as OnlineSong).videoId
-            
-            lifecycleScope.launch {
-                val isFav = repository.isFavorite(trackId)
-                if (isFav) {
-                    repository.removeFavorite(trackId)
-                    btnFavorite.setImageResource(R.drawable.ic_heart_outline)
-                } else {
-                    repository.addFavorite(trackId)
-                    btnFavorite.setImageResource(R.drawable.ic_heart_filled)
-                }
+
+        btnFavorite.setOnClickListener { toggleFavorite() }
+
+        btnOptions.setOnClickListener { openOptionsMenu() }
+
+        // Barra de Progresso da Música
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) LocalPlayerManager.seekTo(progress)
             }
-        }
-        // 3. Volume Interno (Adicione um SeekBar de volume no seu XML)
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+            override fun onStopTrackingTouch(s: SeekBar?) {}
+        })
+
+        // Barra de Volume Interno
         seekBarVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+            override fun onProgressChanged(s: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     val volume = progress / 100f
                     LocalPlayerManager.setVolume(volume)
@@ -113,45 +117,54 @@ class FullPlayerActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(p0: SeekBar?) {}
             override fun onStopTrackingTouch(p0: SeekBar?) {}
         })
-        btnOptions.setOnClickListener {
-            val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return@setOnClickListener
-            val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
-                when(action) {
-                    "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
-                    "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
-                    "DOWNLOAD_MP3" -> { /* Chamar WorkManager de download aqui */ }
-                    "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack)
-                }
-            }
-            bottomSheet.show(supportFragmentManager, "Options")
-        }
-
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) LocalPlayerManager.seekTo(progress)
-            }
-            override fun onStartTrackingTouch(s: SeekBar?) {}
-            override fun onStopTrackingTouch(s: SeekBar?) {}
-        })
     }
-    // Dentro da FullPlayerActivity.kt
+
     private fun openOptionsMenu() {
         val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return
-        
         val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
             when(action) {
                 "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
                 "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
                 "DOWNLOAD_MP3" -> {
                     if (currentTrack is OnlineSong) {
-                        startDownload(currentTrack, "mp3") // Chame sua função do WorkManager aqui
+                        // startDownload(currentTrack, "mp3") -> Implementar conforme sua lógica de Worker
+                        Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
                     }
                 }
-                "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack) // Abra o diálogo do Room aqui
+                "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack)
             }
         }
         bottomSheet.show(supportFragmentManager, "Options")
     }
+
+    private fun toggleFavorite() {
+        val track = LocalPlayerManager.getCurrentTrack() ?: return
+        val trackId = if (track is Song) track.id.toString() else (track as OnlineSong).videoId
+        
+        lifecycleScope.launch {
+            val isFav = repository.isFavorite(trackId)
+            if (isFav) {
+                repository.removeFavorite(trackId)
+                btnFavorite.setImageResource(android.R.drawable.btn_star_big_off)
+                Toast.makeText(this@FullPlayerActivity, "Removido dos favoritos", Toast.LENGTH_SHORT).show()
+            } else {
+                repository.addFavorite(trackId)
+                btnFavorite.setImageResource(android.R.drawable.btn_star_big_on)
+                Toast.makeText(this@FullPlayerActivity, "Adicionado aos favoritos", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun checkIsFavorite(trackId: String) {
+        lifecycleScope.launch {
+            val isFav = repository.isFavorite(trackId)
+            btnFavorite.setImageResource(
+                if (isFav) android.R.drawable.btn_star_big_on 
+                else android.R.drawable.btn_star_big_off
+            )
+        }
+    }
+
     private fun showPlaylistSelection(track: Any) {
         lifecycleScope.launch {
             val playlists = repository.getAllPlaylists()
@@ -165,8 +178,7 @@ class FullPlayerActivity : AppCompatActivity() {
             android.app.AlertDialog.Builder(this@FullPlayerActivity)
                 .setTitle("Adicionar à Playlist")
                 .setItems(names) { _, which ->
-                    val selected = playlists[which]
-                    saveTrackToPlaylist(selected.id, track)
+                    saveTrackToPlaylist(playlists[which].id, track)
                 }.show()
         }
     }
@@ -179,7 +191,7 @@ class FullPlayerActivity : AppCompatActivity() {
                 else -> return@launch
             }
             repository.addSongToPlaylist(playlistId, entity)
-            Toast.makeText(this@FullPlayerActivity, "Salvo com sucesso!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@FullPlayerActivity, "Salvo na playlist!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -192,33 +204,53 @@ class FullPlayerActivity : AppCompatActivity() {
         handler.post(updateProgressAction)
     }
 
-    private fun updateRepeatButtonUI(mode: LocalPlayerManager.RepeatMode) {
-        when (mode) {
-            LocalPlayerManager.RepeatMode.NONE -> {
-                btnRepeat.setImageResource(R.id.ic_repeat)
-                btnRepeat.alpha = 0.5f // Desativado
-            }
-            LocalPlayerManager.RepeatMode.ALL -> {
-                btnRepeat.setImageResource(R.id.ic_repeat)
-                btnRepeat.alpha = 1.0f // Repetir tudo
-            }
-            LocalPlayerManager.RepeatMode.ONE -> {
-                btnRepeat.setImageResource(R.id.ic_repeat_one)
-                btnRepeat.alpha = 1.0f // Repetir uma
-            }
-        }
-    }
     private fun updateUI(track: Any) {
-        val title = if (track is Song) track.title else (track as OnlineSong).title
-        val artist = if (track is Song) track.artist else (track as OnlineSong).author
-        val art = if (track is Song) track.albumArtUri else (track as OnlineSong).thumbnailUrl
+        val title: String
+        val artist: String
+        val artSource: Any?
+        val trackId: String
+
+        when (track) {
+            is Song -> {
+                title = track.title
+                artist = track.artist
+                artSource = track.path
+                trackId = track.id.toString()
+            }
+            is OnlineSong -> {
+                title = track.title
+                artist = track.author
+                artSource = track.thumbnailUrl
+                trackId = track.videoId
+            }
+            else -> return
+        }
 
         tvTitle.text = title
         tvArtist.text = artist
+        checkIsFavorite(trackId)
 
-        Glide.with(this).load(art).placeholder(R.drawable.ic_default_art).into(ivAlbumArt)
-        Glide.with(this).load(art).apply(RequestOptions.bitmapTransform(BlurTransformation(25, 3)))
+        Glide.with(this).load(artSource).placeholder(android.R.drawable.ic_media_play).into(ivAlbumArt)
+        Glide.with(this).load(artSource)
+            .apply(RequestOptions.bitmapTransform(BlurTransformation(25, 3)))
             .into(ivBackgroundBlur)
+    }
+
+    private fun updateRepeatButtonUI(mode: LocalPlayerManager.RepeatMode) {
+        when (mode) {
+            LocalPlayerManager.RepeatMode.NONE -> {
+                btnRepeat.setImageResource(android.R.drawable.ic_menu_revert)
+                btnRepeat.alpha = 0.5f
+            }
+            LocalPlayerManager.RepeatMode.ALL -> {
+                btnRepeat.setImageResource(android.R.drawable.ic_menu_revert)
+                btnRepeat.alpha = 1.0f
+            }
+            LocalPlayerManager.RepeatMode.ONE -> {
+                btnRepeat.setImageResource(android.R.drawable.ic_menu_today) // Ícone alternativo para "um"
+                btnRepeat.alpha = 1.0f
+            }
+        }
     }
 
     private val updateProgressAction = object : Runnable {
