@@ -2,6 +2,7 @@ package com.maxrave.exampleApp
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -20,9 +21,9 @@ import com.maxrave.exampleApp.repository.YouTubeRepository
 import com.maxrave.kotlinyoutubeextractor.SearchState
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
 import com.maxrave.kotlinyoutubeextractor.viewmodel.SearchViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
-import kotlinx.coroutines.delay
 
 class OnlineSearchActivity : AppCompatActivity() {
 
@@ -30,6 +31,8 @@ class OnlineSearchActivity : AppCompatActivity() {
     private val viewModel: SearchViewModel by viewModels()
     private lateinit var searchAdapter: SearchAdapter
     private lateinit var youtubeRepository: YouTubeRepository
+    
+    private val TAG = "OnlineActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,12 +56,12 @@ class OnlineSearchActivity : AppCompatActivity() {
                         }
                         is SearchState.Success -> {
                             binding.progressBar.visibility = View.GONE
-                            // ID sincronizado: rvOnlineResults
+                            Log.d(TAG, "Busca finalizada: ${state.results.size} resultados encontrados.")
                             searchAdapter.submitList(state.results)
                         }
                         is SearchState.Error -> {
                             binding.progressBar.visibility = View.GONE
-                            Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@OnlineSearchActivity, "Erro: ${state.message}", Toast.LENGTH_LONG).show()
                         }
                         is SearchState.Idle -> {
                             binding.progressBar.visibility = View.GONE
@@ -73,22 +76,28 @@ class OnlineSearchActivity : AppCompatActivity() {
         searchAdapter = SearchAdapter { videoMeta ->
             handleOnlineClick(videoMeta)
         }
-        // ID sincronizado: rvOnlineResults
         binding.rvOnlineResults.apply {
             layoutManager = LinearLayoutManager(this@OnlineSearchActivity)
             adapter = searchAdapter
+            setHasFixedSize(true)
         }
     }
 
     private fun setupListeners() {
-        // Como não há botão no XML, usamos apenas a ação do teclado
+        // Detecta ação de busca no teclado
         binding.etSearchOnline.setOnEditorActionListener { v, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE) {
+            Log.d(TAG, "Teclado acionado. ActionId: $actionId")
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || 
+                actionId == EditorInfo.IME_ACTION_DONE || 
+                actionId == EditorInfo.IME_ACTION_NEXT) {
+                
                 val query = v.text.toString().trim()
                 if (query.isNotEmpty()) {
+                    hideKeyboard()
                     viewModel.performSearch(query)
+                } else {
+                    Toast.makeText(this, "Digite algo para pesquisar", Toast.LENGTH_SHORT).show()
                 }
-                hideKeyboard()
                 return@setOnEditorActionListener true
             }
             false
@@ -110,43 +119,55 @@ class OnlineSearchActivity : AppCompatActivity() {
                     1 -> startDownload(videoMeta)
                 }
             }
+            .setNegativeButton("Cancelar", null)
             .show()
     }
 
     private fun startStreaming(videoMeta: VideoMeta) {
-        // Feedback imediato para o usuário
+        // Bloqueia nova interação visual enquanto processa
         binding.progressBar.visibility = View.VISIBLE
-        
+        Log.d(TAG, "Iniciando processo de Stream para ID: ${videoMeta.videoId}")
+
         lifecycleScope.launch {
-            // BYPASS 6: Hotlink Delay
-            // Simula o tempo que um humano levaria para interagir após o clique (800ms a 1.5s)
-            // Isso quebra o padrão de velocidade de um script automatizado.
-            delay(Random.nextLong(800, 1500))
+            // BYPASS 6: Hotlink Delay (Humano decidindo o que ouvir)
+            delay(Random.nextLong(800, 1600))
             
-            val fullSong = youtubeRepository.extractMusicInfo(videoMeta.videoId)
-            
-            binding.progressBar.visibility = View.GONE
-            
-            if (fullSong?.streamUrl != null) {
-                LocalPlayerManager.playOnline(fullSong, this@OnlineSearchActivity)
-            } else {
-                Toast.makeText(this@OnlineSearchActivity, "Erro ao obter link. Tente novamente.", Toast.LENGTH_SHORT).show()
+            try {
+                val fullSong = youtubeRepository.extractMusicInfo(videoMeta.videoId)
+                
+                binding.progressBar.visibility = View.GONE
+                
+                if (fullSong?.streamUrl != null) {
+                    Log.d(TAG, "Link obtido com sucesso. Iniciando player.")
+                    LocalPlayerManager.playOnline(fullSong, this@OnlineSearchActivity)
+                } else {
+                    Log.e(TAG, "Falha na extração: streamingData nulo ou negado.")
+                    Toast.makeText(this@OnlineSearchActivity, "Não foi possível carregar o áudio deste vídeo.", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                binding.progressBar.visibility = View.GONE
+                Log.e(TAG, "Erro startStreaming: ${e.message}")
+                Toast.makeText(this@OnlineSearchActivity, "Erro de conexão.", Toast.LENGTH_SHORT).show()
             }
         }
     }
+
     private fun startDownload(videoMeta: VideoMeta) {
         binding.progressBar.visibility = View.VISIBLE
+        Log.d(TAG, "Iniciando processo de Download para ID: ${videoMeta.videoId}")
         
         lifecycleScope.launch {
-            // BYPASS 6: Hotlink Delay também no download
-            delay(Random.nextLong(1000, 2000))
+            // BYPASS 6: Hotlink Delay (Humano clicando para baixar)
+            delay(Random.nextLong(1200, 2200))
             
-            youtubeRepository.downloadMusic(videoMeta.videoId)
-            
-            binding.progressBar.visibility = View.GONE
-            Toast.makeText(this@OnlineSearchActivity, "Download solicitado com sucesso", Toast.LENGTH_SHORT).show()
+            try {
+                youtubeRepository.downloadMusic(videoMeta.videoId)
+                binding.progressBar.visibility = View.GONE
+                Toast.makeText(this@OnlineSearchActivity, "Extraindo link para download...", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                binding.progressBar.visibility = View.GONE
+                Log.e(TAG, "Erro startDownload: ${e.message}")
+            }
         }
     }
-    
-    // ... (restante dos métodos mantidos)
 }
