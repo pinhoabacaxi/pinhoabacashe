@@ -30,86 +30,82 @@ class YouTubeRepository(private val context: Context) {
 
     private fun fetchFromInnerTube(videoId: String): OnlineSong? {
         try {
+            // MUDANÇA 1: Usamos a URL base sem parâmetros de consulta fixos para evitar o 404
             val apiUrl = "https://youtubei.googleapis.com/youtubei/v1/player"
-            val conn = URL(apiUrl).openConnection() as HttpURLConnection
+            val url = URL(apiUrl)
+            val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             
-            // BYPASS 4: TLS/UA - Usamos um UA Mobile real baseado no dispositivo
-            val userAgent = "com.google.android.youtube/${Build.VERSION.RELEASE} (Linux; U; Android ${Build.VERSION.RELEASE}; ${Build.MODEL} Build/${Build.ID})"
-            conn.setRequestProperty("User-Agent", userAgent)
+            // MUDANÇA 2: User-Agent mais moderno e condizente com um app Android real
+            conn.setRequestProperty("User-Agent", "com.google.android.youtube/19.05.36 (Linux; U; Android ${Build.VERSION.RELEASE}; ${Build.MODEL})")
             
-            // BYPASS 2 & 5: Persistência de Cookies da busca
+            // BYPASS 2 & 5: Cookies e VisitorData da sessão (Essencial!)
             YouTubeSession.cookies?.let { conn.setRequestProperty("Cookie", it) }
             
             conn.doOutput = true
-
+    
             val payload = JSONObject().apply {
                 put("videoId", videoId)
                 put("context", JSONObject().apply {
                     put("client", JSONObject().apply {
-                        // BYPASS 1: Usamos ANDROID_TESTSUITE para evitar o Signature Cipher (URL limpa)
-                        put("clientName", "ANDROID_TESTSUITE")
-                        put("clientVersion", "1.9.3")
-                        
-                        // BYPASS 3: Dados dinâmicos para passar na Integridade em qualquer celular
+                        // MUDANÇA 3: ANDROID_VR é o cliente que melhor entrega streamingData hoje
+                        put("clientName", "ANDROID_VR")
+                        put("clientVersion", "1.50.41")
                         put("osName", "Android")
                         put("osVersion", Build.VERSION.RELEASE)
-                        put("androidSdkVersion", Build.VERSION.SDK_INT)
-                        put("platform", "MOBILE")
-                        
                         put("hl", "pt-BR")
                         put("gl", "BR")
-                        
-                        // BYPASS 5: O VisitorData colhido no YTSearch diz ao YT que somos o mesmo humano
+                        // Envia o visitorData capturado na busca para evitar o 404/403
                         YouTubeSession.visitorData?.let { put("visitorData", it) }
                     })
                 })
+                // MUDANÇA 4: Adição de parâmetros de reprodução para validar a requisição
                 put("playbackContext", JSONObject().apply {
                     put("contentPlaybackContext", JSONObject().apply {
-                        // Timestamp fixo que o TESTSUITE aceita sem validar PoW complexo
                         put("signatureTimestamp", 20000)
                     })
                 })
             }
-
+    
             conn.outputStream.use { it.write(payload.toString().toByteArray()) }
-
-            if (conn.responseCode != 200) {
-                Log.e(TAG, "Erro na API: ${conn.responseCode}")
+    
+            val responseCode = conn.responseCode
+            if (responseCode != 200) {
+                // Se der 404 ou 400, o log vai nos dizer exatamente o que o servidor respondeu
+                val errorResponse = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                Log.e(TAG, "Erro na API: $responseCode - Detalhes: $errorResponse")
                 return null
             }
-
+    
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(response)
             
-            // Verificação de Status (Bypass 1 & 3)
-            val playability = json.optJSONObject("playabilityStatus")
-            if (playability?.optString("status") != "OK") {
-                Log.e(TAG, "Bloqueio detectado: ${playability?.optString("reason")}")
+            // Verificação de Status de Reprodução
+            val playabilityStatus = json.optJSONObject("playabilityStatus")
+            if (playabilityStatus?.optString("status") != "OK") {
+                Log.e(TAG, "Vídeo não reproduzível: ${playabilityStatus?.optString("reason")}")
                 return null
             }
-
+    
             val streamingData = json.optJSONObject("streamingData")
             val videoDetails = json.optJSONObject("videoDetails")
-
+    
             if (streamingData != null) {
-                // Adaptive Formats costumam ter o áudio de melhor qualidade (M4A/Opus)
+                // Buscamos nos formatos adaptativos (geralmente áudio puro de alta qualidade)
                 val formats = streamingData.optJSONArray("adaptiveFormats")
                 if (formats != null) {
                     for (i in 0 until formats.length()) {
                         val format = formats.getJSONObject(i)
-                        val mimeType = format.optString("mimeType")
-                        
-                        if (mimeType.contains("audio")) {
-                            // O ANDROID_TESTSUITE retorna "url" direta, sem precisar de Cipher Decryptor
-                            val url = format.optString("url")
-                            if (url.isNotEmpty()) {
+                        if (format.optString("mimeType").contains("audio")) {
+                            val streamUrl = format.optString("url")
+                            if (streamUrl.isNotEmpty()) {
+                                Log.d(TAG, "Sucesso: streamingData extraído para $videoId")
                                 return OnlineSong(
                                     videoId = videoId,
-                                    title = videoDetails?.optString("title") ?: "Música",
+                                    title = videoDetails?.optString("title") ?: "Música Online",
                                     author = videoDetails?.optString("author") ?: "YouTube",
-                                    streamUrl = url,
+                                    streamUrl = streamUrl,
                                     thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
                                 )
                             }
@@ -118,8 +114,7 @@ class YouTubeRepository(private val context: Context) {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Erro no Bypass do Repository: ${e.message}")
+            Log.e(TAG, "Falha crítica no fetch: ${e.message}")
         }
         return null
     }
-}
