@@ -10,18 +10,20 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.bumptech.glide.Glide
+import com.bumptech.glide.request.RequestOptions
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.maxrave.exampleApp.Room.SongEntity
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.PlaylistRepository
-import com.maxrave.exampleApp.Room.SongEntity
-import com.maxrave.exampleApp.Room.FavoriteEntity
-import jp.wasabeef.glide.transformations.BlurTransformation
-import com.bumptech.glide.request.RequestOptions
-import kotlinx.coroutines.launch
 import com.maxrave.exampleApp.service.MusicDownloadWorker
+import jp.wasabeef.glide.transformations.BlurTransformation
+import kotlinx.coroutines.launch
 
 class FullPlayerActivity : AppCompatActivity() {
 
@@ -71,8 +73,7 @@ class FullPlayerActivity : AppCompatActivity() {
         btnOptions = findViewById(R.id.btnMoreOptions)
         btnFavorite = findViewById(R.id.btnFavorite)
 
-        // Configuração inicial da UI
-        tvTitle.isSelected = true // Ativa Marquee
+        tvTitle.isSelected = true 
         updateRepeatButtonUI(LocalPlayerManager.repeatMode)
         seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt()
     }
@@ -96,9 +97,9 @@ class FullPlayerActivity : AppCompatActivity() {
 
         btnFavorite.setOnClickListener { toggleFavorite() }
 
-        btnOptions.setOnClickListener { showFullPlayerOptions() } // Corrigido para chamar a função renomeada
+        // A CORREÇÃO PRINCIPAL: Chama o método renomeado
+        btnOptions.setOnClickListener { showFullPlayerOptions() }
 
-        // Barra de Progresso da Música
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) LocalPlayerManager.seekTo(progress)
@@ -107,7 +108,6 @@ class FullPlayerActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(s: SeekBar?) {}
         })
 
-        // Barra de Volume Interno
         seekBarVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
@@ -120,26 +120,26 @@ class FullPlayerActivity : AppCompatActivity() {
         })
     }
 
-    // Altere o nome da função e a chamada no clique do botão
-private fun showFullPlayerOptions() {
-    val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return
-    val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
-        when(action) {
-            "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
-            "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
-            "DOWNLOAD_MP3" -> {
-                if (currentTrack is OnlineSong) {
-                    val data = androidx.work.workDataOf("URL" to currentTrack.url, "FILE_NAME" to "${currentTrack.title}.mp3")
-                    val request = androidx.work.OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
-                    androidx.work.WorkManager.getInstance(this).enqueue(request)
-                    Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
+    // A CORREÇÃO PRINCIPAL: Método renomeado para evitar conflito com a OS
+    private fun showFullPlayerOptions() {
+        val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return
+        val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
+            when(action) {
+                "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
+                "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
+                "DOWNLOAD_MP3" -> {
+                    if (currentTrack is OnlineSong) {
+                        val data = workDataOf("URL" to currentTrack.url, "FILE_NAME" to "${currentTrack.title}.mp3")
+                        val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
+                        WorkManager.getInstance(this).enqueue(request)
+                        Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
+                    }
                 }
+                "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack)
             }
-            "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack)
         }
+        bottomSheet.show(supportFragmentManager, "Options")
     }
-    bottomSheet.show(supportFragmentManager, "Options")
-}
 
     private fun toggleFavorite() {
         val track = LocalPlayerManager.getCurrentTrack() ?: return
@@ -251,7 +251,7 @@ private fun showFullPlayerOptions() {
                 btnRepeat.alpha = 1.0f
             }
             LocalPlayerManager.RepeatMode.ONE -> {
-                btnRepeat.setImageResource(android.R.drawable.ic_menu_today) // Ícone alternativo para "um"
+                btnRepeat.setImageResource(android.R.drawable.ic_menu_today)
                 btnRepeat.alpha = 1.0f
             }
         }
