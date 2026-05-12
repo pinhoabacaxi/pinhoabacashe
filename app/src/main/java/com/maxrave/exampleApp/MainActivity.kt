@@ -73,17 +73,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        rvSongs = findViewById(R.id.rvSongs)
-        
-        // 1. Buscamos a View do include
-        val miniPlayerInclude = findViewById<View>(R.id.includeMiniPlayer)
-        
-        if (miniPlayerInclude != null) {
-            // 2. Buscamos o container DENTRO do include
+    rvSongs = findViewById(R.id.rvSongs)
+    
+    // Tentamos encontrar o include primeiro
+    val miniPlayerInclude = findViewById<View>(R.id.includeMiniPlayer)
+    
+    if (miniPlayerInclude != null) {
+            // Buscamos os IDs de dentro do include
             val container = miniPlayerInclude.findViewById<MaterialCardView>(R.id.miniPlayerContainer)
             
             if (container != null) {
-                // Agora atribuímos as variáveis usando o 'miniPlayerInclude' como referência
+                // Se o container existe, inicializamos tudo com segurança
                 miniPlayerContainer = container
                 tvMiniTitle = miniPlayerInclude.findViewById(R.id.tvMiniTitle)
                 tvMiniArtist = miniPlayerInclude.findViewById(R.id.tvMiniArtist)
@@ -97,12 +97,10 @@ class MainActivity : AppCompatActivity() {
                     startActivity(Intent(this, FullPlayerActivity::class.java))
                 }
             } else {
-                // Se cair aqui, o ID no layout_mini_player.xml está errado
-                android.util.Log.e("FATAL_ERROR", "ID 'miniPlayerContainer' não encontrado dentro do include!")
-                Toast.makeText(this, "Erro interno: Layout do Player não carregado", Toast.LENGTH_LONG).show()
+                android.util.Log.e("FATAL_ERROR", "ID 'miniPlayerContainer' não encontrado no layout incluído!")
             }
         } else {
-            android.util.Log.e("FATAL_ERROR", "ID 'includeMiniPlayer' não encontrado na activity_main.xml!")
+            android.util.Log.e("FATAL_ERROR", "O include 'includeMiniPlayer' não existe na activity_main.xml!")
         }
     }
 
