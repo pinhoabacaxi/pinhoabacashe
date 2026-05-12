@@ -14,6 +14,10 @@ import com.maxrave.exampleApp.MainActivity
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.receiver.NotificationReceiver
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+
 
 class PlaybackService : Service() {
 
@@ -58,6 +62,25 @@ class PlaybackService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun createPlaceholderNotification(): Notification {
+        val channelId = "playback_channel"
+        val channelName = "Reprodução de Áudio"
+        
+        // Criar o canal de notificação para Android 8.0+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
+            manager.createNotificationChannel(channel)
+        }
+
+        return NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Carregando música...")
+            .setContentText("Aguarde um momento")
+            .setSmallIcon(android.R.drawable.ic_media_play) // Use um ícone do seu app se preferir
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true) // Impede que o usuário descarte a notificação enquanto carrega
+            .build()
+    }
     private fun showNotification(song: Song) {
         val isPlaying = LocalPlayerManager.isPlaying()
         
