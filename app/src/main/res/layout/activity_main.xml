@@ -88,22 +88,15 @@
                     app:chipBackgroundColor="#333333" />
 
                 <com.google.android.material.chip.Chip
-                    android:id="@+id/chipArtists"
-                    style="@style/Widget.MaterialComponents.Chip.Filter"
+                    android:id="@+id/btnOnlineSearch"
+                    style="@style/Widget.MaterialComponents.Chip.Action"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Artistas"
+                    android:text="Busca Online"
+                    app:chipIcon="@android:drawable/ic_menu_search"
+                    app:chipIconTint="#FFFFFF"
                     android:textColor="#FFFFFF"
-                    app:chipBackgroundColor="#333333" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipAlbums"
-                    style="@style/Widget.MaterialComponents.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Álbuns"
-                    android:textColor="#FFFFFF"
-                    app:chipBackgroundColor="#333333" />
+                    app:chipBackgroundColor="#E91E63" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipPlaylists"
@@ -113,19 +106,6 @@
                     android:text="Playlists"
                     android:textColor="#FFFFFF"
                     app:chipBackgroundColor="#333333" />
-
-                <com.google.android.material.chip.Chip>
-                    <ImageButton
-                        android:id="@+id/btnOnlineSearch"
-                        android:layout_width="48dp" 
-                        android:layout_height="48dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:src="@android:drawable/ic_menu_search"
-                        android:contentDescription="Busca Online"
-                        app:tint="#FFFFFF" />
-
-                </com.google.android.material.chip.Chip>
-
 
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
