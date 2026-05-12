@@ -89,6 +89,23 @@ class MusicDownloadWorker(
             ForegroundInfo(NOTIFICATION_ID, notification)
         }
     }
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val notification = NotificationCompat.Builder(applicationContext, "download_channel")
+            .setSmallIcon(R.drawable.ic_download)
+            .setContentTitle("Baixando música...")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(
+                1002, 
+                notification, 
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC // O tipo que colocamos no Manifesto
+            )
+        } else {
+            ForegroundInfo(1002, notification)
+        }
+    }
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setContentTitle("Baixando Música")
