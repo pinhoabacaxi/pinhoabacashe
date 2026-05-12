@@ -69,7 +69,7 @@ dependencies {
 
     // YouTube Extractor e Dependência de Decifração (JsEvaluator)
     implementation project(':kotlinYoutubeExtractor')
-    implementation 'com.github.evgeni-sergeev:JsEvaluator:1.1'
+    implementation 'com.github.evgenyneu:js-evaluator-for-android:v6.0.0'
 
     // Imagens
     implementation 'com.github.bumptech.glide:glide:4.15.1'
