@@ -1,228 +1,183 @@
 package com.maxrave.exampleApp
 
-import android.Manifest
-import android.content.ContentUris
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.view.View
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.maxrave.exampleApp.adapter.SongAdapter
-import com.maxrave.exampleApp.databinding.ActivityMainBinding
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.chip.Chip
+import com.google.android.material.snackbar.Snackbar
+import com.maxrave.exampleApp.adapter.HybridAdapter
+import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
-import com.maxrave.exampleApp.repository.FavoriteManager
-import com.maxrave.exampleApp.repository.MusicLoader
-import com.maxrave.exampleApp.repository.PlaylistManager
-import com.maxrave.exampleApp.repository.RecentSongsManager
-import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
-    private lateinit var songAdapter: SongAdapter
-    private lateinit var musicLoader: MusicLoader
-    
-    private lateinit var recentManager: RecentSongsManager
-    private lateinit var favoriteManager: FavoriteManager
-    private lateinit var playlistManager: PlaylistManager
-    
-    private var currentList: List<Song> = emptyList()
+    private lateinit var rvSongs: RecyclerView
+    private lateinit var hybridAdapter: HybridAdapter
+    private var currentList = mutableListOf<Any>() // Lista atual sendo exibida
 
-    private val permissionsLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        if (permissions.entries.all { it.value }) loadSongs()
-        else Toast.makeText(this, "Permissão negada para ler músicas.", Toast.LENGTH_SHORT).show()
-    }
+    // Elementos do Mini Player (do includeMiniPlayer)
+    private lateinit var miniPlayerContainer: MaterialCardView
+    private lateinit var tvMiniTitle: TextView
+    private lateinit var tvMiniArtist: TextView
+    private lateinit var ivMiniArt: ImageView
+    private lateinit var btnPlayPause: ImageButton
+    private lateinit var btnNext: ImageButton
+    private lateinit var btnPrev: ImageButton
+    private lateinit var pbMiniProgress: ProgressBar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_main)
 
-        // 1. Inicializar Repositórios e Managers
-        musicLoader = MusicLoader(this)
-        recentManager = RecentSongsManager(this)
-        favoriteManager = FavoriteManager(this)
-        playlistManager = PlaylistManager(this)
-        
-        // 2. Inicializar o Player Global (Obrigatório antes de usar)
-        LocalPlayerManager.init(this)
-
+        initViews()
         setupRecyclerView()
-        setupListeners()
-        setupPlayerObservers() // Monitora mudanças para atualizar o Mini Player
-        checkPermissions()
+        setupSwipeToDismiss()
+        setupMiniPlayerObservers()
+        setupFiltersAndSearch()
+
+        // TODO: Carregar as músicas locais do seu repositório/banco de dados
+        // loadLocalSongs() 
     }
 
-    private fun setupPlayerObservers() {
-        // Atualiza a interface quando a música muda (inclusive via 'Next' na notificação)
-        LocalPlayerManager.onTrackChanged = { song ->
-            updateMiniPlayerUI(song)
-        }
+    private fun initViews() {
+        rvSongs = findViewById(R.id.rvSongs)
+        
+        // Mini Player Views
+        val includeMiniPlayer = findViewById<View>(R.id.includeMiniPlayer)
+        miniPlayerContainer = includeMiniPlayer.findViewById(R.id.miniPlayerContainer)
+        tvMiniTitle = includeMiniPlayer.findViewById(R.id.tvMiniTitle)
+        tvMiniArtist = includeMiniPlayer.findViewById(R.id.tvMiniArtist)
+        ivMiniArt = includeMiniPlayer.findViewById(R.id.ivMiniArt)
+        btnPlayPause = includeMiniPlayer.findViewById(R.id.btnPlayPause)
+        btnNext = includeMiniPlayer.findViewById(R.id.btnNext)
+        btnPrev = includeMiniPlayer.findViewById(R.id.btnPrev)
+        pbMiniProgress = includeMiniPlayer.findViewById(R.id.pbMiniProgress)
 
-        // Atualiza o botão de play/pause quando o estado do player muda
-        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
-            val icon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-            binding.includeMiniPlayer.btnPlayPause.setImageResource(icon)
+        // Botão para abrir o Full Player ao clicar no Mini Player
+        miniPlayerContainer.setOnClickListener {
+            startActivity(Intent(this, FullPlayerActivity::class.java))
         }
     }
 
     private fun setupRecyclerView() {
-        songAdapter = SongAdapter(
-            songs = currentList,
-            favoriteManager = favoriteManager,
-            onSongClick = { song ->
-                val position = currentList.indexOf(song)
-                if (position != -1) {
-                    LocalPlayerManager.startPlaying(this, currentList, position)
-                    updateMiniPlayerUI(song)
-                }
+        hybridAdapter = HybridAdapter(
+            onItemClick = { item, position ->
+                // Quando clicar numa música, define a fila inteira e toca
+                LocalPlayerManager.setQueueAndPlay(currentList, position, this)
             },
-            onFavClick = { song ->
-                favoriteManager.toggleFavorite(song.id)
-                songAdapter.notifyDataSetChanged()
-            },
-            onLongClick = { song ->
-                // Aqui você pode abrir seu showPlaylistOptionsDialog(song) futuramente
-                Toast.makeText(this, "Opções para: ${song.title}", Toast.LENGTH_SHORT).show()
+            onMoreOptionsClick = { item ->
+                // Aqui você pode abrir o dialog_add_to_playlist
+                // showBottomSheetOptions(item)
             }
         )
 
-        binding.rvSongs.apply {
-            adapter = songAdapter
+        rvSongs.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
-            setHasFixedSize(true)
+            adapter = hybridAdapter
         }
     }
 
-    private fun setupListeners() {
-        // Busca na Biblioteca Local
-        binding.searchViewLibrary.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean = false
-            override fun onQueryTextChange(newText: String?): Boolean {
-                songAdapter.filter(newText ?: "")
-                return true
-            }
-        })
+    // A LÓGICA DO SWIPE QUE PLANEJAMOS
+    private fun setupSwipeToDismiss() {
+        val swipeHandler = object : ItemTouchHelper.SimpleCallback(
+            0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+        ) {
+            override fun onMove(r: RecyclerView, v: RecyclerView.ViewHolder, t: RecyclerView.ViewHolder) = false
 
-        // Filtros (Chips)
-        binding.chipGroupFilters.setOnCheckedChangeListener { _, checkedId ->
-            when (checkedId) {
-                R.id.chipAll -> songAdapter.updateList(currentList)
-                R.id.chipFavorites -> {
-                    val favs = currentList.filter { favoriteManager.isFavorite(it.id) }
-                    songAdapter.updateList(favs)
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                
+                // 1. Remove da UI
+                val removedItem = hybridAdapter.removeItem(position)
+                currentList.removeAt(position) // Mantém a lista local sincronizada
+                
+                // 2. Remove do Player Logic
+                LocalPlayerManager.removeFromQueue(position)
+
+                // 3. Feedback Premium com opção de Desfazer
+                Snackbar.make(rvSongs, "Música removida", Snackbar.LENGTH_LONG)
+                    .setAction("DESFAZER") {
+                        hybridAdapter.restoreItem(removedItem, position)
+                        currentList.add(position, removedItem)
+                        LocalPlayerManager.restoreToQueue(position, removedItem)
+                    }.show()
+            }
+        }
+        ItemTouchHelper(swipeHandler).attachToRecyclerView(rvSongs)
+    }
+
+    private fun setupMiniPlayerObservers() {
+        // Observa a mudança de faixa para atualizar a UI
+        LocalPlayerManager.onTrackChanged = { item ->
+            miniPlayerContainer.visibility = View.VISIBLE
+            
+            when (item) {
+                is Song -> {
+                    tvMiniTitle.text = item.title
+                    tvMiniArtist.text = item.artist
+                    Glide.with(this).load(item.uri).placeholder(android.R.drawable.ic_media_play).into(ivMiniArt)
                 }
-                R.id.chipRecent -> {
-                    // Assume que seu RecentSongsManager tem o método getRecentSongs
-                    val recents = recentManager.getRecentSongs(currentList)
-                    songAdapter.updateList(recents)
+                is OnlineSong -> {
+                    tvMiniTitle.text = item.title
+                    tvMiniArtist.text = item.author
+                    Glide.with(this).load(item.thumbnailUrl).placeholder(android.R.drawable.ic_media_play).into(ivMiniArt)
                 }
             }
         }
 
-        // Botão para Busca Online (YouTube)
-        binding.chipOnline.setOnClickListener {
+        // Observa o status de Play/Pause
+        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
+            val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            btnPlayPause.setImageResource(iconRes)
+        }
+
+        // Se tiver implementado onProgressChanged no Manager, atualize a ProgressBar aqui
+        LocalPlayerManager.onProgressChanged = { current, total ->
+            if (total > 0) {
+                pbMiniProgress.progress = (current * 100) / total
+            }
+        }
+
+        // Controles do Mini Player
+        btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
+        btnNext.setOnClickListener { LocalPlayerManager.next(this) }
+        btnPrev.setOnClickListener { LocalPlayerManager.previous(this) }
+    }
+
+    private fun setupFiltersAndSearch() {
+        val chipOnline = findViewById<Chip>(R.id.chipOnline)
+        chipOnline.setOnClickListener {
+            // Navega para a tela de busca do YouTube
             startActivity(Intent(this, OnlineSearchActivity::class.java))
         }
 
-        // Mini Player Controles
-        binding.includeMiniPlayer.btnPlayPause.setOnClickListener {
-            LocalPlayerManager.togglePlayPause(this)
-        }
-        binding.includeMiniPlayer.btnNext.setOnClickListener {
-            LocalPlayerManager.next(this)
-        }
-        binding.includeMiniPlayer.btnPrev.setOnClickListener {
-            LocalPlayerManager.previous(this)
-        }
-        
-        // Abrir tela cheia (FullPlayerActivity)
-        binding.includeMiniPlayer.root.setOnClickListener {
-            startActivity(Intent(this, FullPlayerActivity::class.java))
-        }
-
-        binding.btnScan.setOnClickListener { loadSongs() }
-    }
-
-    private fun updateMiniPlayerUI(song: Song) {
-        binding.includeMiniPlayer.root.visibility = View.VISIBLE
-        binding.includeMiniPlayer.tvMiniTitle.text = song.title
-        binding.includeMiniPlayer.tvMiniArtist.text = song.artist
-
-        // Carregar capa do álbum
-        val albumArtUri = ContentUris.withAppendedId(
-            Uri.parse("content://media/external/audio/albumart"),
-            song.albumId
-        )
-
-        Glide.with(this)
-            .load(albumArtUri)
-            .placeholder(android.R.drawable.ic_media_play)
-            .error(android.R.drawable.ic_media_play)
-            .into(binding.includeMiniPlayer.ivMiniArt)
-
-        // Sincronizar ícone de Play/Pause
-        val icon = if (LocalPlayerManager.isPlaying()) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-        binding.includeMiniPlayer.btnPlayPause.setImageResource(icon)
-    }
-
-    private fun checkPermissions() {
-        val permissionsNeeded = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsNeeded.add(Manifest.permission.READ_MEDIA_AUDIO)
-            permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
-
-        val missing = permissionsNeeded.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-
-        if (missing.isEmpty()) loadSongs() 
-        else permissionsLauncher.launch(missing.toTypedArray())
-    }
-
-    private fun loadSongs() {
-        binding.progressBar.visibility = View.VISIBLE
-        lifecycleScope.launch {
-            try {
-                currentList = musicLoader.loadLocalSongs()
-                binding.progressBar.visibility = View.GONE
-                
-                if (currentList.isEmpty()) {
-                    binding.tvEmptyState.visibility = View.VISIBLE
-                    binding.rvSongs.visibility = View.GONE
-                } else {
-                    binding.tvEmptyState.visibility = View.GONE
-                    binding.rvSongs.visibility = View.VISIBLE
-                    songAdapter.updateList(currentList)
-                }
-            } catch (e: Exception) {
-                binding.progressBar.visibility = View.GONE
-                Toast.makeText(this@MainActivity, "Erro ao carregar músicas.", Toast.LENGTH_SHORT).show()
+        val searchView = findViewById<SearchView>(R.id.searchViewLibrary)
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean = true
+            override fun onQueryTextChange(newText: String?): Boolean {
+                // TODO: Filtrar a sua 'currentList' baseada no newText e chamar hybridAdapter.setList()
+                return true
             }
-        }
+        })
     }
 
     override fun onResume() {
         super.onResume()
-        // Garante que o mini player esteja visível e atualizado se houver música tocando
-        LocalPlayerManager.currentSong?.let { updateMiniPlayerUI(it) }
-        if (::songAdapter.isInitialized) {
-            songAdapter.notifyDataSetChanged()
+        // Se a música estiver tocando em background, garante que o mini player apareça ao voltar pro app
+        if (LocalPlayerManager.currentIndex != -1) {
+            miniPlayerContainer.visibility = View.VISIBLE
         }
     }
 }
