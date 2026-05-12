@@ -76,4 +76,7 @@ class PlaylistSongsActivity : AppCompatActivity() {
             songAdapter.updateList(filteredSongs)
         }
     }
+    private fun showBottomSheetOptions(song: Song) {
+    // Por enquanto, deixe vazio para o build passar
+}
 }
