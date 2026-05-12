@@ -19,6 +19,9 @@ class YTSearch {
     suspend fun search(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
         val searchResults = mutableListOf<VideoMeta>()
         try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val networkInfo = connectivityManager.activeNetworkInfo
+            Log.d(LOG_TAG, "Rede conectada: ${networkInfo?.isConnected == true}")
             val apiUrl = "https://www.youtubei.googleapis.com/youtubei/v1/search?prettyPrint=false"
             val conn = URL(apiUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
