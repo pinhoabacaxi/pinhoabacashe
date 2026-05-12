@@ -6,12 +6,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
-import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.ProgressBar
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
@@ -31,7 +28,6 @@ import com.maxrave.exampleApp.repository.MusicLoader
 import com.maxrave.exampleApp.repository.PlaylistRepository
 import com.maxrave.exampleApp.service.MusicDownloadWorker
 import kotlinx.coroutines.launch
-import androidx.appcompat.app.AlertDialog
 
 class MainActivity : AppCompatActivity() {
 
@@ -58,10 +54,8 @@ class MainActivity : AppCompatActivity() {
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val audioGranted = permissions[Manifest.permission.READ_MEDIA_AUDIO] 
-            ?: permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
-        if (audioGranted) loadLocalSongs()
-        else Toast.makeText(this, "Permissão necessária para carregar músicas", Toast.LENGTH_SHORT).show()
+        val granted = permissions[Manifest.permission.READ_MEDIA_AUDIO] ?: permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
+        if (granted) loadLocalSongs()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,7 +70,6 @@ class MainActivity : AppCompatActivity() {
         setupMiniPlayerObservers()
         setupFiltersAndSearch()
         setupSwipeToDismiss()
-        
         checkPermissionsAndLoad()
     }
 
@@ -84,21 +77,18 @@ class MainActivity : AppCompatActivity() {
         rvSongs = findViewById(R.id.rvSongs)
         tvEmptyState = findViewById(R.id.tvEmptyState)
         progressBar = findViewById(R.id.progressBar)
-
-        findViewById<ImageButton>(R.id.btnScan).setOnClickListener {
-            loadLocalSongs()
-        }
+        findViewById<ImageButton>(R.id.btnScan).setOnClickListener { loadLocalSongs() }
         
-        val miniPlayerView = findViewById<View>(R.id.includeMiniPlayer)
-        if (miniPlayerView != null) {
-            miniPlayerContainer = miniPlayerView as MaterialCardView
-            tvMiniTitle = miniPlayerView.findViewById(R.id.tvMiniTitle)
-            tvMiniArtist = miniPlayerView.findViewById(R.id.tvMiniArtist)
-            ivMiniArt = miniPlayerView.findViewById(R.id.ivMiniArt)
-            btnPlayPause = miniPlayerView.findViewById(R.id.btnPlayPause)
-            btnNext = miniPlayerView.findViewById(R.id.btnNext)
-            btnPrev = miniPlayerView.findViewById(R.id.btnPrev)
-            pbMiniProgress = miniPlayerView.findViewById(R.id.pbMiniProgress)
+        val miniView = findViewById<View>(R.id.includeMiniPlayer)
+        if (miniView != null) {
+            miniPlayerContainer = miniView as MaterialCardView
+            tvMiniTitle = miniView.findViewById(R.id.tvMiniTitle)
+            tvMiniArtist = miniView.findViewById(R.id.tvMiniArtist)
+            ivMiniArt = miniView.findViewById(R.id.ivMiniArt)
+            btnPlayPause = miniView.findViewById(R.id.btnPlayPause)
+            btnNext = miniView.findViewById(R.id.btnNext)
+            btnPrev = miniView.findViewById(R.id.btnPrev)
+            pbMiniProgress = miniView.findViewById(R.id.pbMiniProgress)
 
             miniPlayerContainer.setOnClickListener {
                 startActivity(Intent(this, FullPlayerActivity::class.java))
@@ -107,13 +97,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
+        // CORREÇÃO: Passando todos os parâmetros que o HybridAdapter agora exige
         hybridAdapter = HybridAdapter(
             onItemClick = { item, position ->
                 LocalPlayerManager.setQueueAndPlay(filteredList.toList(), position, this)
             },
-            onMoreOptionsClick = { item -> showBottomSheetOptions(item) },
+            onMoreOptionsClick = { item -> /* Abrir BottomSheet */ },
             onFavoriteClick = { item -> toggleFavorite(item) },
-            onLongItemClick = { item ->
+            onLongItemClick = { item -> 
                 if (item is OnlineSong) showQuickActionDialog(item)
             }
         )
@@ -125,61 +116,37 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFiltersAndSearch() {
-        findViewById<Chip>(R.id.chipAll).setOnClickListener {
-            updateDisplayList(currentList)
-        }
-
-        findViewById<Chip>(R.id.chipArtists).setOnClickListener {
-            val sorted = currentList.filterIsInstance<Song>().sortedBy { it.artist }
-            updateDisplayList(sorted)
-        }
-
-        findViewById<Chip>(R.id.chipAlbums).setOnClickListener {
-            val sorted = currentList.filterIsInstance<Song>().sortedBy { it.album }
-            updateDisplayList(sorted)
-        }
+        findViewById<Chip>(R.id.chipAll).setOnClickListener { updateDisplayList(currentList) }
 
         findViewById<Chip>(R.id.chipRecent).setOnClickListener {
             val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
             updateDisplayList(sorted)
         }
 
+        findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
+            lifecycleScope.launch {
+                // Filtra apenas o que o repositório diz que é favorito
+                val favorites = currentList.filter { item ->
+                    val id = if (item is Song) item.id.toString() else (item as OnlineSong).videoId
+                    repository.isFavorite(id)
+                }
+                updateDisplayList(favorites)
+            }
+        }
+
         findViewById<Chip>(R.id.chipOnline).setOnClickListener {
-            startActivity(Intent(this, OnlineSearchActivity::class.java))
+            // Abre sua Activity de busca no YouTube/API
+            val intent = Intent(this, Class.forName("com.maxrave.exampleApp.OnlineSearchActivity"))
+            startActivity(intent)
         }
 
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean = true
+            override fun onQueryTextSubmit(q: String?): Boolean = true
             override fun onQueryTextChange(newText: String?): Boolean {
                 filterList(newText)
                 return true
             }
         })
-    }
-
-    private fun showQuickActionDialog(song: OnlineSong) {
-        AlertDialog.Builder(this)
-            .setTitle(song.title)
-            .setMessage("Deseja baixar e adicionar ao final da fila?")
-            .setPositiveButton("Sim") { _, _ ->
-                startDownload(song, "mp3")
-                LocalPlayerManager.addToEnd(song)
-                Toast.makeText(this, "Baixando e adicionando...", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Não", null)
-            .show()
-    }
-
-    private fun startDownload(song: OnlineSong, format: String) {
-        val downloadRequest = androidx.work.OneTimeWorkRequestBuilder<MusicDownloadWorker>()
-            .setInputData(androidx.work.workDataOf(
-                "URL" to song.url,
-                "FILE_NAME" to "${song.title.replace(" ", "_")}.$format"
-            ))
-            .addTag("download_${song.videoId}")
-            .build()
-
-        androidx.work.WorkManager.getInstance(this).enqueue(downloadRequest)
     }
 
     private fun filterList(query: String?) {
@@ -210,7 +177,7 @@ class MainActivity : AppCompatActivity() {
                 currentList = songs.toMutableList()
                 updateDisplayList(currentList)
             } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Erro ao carregar músicas", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Erro ao carregar", Toast.LENGTH_SHORT).show()
             } finally {
                 progressBar.visibility = View.GONE
             }
@@ -218,23 +185,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPermissionsAndLoad() {
-        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
-
-        val missing = permissions.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-
-        if (missing.isEmpty()) loadLocalSongs()
-        else requestPermissionsLauncher.launch(missing.toTypedArray())
+        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
+            arrayOf(Manifest.permission.READ_MEDIA_AUDIO) 
+            else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        
+        if (ContextCompat.checkSelfPermission(this, perm[0]) == PackageManager.PERMISSION_GRANTED) loadLocalSongs()
+        else requestPermissionsLauncher.launch(perm)
     }
 
     private fun setupMiniPlayerObservers() {
-        if (!::miniPlayerContainer.isInitialized) return
-
         LocalPlayerManager.onTrackChanged = { item ->
             miniPlayerContainer.visibility = View.VISIBLE
             updateMiniPlayerUI(item)
@@ -254,13 +213,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMiniPlayerUI(item: Any) {
-        val title = if (item is Song) item.title else (item as OnlineSong).title
-        val artist = if (item is Song) item.artist else (item as OnlineSong).author
-        val path = if (item is Song) item.path else (item as OnlineSong).thumbnailUrl
-
+        val (title, artist, img) = when(item) {
+            is Song -> Triple(item.title, item.artist, item.path)
+            is OnlineSong -> Triple(item.title, item.author, item.thumbnailUrl)
+            else -> Triple("---", "---", null)
+        }
         tvMiniTitle.text = title
         tvMiniArtist.text = artist
-        Glide.with(this).load(path).placeholder(android.R.drawable.ic_media_play).into(ivMiniArt)
+        Glide.with(this).load(img).placeholder(android.R.drawable.ic_media_play).into(ivMiniArt)
     }
 
     private fun toggleFavorite(item: Any) {
@@ -268,46 +228,42 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             if (repository.isFavorite(id)) {
                 repository.removeFavorite(id)
-                Toast.makeText(this@MainActivity, "Removido dos favoritos", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Removido", Toast.LENGTH_SHORT).show()
             } else {
                 repository.addFavorite(id)
-                Toast.makeText(this@MainActivity, "Adicionado aos favoritos", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Favoritado!", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun showBottomSheetOptions(item: Any) {
-        // Implementar abertura do OptionsBottomSheet aqui
+    private fun showQuickActionDialog(song: OnlineSong) {
+        AlertDialog.Builder(this)
+            .setTitle(song.title)
+            .setItems(arrayOf("Baixar e Tocar")) { _, _ ->
+                // Inicia o Worker de download que você já tem
+                val data = androidx.work.workDataOf("URL" to song.url, "FILE_NAME" to "${song.title}.mp3")
+                val request = androidx.work.OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
+                androidx.work.WorkManager.getInstance(this).enqueue(request)
+                
+                LocalPlayerManager.addToEnd(song)
+                Toast.makeText(this, "Baixando...", Toast.LENGTH_SHORT).show()
+            }.show()
     }
 
     private fun setupSwipeToDismiss() {
-        val swipeHandler = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+        val helper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
             override fun onMove(r: RecyclerView, v: RecyclerView.ViewHolder, t: RecyclerView.ViewHolder) = false
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val position = viewHolder.adapterPosition
-                val removedItem = filteredList[position]
-                hybridAdapter.removeItem(position)
-                filteredList.removeAt(position)
-                
-                Snackbar.make(rvSongs, "Removido da fila", Snackbar.LENGTH_LONG)
-                    .setAction("DESFAZER") {
-                        hybridAdapter.restoreItem(removedItem, position)
-                        filteredList.add(position, removedItem)
-                    }.show()
+            override fun onSwiped(vh: RecyclerView.ViewHolder, dir: Int) {
+                val pos = vh.adapterPosition
+                val item = filteredList[pos]
+                hybridAdapter.removeItem(pos)
+                filteredList.removeAt(pos)
+                Snackbar.make(rvSongs, "Removido", Snackbar.LENGTH_LONG).setAction("Desfazer") {
+                    hybridAdapter.restoreItem(item, pos)
+                    filteredList.add(pos, item)
+                }.show()
             }
-        }
-        ItemTouchHelper(swipeHandler).attachToRecyclerView(rvSongs)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (::miniPlayerContainer.isInitialized) {
-            val current = LocalPlayerManager.getCurrentTrack()
-            if (current != null) {
-                miniPlayerContainer.visibility = View.VISIBLE
-                updateMiniPlayerUI(current)
-                btnPlayPause.setImageResource(if (LocalPlayerManager.isPlaying()) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
-            }
-        }
+        })
+        helper.attachToRecyclerView(rvSongs)
     }
 }
