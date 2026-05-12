@@ -67,18 +67,28 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         rvSongs = findViewById(R.id.rvSongs)
         
+        // Captura o include do Mini Player
         val includeMiniPlayer = findViewById<View>(R.id.includeMiniPlayer)
-        miniPlayerContainer = includeMiniPlayer.findViewById(R.id.miniPlayerContainer)
-        tvMiniTitle = includeMiniPlayer.findViewById(R.id.tvMiniTitle)
-        tvMiniArtist = includeMiniPlayer.findViewById(R.id.tvMiniArtist)
-        ivMiniArt = includeMiniPlayer.findViewById(R.id.ivMiniArt)
-        btnPlayPause = includeMiniPlayer.findViewById(R.id.btnPlayPause)
-        btnNext = includeMiniPlayer.findViewById(R.id.btnNext)
-        btnPrev = includeMiniPlayer.findViewById(R.id.btnPrev)
-        pbMiniProgress = includeMiniPlayer.findViewById(R.id.pbMiniProgress)
-
-        miniPlayerContainer.setOnClickListener {
-            startActivity(Intent(this, FullPlayerActivity::class.java))
+        
+        if (includeMiniPlayer != null) {
+            // Tenta encontrar o container dentro do include
+            miniPlayerContainer = includeMiniPlayer.findViewById(R.id.miniPlayerContainer)
+            
+            // Se miniPlayerContainer for null aqui, o app vai dar crash de novo.
+            // Verifique se o ID no XML do mini player é exatamente 'miniPlayerContainer'
+            tvMiniTitle = includeMiniPlayer.findViewById(R.id.tvMiniTitle)
+            tvMiniArtist = includeMiniPlayer.findViewById(R.id.tvMiniArtist)
+            ivMiniArt = includeMiniPlayer.findViewById(R.id.ivMiniArt)
+            btnPlayPause = includeMiniPlayer.findViewById(R.id.btnPlayPause)
+            btnNext = includeMiniPlayer.findViewById(R.id.btnNext)
+            btnPrev = includeMiniPlayer.findViewById(R.id.btnPrev)
+            pbMiniProgress = includeMiniPlayer.findViewById(R.id.pbMiniProgress)
+    
+            miniPlayerContainer.setOnClickListener {
+                startActivity(Intent(this, FullPlayerActivity::class.java))
+            }
+        } else {
+            android.util.Log.e("MainActivity", "ERRO: layout_mini_player não encontrado no XML da MainActivity")
         }
     }
 
