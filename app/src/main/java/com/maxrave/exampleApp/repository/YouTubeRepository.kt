@@ -17,11 +17,12 @@ class YouTubeRepository(private val context: Context) {
 
     private val extractor = YTExtractor(context, CACHING = false, LOGGING = true)
     
-    // Suas duas chaves de API para fallback
+    // Suas chaves de API
     private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
     private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
 
     suspend fun downloadMusic(videoId: String): Unit = withContext(Dispatchers.IO) {
+        // Se for um link completo, usa ele, senão monta a URL
         val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://www.youtube.com/watch?v=$videoId"
         try {
             extractor.extract(youtubeUrl)
@@ -38,24 +39,21 @@ class YouTubeRepository(private val context: Context) {
                 )
             }
         } catch (e: Exception) {
-            Log.e("YouTubeRepo", "Erro no download: ${e.message}")
+            Log.e("YouTubeRepo", "Erro download: ${e.message}")
         }
     }
 
     suspend fun extractMusicInfo(input: String): OnlineSong? = withContext(Dispatchers.IO) {
-        // Se o input já for uma URL, usa ela. Se for só o ID, monta a URL.
         val url = if (input.contains("http")) input else "https://www.youtube.com/watch?v=$input"
         try {
             extractor.extract(url)
             val meta = extractor.getVideoMeta()
             val ytFiles = extractor.getYTFiles()
+            val bestAudio = ytFiles?.getAudioOnly()?.firstOrNull()?.url
 
-            if (meta != null && ytFiles != null) {
-                val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url
-                val vId = if (input.contains("http")) extractVideoId(input) else input
-                
+            if (meta != null) {
                 OnlineSong(
-                    videoId = vId,
+                    videoId = if (input.contains("http")) extractVideoId(input) else input,
                     title = meta.title ?: "Sem título",
                     author = meta.author ?: "Artista",
                     thumbnailUrl = meta.maxResImageUrl,
@@ -63,7 +61,6 @@ class YouTubeRepository(private val context: Context) {
                 )
             } else null
         } catch (e: Exception) {
-            Log.e("YouTubeRepo", "Erro na extração: ${e.message}")
             null
         }
     }
@@ -72,14 +69,13 @@ class YouTubeRepository(private val context: Context) {
         val results = mutableListOf<OnlineSong>()
         val trimmedQuery = query.trim()
 
-        // 1. Prioridade: Links diretos (Processa e já retorna)
         if (trimmedQuery.contains("youtube.com") || trimmedQuery.contains("youtu.be")) {
             val info = extractMusicInfo(trimmedQuery)
             if (info != null) results.add(info)
             return@withContext results
         }
 
-        // 2. Fallback: Piped (APIs Públicas)
+        // 1. Tentar Piped
         val apiInstances = arrayOf("https://pipedapi.kavin.rocks", "https://api.piped.victr.me")
         for (baseUrl in apiInstances) {
             try {
@@ -88,28 +84,27 @@ class YouTubeRepository(private val context: Context) {
                 val conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 3000
                 if (conn.responseCode == 200) {
-                    val items = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONArray("items") ?: JSONArray()
+                    val text = conn.inputStream.bufferedReader().use { it.readText() }
+                    val items = JSONObject(text).optJSONArray("items") ?: JSONArray()
                     for (i in 0 until items.length()) {
                         val item = items.optJSONObject(i)
                         if (item != null && item.optString("type") == "stream") {
                             val id = item.optString("url").substringAfter("v=", "")
-                            if (id.isNotEmpty()) {
-                                results.add(OnlineSong(id, item.optString("title"), item.optString("uploaderName"), item.optString("thumbnail"), null))
-                            }
+                            results.add(OnlineSong(id, item.optString("title"), item.optString("uploaderName"), item.optString("thumbnail"), null))
                         }
                     }
                     if (results.isNotEmpty()) return@withContext results
                 }
-            } catch (e: Exception) { Log.e("YouTubeRepo", "Piped falhou") }
+            } catch (e: Exception) { }
         }
 
-        // 3. Fallback Oficial: Chave 1
+        // 2. Fallback Google Chave 1
         if (results.isEmpty()) {
             results.addAll(searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey1))
         }
 
-        // 4. Fallback Oficial: Chave 2 (se a 1 falhar ou acabar a cota)
-        if (results.isEmpty() && youtubeApiKey2 != "COLE_AQUI_SUA_SEGUNDA_CHAVE") {
+        // 3. Fallback Google Chave 2
+        if (results.isEmpty() && youtubeApiKey2.length > 10) {
             results.addAll(searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey2))
         }
 
@@ -123,15 +118,24 @@ class YouTubeRepository(private val context: Context) {
             val url = URL("https://www.googleapis.com/youtube/v3/search?part=snippet&q=$encoded&type=video&videoCategoryId=10&maxResults=15&key=$apiKey")
             val conn = url.openConnection() as HttpURLConnection
             if (conn.responseCode == 200) {
-                val items = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONArray("items") ?: JSONArray()
+                val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+                val items = json.optJSONArray("items") ?: JSONArray()
                 for (i in 0 until items.length()) {
                     val item = items.getJSONObject(i)
-                    val id = item.getJSONObject("id").getString("videoId")
+                    val videoId = item.getJSONObject("id").getString("videoId")
                     val snippet = item.getJSONObject("snippet")
-                    list.add(OnlineSong(id, snippet.getString("title"), snippet.getString("channelTitle"), snippet.getString("thumbnails").getJSONObject("high").getString("url"), null))
+                    
+                    // Extração de imagem corrigida para evitar erro de referência
+                    val thumbnails = snippet.getJSONObject("thumbnails")
+                    val highRes = thumbnails.getJSONObject("high")
+                    val thumbUrl = highRes.getString("url")
+
+                    list.add(OnlineSong(videoId, snippet.getString("title"), snippet.getString("channelTitle"), thumbUrl, null))
                 }
             }
-        } catch (e: Exception) { Log.e("YouTubeRepo", "Google API falhou") }
+        } catch (e: Exception) {
+            Log.e("YouTubeRepo", "Erro API Oficial: ${e.message}")
+        }
         list
     }
 
