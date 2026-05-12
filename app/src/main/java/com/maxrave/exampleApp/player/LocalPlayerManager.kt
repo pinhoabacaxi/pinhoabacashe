@@ -11,6 +11,7 @@ import com.maxrave.exampleApp.service.PlaybackService
 import com.maxrave.exampleApp.repository.RecentSongsManager
 import com.maxrave.exampleApp.repository.PlayerPrefs
 
+
 object LocalPlayerManager {
     private var mediaPlayer: MediaPlayer? = null
     
@@ -26,9 +27,48 @@ object LocalPlayerManager {
     
     var isShuffle: Boolean = false
     var repeatMode: RepeatMode = RepeatMode.NONE
-
+    
     enum class RepeatMode { NONE, ONE, ALL }
+    
+    var onTrackChanged: ((Any) -> Unit)? = null
+    var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
 
+    // --- GETTERS QUE FALTAVAM ---
+    fun getCurrentTrack(): Any? = if (currentIndex in playlistQueue.indices) playlistQueue[currentIndex] else null
+    
+    fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
+    
+    fun getDuration(): Int = mediaPlayer?.duration ?: 0
+
+    fun seekTo(pos: Int) {
+        mediaPlayer?.seekTo(pos)
+    }
+
+    // --- LOGICA DE PLAY CORRIGIDA ---
+    fun play(context: Context) {
+        val track = getCurrentTrack() ?: return
+        
+        val dataSource = when (track) {
+            is Song -> track.path // Verifique se em Song.kt o campo é 'path'
+            is OnlineSong -> track.url
+            else -> return
+        }
+
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(dataSource) // Agora o compilador sabe que é uma String
+                prepareAsync()
+                setOnPreparedListener { 
+                    start() 
+                    onPlaybackStatusChanged?.invoke(true)
+                }
+            }
+            onTrackChanged?.invoke(track)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    
     // Callbacks para atualizar a UI
     var onTrackChanged: ((Any) -> Unit)? = null // Retorna Song ou OnlineSong
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
@@ -64,36 +104,6 @@ object LocalPlayerManager {
             currentIndex++
         }
         play(context)
-    }
-
-    fun play(context: Context) {
-        if (currentIndex !in playlistQueue.indices) return
-        
-        val currentItem = playlistQueue[currentIndex]
-        val path = when (currentItem) {
-            is Song -> currentItem.path
-            is OnlineSong -> currentItem.streamingUrl ?: return
-            else -> return
-        }
-
-        try {
-            mediaPlayer?.release()
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(path)
-                prepareAsync()
-                setOnPreparedListener { 
-                    start()
-                    onPlaybackStatusChanged?.invoke(true)
-                    updateService(context, "ACTION_PLAY")
-                }
-                setOnCompletionListener { 
-                    handleCompletion(context) 
-                }
-            }
-            onTrackChanged?.invoke(currentItem)
-        } catch (e: Exception) {
-            Log.e("PlayerManager", "Erro ao tocar: ${e.message}")
-        }
     }
 
     // LÓGICA DO SWIPE: Remover da fila
