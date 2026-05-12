@@ -43,7 +43,9 @@ object LocalPlayerManager {
             currentQueue.add(currentIndex + 1, item)
         }
     }
-
+    // 3. Obter a fila atual (para o Adapter saber que mudou)
+    fun getCurrentQueue() = currentQueue
+    
     // 2. Adicionar ao final da fila (Add to Queue)
     fun addToEnd(item: Any) {
         currentQueue.add(item)
