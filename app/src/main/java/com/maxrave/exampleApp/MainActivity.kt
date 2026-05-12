@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hybridAdapter: HybridAdapter
     private lateinit var musicLoader: MusicLoader
     private lateinit var repository: PlaylistRepository
-    
+    private lateinit var btnOnlineSearch: ImageButton
     private var currentList = mutableListOf<Any>()
     private var filteredList = mutableListOf<Any>()
 
