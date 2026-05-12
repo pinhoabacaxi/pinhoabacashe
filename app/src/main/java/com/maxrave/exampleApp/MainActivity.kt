@@ -36,8 +36,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hybridAdapter: HybridAdapter
     private lateinit var musicLoader: MusicLoader
     
-    private var currentList = mutableListOf<Any>() // Lista original (completa)
-    private var filteredList = mutableListOf<Any>() // Lista que o adapter exibe
+    private var currentList = mutableListOf<Any>() // Lista completa original
+    private var filteredList = mutableListOf<Any>() // Lista exibida no momento
 
     // Elementos do Mini Player
     private lateinit var miniPlayerContainer: MaterialCardView
@@ -49,12 +49,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPrev: ImageButton
     private lateinit var pbMiniProgress: ProgressBar
 
-    // Launcher para permissões
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) loadLocalSongs()
-        else Toast.makeText(this, "Permissão necessária para carregar músicas", Toast.LENGTH_SHORT).show()
+    // Launcher para múltiplas permissões (Áudio + Notificações)
+    private val requestPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val audioGranted = permissions[Manifest.permission.READ_MEDIA_AUDIO] ?: permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
+        if (audioGranted) {
+            loadLocalSongs()
+        } else {
+            Toast.makeText(this, "Permissão de arquivos negada.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,68 +77,58 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-    rvSongs = findViewById(R.id.rvSongs)
-    
-    // Tentamos encontrar o include primeiro
-    val miniPlayerInclude = findViewById<View>(R.id.includeMiniPlayer)
-    
-    if (miniPlayerInclude != null) {
-            // Buscamos os IDs de dentro do include
-            val container = miniPlayerInclude.findViewById<MaterialCardView>(R.id.miniPlayerContainer)
-            
-            if (container != null) {
-                // Se o container existe, inicializamos tudo com segurança
-                miniPlayerContainer = container
-                tvMiniTitle = miniPlayerInclude.findViewById(R.id.tvMiniTitle)
-                tvMiniArtist = miniPlayerInclude.findViewById(R.id.tvMiniArtist)
-                ivMiniArt = miniPlayerInclude.findViewById(R.id.ivMiniArt)
-                btnPlayPause = miniPlayerInclude.findViewById(R.id.btnPlayPause)
-                btnNext = miniPlayerInclude.findViewById(R.id.btnNext)
-                btnPrev = miniPlayerInclude.findViewById(R.id.btnPrev)
-                pbMiniProgress = miniPlayerInclude.findViewById(R.id.pbMiniProgress)
-    
-                miniPlayerContainer.setOnClickListener {
-                    startActivity(Intent(this, FullPlayerActivity::class.java))
-                }
-            } else {
-                android.util.Log.e("FATAL_ERROR", "ID 'miniPlayerContainer' não encontrado no layout incluído!")
+        rvSongs = findViewById(R.id.rvSongs)
+        
+        // Inicialização Segura do MiniPlayer (Include)
+        val miniPlayerInclude = findViewById<View>(R.id.includeMiniPlayer)
+        if (miniPlayerInclude != null) {
+            miniPlayerContainer = miniPlayerInclude.findViewById(R.id.miniPlayerContainer)
+            tvMiniTitle = miniPlayerInclude.findViewById(R.id.tvMiniTitle)
+            tvMiniArtist = miniPlayerInclude.findViewById(R.id.tvMiniArtist)
+            ivMiniArt = miniPlayerInclude.findViewById(R.id.ivMiniArt)
+            btnPlayPause = miniPlayerInclude.findViewById(R.id.btnPlayPause)
+            btnNext = miniPlayerInclude.findViewById(R.id.btnNext)
+            btnPrev = miniPlayerInclude.findViewById(R.id.btnPrev)
+            pbMiniProgress = miniPlayerInclude.findViewById(R.id.pbMiniProgress)
+
+            // Agora o MiniPlayer responde a cliques para abrir o player cheio
+            miniPlayerContainer.setOnClickListener {
+                startActivity(Intent(this, FullPlayerActivity::class.java))
             }
-        } else {
-            android.util.Log.e("FATAL_ERROR", "O include 'includeMiniPlayer' não existe na activity_main.xml!")
         }
     }
 
     private fun checkPermissionsAndLoad() {
-        val permissions = mutableListOf<String>()
+        val permissionsNeeded = mutableListOf<String>()
         
-        // Permissão de Áudio
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
-            // ESSENCIAL: Permissão de Notificação para o Player aparecer na barra de status
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            permissionsNeeded.add(Manifest.permission.READ_MEDIA_AUDIO)
+            permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-    
-        val missingPermissions = permissions.filter {
+
+        val listToRequest = permissionsNeeded.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-    
-        if (missingPermissions.isEmpty()) {
+
+        if (listToRequest.isEmpty()) {
             loadLocalSongs()
         } else {
-            // Usa o launcher para pedir todas as que faltam de uma vez
-            requestPermissionsLauncher.launch(missingPermissions.toTypedArray())
+            requestPermissionsLauncher.launch(listToRequest.toTypedArray())
         }
     }
+
     private fun setupRecyclerView() {
         hybridAdapter = HybridAdapter(
             onItemClick = { item, position ->
-                // Passa a lista filtrada para garantir que o 'Next' siga a ordem atual da tela
                 LocalPlayerManager.setQueueAndPlay(filteredList.toList(), position, this)
             },
             onMoreOptionsClick = { item ->
                 showBottomSheetOptions(item)
+            },
+            onFavoriteClick = { item ->
+                toggleFavorite(item)
             }
         )
 
@@ -144,89 +138,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupSwipeToDismiss() {
-        val swipeHandler = object : ItemTouchHelper.SimpleCallback(
-            0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
-        ) {
-            override fun onMove(r: RecyclerView, v: RecyclerView.ViewHolder, t: RecyclerView.ViewHolder) = false
-
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val position = viewHolder.adapterPosition
-                val removedItem = filteredList[position]
-                
-                // 1. Remove da UI e da lista filtrada
-                hybridAdapter.removeItem(position)
-                filteredList.removeAt(position)
-                
-                // 2. Remove da lista principal e da fila do Player
-                currentList.remove(removedItem)
-                LocalPlayerManager.removeFromQueue(position)
-
-                Snackbar.make(rvSongs, "Música removida da fila", Snackbar.LENGTH_LONG)
-                    .setAction("DESFAZER") {
-                        hybridAdapter.restoreItem(removedItem, position)
-                        filteredList.add(position, removedItem)
-                        currentList.add(removedItem)
-                        LocalPlayerManager.restoreToQueue(position, removedItem)
-                    }.show()
-            }
-        }
-        ItemTouchHelper(swipeHandler).attachToRecyclerView(rvSongs)
-    }
-
-    private fun setupMiniPlayerObservers() {
-        // Observa mudanças de música
-        if (!::btnPlayPause.isInitialized) return
-
-        LocalPlayerManager.onTrackChanged = { item ->
-            miniPlayerContainer.visibility = View.VISIBLE
-            updateMiniPlayerUI(item)
-        }
-        // Observa Play/Pause
-        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
-            val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-            btnPlayPause.setImageResource(iconRes)
-        }
-
-        // Observa Progresso
-        LocalPlayerManager.onProgressChanged = { current, total ->
-            if (total > 0) {
-                pbMiniProgress.progress = (current * 100) / total
-            }
-        }
-
-        // Click Listeners
-        btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
-        btnNext.setOnClickListener { LocalPlayerManager.next(this) }
-        btnPrev.setOnClickListener { LocalPlayerManager.previous(this) }
-    }
-
-    private fun updateMiniPlayerUI(item: Any) {
-        when (item) {
-            is Song -> {
-                tvMiniTitle.text = item.title
-                tvMiniArtist.text = item.artist
-                Glide.with(this)
-                    .load(item.path)
-                    .placeholder(android.R.drawable.ic_media_play)
-                    .into(ivMiniArt)
-            }
-            is OnlineSong -> {
-                tvMiniTitle.text = item.title
-                tvMiniArtist.text = item.author
-                Glide.with(this)
-                    .load(item.thumbnailUrl)
-                    .placeholder(android.R.drawable.ic_media_play)
-                    .into(ivMiniArt)
-            }
-        }
-    }
-
     private fun setupFiltersAndSearch() {
+        // Botão para Pesquisa Online
         findViewById<Chip>(R.id.chipOnline).setOnClickListener {
             startActivity(Intent(this, OnlineSearchActivity::class.java))
         }
 
+        // Filtro: Recentes
+        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
+            filteredList = currentList.filterIsInstance<Song>().sortedByDescending { it.id }.toMutableList()
+            hybridAdapter.setList(filteredList)
+        }
+
+        // Filtro: Favoritos (Simulado)
+        findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
+            // Aqui você filtraria por uma lista de IDs salvos no banco ou SharedPreferences
+            Toast.makeText(this, "Filtro de Favoritos Ativado", Toast.LENGTH_SHORT).show()
+        }
+
+        // Filtro: Álbuns
+        findViewById<Chip>(R.id.chipAlbums).setOnClickListener {
+            filteredList = currentList.filterIsInstance<Song>().sortedBy { it.album }.toMutableList()
+            hybridAdapter.setList(filteredList)
+        }
+
+        // Barra de Pesquisa na Biblioteca
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = true
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -252,6 +188,45 @@ class MainActivity : AppCompatActivity() {
         hybridAdapter.setList(filteredList)
     }
 
+    private fun setupMiniPlayerObservers() {
+        if (!::miniPlayerContainer.isInitialized) return
+
+        LocalPlayerManager.onTrackChanged = { item ->
+            miniPlayerContainer.visibility = View.VISIBLE
+            updateMiniPlayerUI(item)
+        }
+
+        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
+            val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            btnPlayPause.setImageResource(iconRes)
+        }
+
+        LocalPlayerManager.onProgressChanged = { current, total ->
+            if (total > 0) {
+                pbMiniProgress.progress = (current * 100 / total).toInt()
+            }
+        }
+
+        btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
+        btnNext.setOnClickListener { LocalPlayerManager.next(this) }
+        btnPrev.setOnClickListener { LocalPlayerManager.previous(this) }
+    }
+
+    private fun updateMiniPlayerUI(item: Any) {
+        when (item) {
+            is Song -> {
+                tvMiniTitle.text = item.title
+                tvMiniArtist.text = item.artist
+                Glide.with(this).load(item.uri).placeholder(android.R.drawable.ic_media_play).into(ivMiniArt)
+            }
+            is OnlineSong -> {
+                tvMiniTitle.text = item.title
+                tvMiniArtist.text = item.author
+                Glide.with(this).load(item.thumbnailUrl).placeholder(android.R.drawable.ic_media_play).into(ivMiniArt)
+            }
+        }
+    }
+
     private fun loadLocalSongs() {
         lifecycleScope.launch {
             try {
@@ -265,14 +240,42 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun toggleFavorite(item: Any) {
+        // Lógica para salvar no Banco de Dados ou SharedPreferences
+        val title = when(item) {
+            is Song -> item.title
+            is OnlineSong -> item.title
+            else -> "Música"
+        }
+        Toast.makeText(this, "$title adicionada aos favoritos", Toast.LENGTH_SHORT).show()
+    }
+
     private fun showBottomSheetOptions(item: Any) {
-        // Futura implementação
-        Toast.makeText(this, "Opções para: $item", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Opções abertas para o item", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun setupSwipeToDismiss() {
+        val swipeHandler = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+            override fun onMove(r: RecyclerView, v: RecyclerView.ViewHolder, t: RecyclerView.ViewHolder) = false
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                val removedItem = filteredList[position]
+                hybridAdapter.removeItem(position)
+                filteredList.removeAt(position)
+                
+                Snackbar.make(rvSongs, "Removido da lista atual", Snackbar.LENGTH_LONG)
+                    .setAction("DESFAZER") {
+                        hybridAdapter.restoreItem(removedItem, position)
+                        filteredList.add(position, removedItem)
+                    }.show()
+            }
+        }
+        ItemTouchHelper(swipeHandler).attachToRecyclerView(rvSongs)
     }
 
     override fun onResume() {
         super.onResume()
-        // Só executa se o miniPlayerContainer foi inicializado corretamente no initViews
+        // Verificação de segurança para evitar o crash de UninitializedProperty
         if (::miniPlayerContainer.isInitialized) {
             val current = LocalPlayerManager.getCurrentTrack()
             if (current != null) {
