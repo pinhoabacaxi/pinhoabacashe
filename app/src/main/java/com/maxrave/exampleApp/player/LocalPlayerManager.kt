@@ -109,7 +109,11 @@ object LocalPlayerManager {
 
     // --- REPRODUÇÃO ---
     fun play(context: Context) {
+        if (currentIndex !in playlistQueue.indices) return
+        val item = playlistQueue[currentIndex]
+        currentTrack = item // Salva o item atual
         val track = getCurrentTrack() ?: return
+        listeners.forEach { it.onTrackChanged(item) }
         val dataSource = when (track) {
             is Song -> track.path 
             is OnlineSong -> track.url 
