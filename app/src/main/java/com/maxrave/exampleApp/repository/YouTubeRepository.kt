@@ -116,13 +116,21 @@ class YouTubeRepository(private val context: Context) {
             }
         }
 
-        // 3. Fallback Final: YouTube API v3 (Google)
+                // 3. FALLBACK OFICIAL 1: Google YouTube API v3 (Chave 1)
         if (results.isEmpty()) {
-            Log.d("YouTubeRepo", "Usando Google API Fallback...")
-            return@withContext searchViaYoutubeOfficial(trimmedQuery)
+            Log.d("YouTubeRepo", "Tentando Google API (Chave 1)...")
+            val officialResults = searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey1)
+            results.addAll(officialResults)
         }
 
-        results
+        // 4. FALLBACK OFICIAL 2: Google YouTube API v3 (Chave 2) - Só entra se a 1 falhar
+        if (results.isEmpty()) {
+            Log.d("YouTubeRepo", "Chave 1 falhou ou sem resultados. Tentando Chave 2...")
+            val officialResults2 = searchViaYoutubeOfficial(trimmedQuery, youtubeApiKey2)
+            results.addAll(officialResults2)
+        }
+
+        results // Retorna o que conseguiu encontrar
     }
 
         private suspend fun searchViaYoutubeOfficial(query: String, apiKey: String): List<OnlineSong> = withContext(Dispatchers.IO) {
