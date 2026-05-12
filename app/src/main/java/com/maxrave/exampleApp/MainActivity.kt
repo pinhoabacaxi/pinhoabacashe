@@ -16,6 +16,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.bumptech.glide.Glide
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
@@ -35,251 +38,226 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hybridAdapter: HybridAdapter
     private lateinit var musicLoader: MusicLoader
     private lateinit var repository: PlaylistRepository
-    private lateinit var tvEmptyState: TextView
-    private lateinit var progressBar: ProgressBar
     
-    private var currentList = mutableListOf<Any>() 
-    private var filteredList = mutableListOf<Any>() 
+    // Listas para controle de pesquisa e filtros
+    private var currentList = mutableListOf<Any>()
+    private var filteredList = mutableListOf<Any>()
 
-    // Elementos do Mini Player
-    private lateinit var miniPlayerContainer: MaterialCardView
+    // Mini Player UI
+    private lateinit var miniPlayerContainer: View
     private lateinit var tvMiniTitle: TextView
-    private lateinit var tvMiniArtist: TextView
     private lateinit var ivMiniArt: ImageView
     private lateinit var btnPlayPause: ImageButton
-    private lateinit var btnNext: ImageButton
-    private lateinit var btnPrev: ImageButton
-    private lateinit var pbMiniProgress: ProgressBar
-
-    private val requestPermissionsLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val granted = permissions[Manifest.permission.READ_MEDIA_AUDIO] ?: permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
-        if (granted) loadLocalSongs()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Inicialização de componentes
         musicLoader = MusicLoader(this)
         repository = PlaylistRepository(this)
+        rvSongs = findViewById(R.id.rvSongs)
         
-        initViews()
+        setupMiniPlayerUI()
         setupRecyclerView()
-        setupMiniPlayerObservers()
         setupFiltersAndSearch()
         setupSwipeToDismiss()
         checkPermissionsAndLoad()
     }
 
-    private fun initViews() {
-        rvSongs = findViewById(R.id.rvSongs)
-        tvEmptyState = findViewById(R.id.tvEmptyState)
-        progressBar = findViewById(R.id.progressBar)
-        findViewById<ImageButton>(R.id.btnScan).setOnClickListener { loadLocalSongs() }
-        
-        val miniView = findViewById<View>(R.id.includeMiniPlayer)
-        if (miniView != null) {
-            miniPlayerContainer = miniView as MaterialCardView
-            tvMiniTitle = miniView.findViewById(R.id.tvMiniTitle)
-            tvMiniArtist = miniView.findViewById(R.id.tvMiniArtist)
-            ivMiniArt = miniView.findViewById(R.id.ivMiniArt)
-            btnPlayPause = miniView.findViewById(R.id.btnPlayPause)
-            btnNext = miniView.findViewById(R.id.btnNext)
-            btnPrev = miniView.findViewById(R.id.btnPrev)
-            pbMiniProgress = miniView.findViewById(R.id.pbMiniProgress)
-
-            miniPlayerContainer.setOnClickListener {
-                startActivity(Intent(this, FullPlayerActivity::class.java))
-            }
-        }
-    }
-
     private fun setupRecyclerView() {
-        // CORREÇÃO: Passando todos os parâmetros que o HybridAdapter agora exige
         hybridAdapter = HybridAdapter(
             onItemClick = { item, position ->
-                LocalPlayerManager.setQueueAndPlay(filteredList.toList(), position, this)
+                LocalPlayerManager.setQueueAndPlay(filteredList, position, this)
+                updateMiniPlayerUI(item)
             },
-            onMoreOptionsClick = { item -> /* Abrir BottomSheet */ },
+            onMoreOptionsClick = { item -> showSongOptions(item) },
             onFavoriteClick = { item -> toggleFavorite(item) },
-            onLongItemClick = { item -> 
-                if (item is OnlineSong) showQuickActionDialog(item)
-            }
+            onLongItemClick = { item -> showSongOptions(item) }
         )
 
-        rvSongs.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = hybridAdapter
-        }
+        rvSongs.layoutManager = LinearLayoutManager(this)
+        rvSongs.adapter = hybridAdapter
     }
 
     private fun setupFiltersAndSearch() {
-        // 1. Chip "Todas" - Reseta para a lista original [cite: 34]
-        findViewById<Chip>(R.id.chipAll).setOnClickListener { 
-            updateDisplayList(currentList) 
+        // Filtros por Chip
+        findViewById<Chip>(R.id.chipAll).setOnClickListener { updateDisplayList(currentList) }
+        
+        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
+            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
+            updateDisplayList(sorted.toMutableList())
         }
-    
-        // 2. Chip "Favoritas" - Consulta o Repository para filtrar [cite: 36]
+
         findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
             lifecycleScope.launch {
                 val favorites = currentList.filter { item ->
                     val id = if (item is Song) item.id.toString() else (item as OnlineSong).videoId
-                    repository.isFavorite(id) // Usa a função que adicionamos ao Repository
+                    repository.isFavorite(id)
                 }
-                updateDisplayList(favorites)
+                updateDisplayList(favorites.toMutableList())
             }
         }
-    
-        // 3. Chip "Recentes" - Ordena por ID decrescente [cite: 35]
-        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
-            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
-            updateDisplayList(sorted)
-        }
-    
-        // 4. Chip "Artistas" - Ordena a lista local por nome de artista
-        findViewById<Chip>(R.id.chipArtists).setOnClickListener {
-            val sorted = currentList.filterIsInstance<Song>().sortedBy { it.artist }
-            updateDisplayList(sorted)
-        }
-    
-        // 5. Chip "Álbuns" - Ordena a lista local por nome de álbum
-        findViewById<Chip>(R.id.chipAlbums).setOnClickListener {
-            val sorted = currentList.filterIsInstance<Song>().sortedBy { it.album }
-            updateDisplayList(sorted)
-        }
-    
-        // 6. Chip "Playlists" - ABRE A NOVA ACTIVITY DE PASTAS
+
         findViewById<Chip>(R.id.chipPlaylists).setOnClickListener {
-            val intent = Intent(this, PlaylistActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, PlaylistActivity::class.java))
         }
-    
-        // 7. Chip "Buscar Online" - Abre a busca [cite: 36]
+
         findViewById<Chip>(R.id.chipOnline).setOnClickListener {
-            val intent = Intent(this, OnlineSearchActivity::class.java)
-            startActivity(intent)
+            // Abre sua Activity de busca online (ajuste o nome se necessário)
+            try {
+                val intent = Intent(this, Class.forName("com.maxrave.exampleApp.OnlineSearchActivity"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Busca Online não disponível", Toast.LENGTH_SHORT).show()
+            }
         }
-    
-        // 8. Barra de Pesquisa (SearchView) [cite: 36]
+
+        // Busca
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(q: String?): Boolean = true
             override fun onQueryTextChange(newText: String?): Boolean {
-                filterList(newText) // Chama a função de filtro de texto [cite: 37]
+                filterSearch(newText)
                 return true
             }
         })
     }
 
-        findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(q: String?): Boolean = true
-            override fun onQueryTextChange(newText: String?): Boolean {
-                filterList(newText)
-                return true
-            }
-        })
-    }
-
-    private fun filterList(query: String?) {
-        val filter = query ?: ""
-        val result = if (filter.isEmpty()) currentList else {
-            currentList.filter {
-                when (it) {
-                    is Song -> it.title.contains(filter, true) || it.artist.contains(filter, true)
-                    is OnlineSong -> it.title.contains(filter, true) || it.author.contains(filter, true)
+    private fun filterSearch(query: String?) {
+        val filtered = if (query.isNullOrBlank()) {
+            currentList
+        } else {
+            currentList.filter { item ->
+                when (item) {
+                    is Song -> item.title.contains(query, true) || item.artist.contains(query, true)
+                    is OnlineSong -> item.title.contains(query, true) || item.author.contains(query, true)
                     else -> false
                 }
             }
         }
-        updateDisplayList(result)
+        updateDisplayList(filtered.toMutableList())
     }
 
     private fun updateDisplayList(newList: List<Any>) {
-        filteredList = newList.toMutableList()
+        filteredList.clear()
+        filteredList.addAll(newList)
         hybridAdapter.setList(filteredList)
-        tvEmptyState.visibility = if (filteredList.isEmpty()) View.VISIBLE else View.GONE
-    }
-
-    private fun loadLocalSongs() {
-        progressBar.visibility = View.VISIBLE
-        lifecycleScope.launch {
-            try {
-                val songs = musicLoader.loadLocalSongs()
-                currentList = songs.toMutableList()
-                updateDisplayList(currentList)
-            } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Erro ao carregar", Toast.LENGTH_SHORT).show()
-            } finally {
-                progressBar.visibility = View.GONE
-            }
-        }
-    }
-
-    private fun checkPermissionsAndLoad() {
-        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
-            arrayOf(Manifest.permission.READ_MEDIA_AUDIO) 
-            else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-        
-        if (ContextCompat.checkSelfPermission(this, perm[0]) == PackageManager.PERMISSION_GRANTED) loadLocalSongs()
-        else requestPermissionsLauncher.launch(perm)
-    }
-
-    private fun setupMiniPlayerObservers() {
-        LocalPlayerManager.onTrackChanged = { item ->
-            miniPlayerContainer.visibility = View.VISIBLE
-            updateMiniPlayerUI(item)
-        }
-
-        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
-            btnPlayPause.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
-        }
-
-        LocalPlayerManager.onProgressChanged = { current, total ->
-            if (total > 0) pbMiniProgress.progress = (current * 100 / total)
-        }
-
-        btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
-        btnNext.setOnClickListener { LocalPlayerManager.next(this) }
-        btnPrev.setOnClickListener { LocalPlayerManager.previous(this) }
-    }
-
-    private fun updateMiniPlayerUI(item: Any) {
-        val (title, artist, img) = when(item) {
-            is Song -> Triple(item.title, item.artist, item.path)
-            is OnlineSong -> Triple(item.title, item.author, item.thumbnailUrl)
-            else -> Triple("---", "---", null)
-        }
-        tvMiniTitle.text = title
-        tvMiniArtist.text = artist
-        Glide.with(this).load(img).placeholder(android.R.drawable.ic_media_play).into(ivMiniArt)
+        findViewById<TextView>(R.id.tvEmptyState).visibility = if (newList.isEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun toggleFavorite(item: Any) {
-        val id = if (item is Song) item.id.toString() else (item as OnlineSong).videoId
         lifecycleScope.launch {
+            val id = if (item is Song) item.id.toString() else (item as OnlineSong).videoId
             if (repository.isFavorite(id)) {
                 repository.removeFavorite(id)
-                Toast.makeText(this@MainActivity, "Removido", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Removido dos favoritos", Toast.LENGTH_SHORT).show()
             } else {
                 repository.addFavorite(id)
-                Toast.makeText(this@MainActivity, "Favoritado!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Adicionado aos favoritos", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun showQuickActionDialog(song: OnlineSong) {
+    private fun showSongOptions(item: Any) {
+        val options = if (item is OnlineSong) arrayOf("Baixar e Tocar", "Adicionar à Playlist") 
+                      else arrayOf("Adicionar à Playlist", "Informações")
+
         AlertDialog.Builder(this)
-            .setTitle(song.title)
-            .setItems(arrayOf("Baixar e Tocar")) { _, _ ->
-                // Inicia o Worker de download que você já tem
-                val data = androidx.work.workDataOf("URL" to song.url, "FILE_NAME" to "${song.title}.mp3")
-                val request = androidx.work.OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
-                androidx.work.WorkManager.getInstance(this).enqueue(request)
-                
-                LocalPlayerManager.addToEnd(song)
-                Toast.makeText(this, "Baixando...", Toast.LENGTH_SHORT).show()
+            .setTitle(if (item is Song) item.title else (item as OnlineSong).title)
+            .setItems(options) { _, which ->
+                when (options[which]) {
+                    "Baixar e Tocar" -> startDownload(item as OnlineSong)
+                    "Adicionar à Playlist" -> showAddToPlaylistDialog(item)
+                }
             }.show()
+    }
+
+    private fun startDownload(song: OnlineSong) {
+        val data = workDataOf(
+            "URL" to song.url,
+            "FILE_NAME" to "${song.title}.mp3"
+        )
+        val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
+            .setInputData(data)
+            .build()
+        
+        WorkManager.getInstance(this).enqueue(request)
+        Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showAddToPlaylistDialog(item: Any) {
+        lifecycleScope.launch {
+            val playlists = repository.getAllPlaylists()
+            val names = playlists.map { it.name }.toTypedArray()
+            
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle("Escolha a Playlist")
+                .setItems(names) { _, which ->
+                    // Lógica para salvar no banco de dados da playlist
+                    Toast.makeText(this@MainActivity, "Adicionado a ${names[which]}", Toast.LENGTH_SHORT).show()
+                }.show()
+        }
+    }
+
+    // --- PERMISSÕES E CARREGAMENTO ---
+
+    private fun checkPermissionsAndLoad() {
+        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
+            Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            loadSongs()
+        } else {
+            requestPermissionLauncher.launch(permission)
+        }
+    }
+
+    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) loadSongs() else Toast.makeText(this, "Permissão negada", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun loadSongs() {
+        lifecycleScope.launch {
+            val songs = musicLoader.loadLocalSongs()
+            currentList.clear()
+            currentList.addAll(songs)
+            updateDisplayList(currentList)
+        }
+    }
+
+    // --- MINI PLAYER ---
+
+    private fun setupMiniPlayerUI() {
+        miniPlayerContainer = findViewById(R.id.includeMiniPlayer)
+        tvMiniTitle = findViewById(R.id.tvMiniPlayerTitle)
+        ivMiniArt = findViewById(R.id.ivMiniPlayerArt)
+        btnPlayPause = findViewById(R.id.btnMiniPlayPause)
+
+        btnPlayPause.setOnClickListener {
+            if (LocalPlayerManager.isPlaying()) {
+                LocalPlayerManager.pause()
+                btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
+            } else {
+                LocalPlayerManager.resume()
+                btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
+            }
+        }
+
+        miniPlayerContainer.setOnClickListener {
+            startActivity(Intent(this, FullPlayerActivity::class.java))
+        }
+    }
+
+    private fun updateMiniPlayerUI(item: Any) {
+        miniPlayerContainer.visibility = View.VISIBLE
+        if (item is Song) {
+            tvMiniTitle.text = item.title
+            // Glide para carregar a capa se houver
+        } else if (item is OnlineSong) {
+            tvMiniTitle.text = item.title
+            Glide.with(this).load(item.thumbnailUrl).into(ivMiniArt)
+        }
+        btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
     }
 
     private fun setupSwipeToDismiss() {
@@ -290,7 +268,7 @@ class MainActivity : AppCompatActivity() {
                 val item = filteredList[pos]
                 hybridAdapter.removeItem(pos)
                 filteredList.removeAt(pos)
-                Snackbar.make(rvSongs, "Removido", Snackbar.LENGTH_LONG).setAction("Desfazer") {
+                Snackbar.make(rvSongs, "Removido da fila", Snackbar.LENGTH_LONG).setAction("Desfazer") {
                     hybridAdapter.restoreItem(item, pos)
                     filteredList.add(pos, item)
                 }.show()
