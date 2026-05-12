@@ -37,18 +37,22 @@ object LocalPlayerManager {
 
     // 1. Tocar a seguir (Play Next)
     fun playNext(item: Any) {
-        if (currentQueue.isEmpty()) {
-            currentQueue.add(item)
+        if (playlistQueue.isEmpty()) {
+            playlistQueue.add(item)
+            currentIndex = 0 // Se estava vazio, essa passa a ser a atual
         } else {
-            currentQueue.add(currentIndex + 1, item)
+            playlistQueue.add(currentIndex + 1, item)
         }
     }
     // 3. Obter a fila atual (para o Adapter saber que mudou)
-    fun getCurrentQueue() = currentQueue
+    fun getCurrentQueue() = playlistQueue
     
     // 2. Adicionar ao final da fila (Add to Queue)
     fun addToEnd(item: Any) {
-        currentQueue.add(item)
+        playlistQueue.add(item)
+        if (playlistQueue.size == 1) {
+            currentIndex = 0 // Se era a única, seta o índice
+        }
     }
     fun init(context: Context) {
         recentManager = RecentSongsManager(context)
