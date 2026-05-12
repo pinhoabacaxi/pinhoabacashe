@@ -29,4 +29,13 @@ interface MusicDao {
     
     @Query("SELECT DISTINCT album FROM songs") 
     suspend fun getUniqueAlbums(): List<String>
+  
+    @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE songId = :id)")
+    suspend fun isFavorite(id: String): Boolean
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addFavorite(favorite: FavoriteEntity)
+    
+    @Delete
+    suspend fun removeFavorite(favorite: FavoriteEntity)
 }
