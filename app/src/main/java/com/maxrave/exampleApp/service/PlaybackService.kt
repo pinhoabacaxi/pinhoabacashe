@@ -49,16 +49,41 @@ class PlaybackService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action ?: return START_STICKY
-        val notification = createPlaceholderNotification() // Crie uma notificação de "Carregando..."
+        val action = intent?.action ?: return START_NOT_STICKY
+    
+        // 1. REGRA DE OURO DO ANDROID 12+: Chame startForeground IMEDIATAMENTE.
+        // Isso impede que o sistema mate o app enquanto o link do YouTube é processado.
+        val notification = createPlaceholderNotification()
         startForeground(NOTIFICATION_ID, notification)
-        val song = LocalPlayerManager.currentSong
-        if (song != null) {
-            when (action) {
-                "ACTION_UPDATE_NOTIFICATION" -> showNotification(song)
-                "ACTION_STOP" -> stopForegroundService()
+    
+        // 2. Lógica baseada na ação enviada pelo LocalPlayerManager
+        when (action) {
+            "ACTION_STOP" -> {
+                stopForegroundService()
+                return START_NOT_STICKY
+            }
+            
+            "ACTION_PREPARE_ONLINE" -> {
+                // Apenas mantemos a notificação de "Carregando..." ativa.
+                // O LocalPlayerManager chamará ACTION_UPDATE_NOTIFICATION quando o áudio estiver pronto.
+                Log.d("PlaybackService", "Serviço em foreground: Preparando áudio online.")
+            }
+    
+            "ACTION_UPDATE_NOTIFICATION" -> {
+                val song = LocalPlayerManager.currentSong
+                val onlineSong = LocalPlayerManager.currentOnlineSong
+    
+                // 3. Verifica se deve mostrar a notificação para música local ou online
+                if (song != null) {
+                    showNotification(song) // Sua função existente para músicas locais
+                } else if (onlineSong != null) {
+                    // Se o seu showNotification só aceita 'Song', você precisará 
+                    // criar uma versão para 'OnlineSong' ou adaptar a existente.
+                    showOnlineNotification(onlineSong) 
+                }
             }
         }
+    
         return START_NOT_STICKY
     }
 
