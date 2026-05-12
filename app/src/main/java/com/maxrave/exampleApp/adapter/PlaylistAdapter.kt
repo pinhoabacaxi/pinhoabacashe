@@ -28,7 +28,7 @@ class PlaylistAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaylistViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_playlist, parent, false)
-        return PlaylistViewHolder(view)
+        return PlaylistViewHolder(layoutView)
     }
 
     override fun onBindViewHolder(holder: PlaylistViewHolder, position: Int) {
@@ -43,7 +43,7 @@ class PlaylistAdapter(
 
     override fun getItemCount() = playlists.size
 
-    fun updateList(newList: List<String>) {
+    fun updateList(newList: List<Playlist>) {
         playlists = newList
         notifyDataSetChanged()
     }
