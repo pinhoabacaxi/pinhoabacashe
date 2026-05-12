@@ -31,6 +31,7 @@ import com.maxrave.exampleApp.repository.PlaylistRepository
 import com.maxrave.exampleApp.service.MusicDownloadWorker
 import kotlinx.coroutines.launch
 import com.maxrave.exampleApp.service.MusicDownloadWorker
+import android.widget.ProgressBar
 
 class MainActivity : AppCompatActivity() {
 
@@ -46,7 +47,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvMiniTitle: TextView
     private lateinit var ivMiniArt: ImageView
     private lateinit var btnPlayPause: ImageButton
-
+    private lateinit var btnNext: ImageButton // Adicionado
+    private lateinit var btnPrev: ImageButton // Adicionado
+    private lateinit var pbMiniProgress: ProgressBar // Adicionado
+    private lateinit var tvMiniArtist: TextView // Adicionado
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -226,21 +231,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupMiniPlayerUI() {
+        // O container é o include do layoutplayer
         miniPlayerContainer = findViewById(R.id.includeMiniPlayer)
-        // Se o include no activity_main tem o id includeMiniPlayer, 
-        // os componentes internos são acessados normalmente pelo id deles:
-        tvMiniTitle = findViewById(R.id.tvMiniPlayerTitle)
-        ivMiniArt = findViewById(R.id.ivMiniPlayerArt)
-        btnPlayPause = findViewById(R.id.btnMiniPlayPause)
+        
+        // Mapeamento EXATO dos IDs do seu XML
+        tvMiniTitle = findViewById(R.id.tvMiniTitle)
+        tvMiniArtist = findViewById(R.id.tvMiniArtist)
+        ivMiniArt = findViewById(R.id.ivMiniArt)
+        btnPlayPause = findViewById(R.id.btnPlayPause)
+        btnNext = findViewById(R.id.btnNext)
+        btnPrev = findViewById(R.id.btnPrev)
+        pbMiniProgress = findViewById(R.id.pbMiniProgress)
 
+        // Listeners dos botões
         btnPlayPause.setOnClickListener {
-            if (LocalPlayerManager.isPlaying()) {
-                LocalPlayerManager.togglePlayPause(this)
-                btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
-            } else {
-                LocalPlayerManager.togglePlayPause(this)
-                btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
-            }
+            LocalPlayerManager.togglePlayPause(this)
+            updatePlayPauseButton()
+        }
+
+        btnNext.setOnClickListener {
+            LocalPlayerManager.playNext(this)
+            val current = LocalPlayerManager.getCurrentTrack()
+            if (current != null) updateMiniPlayerUI(current)
+        }
+
+        btnPrev.setOnClickListener {
+            LocalPlayerManager.playPrevious(this)
+            val current = LocalPlayerManager.getCurrentTrack()
+            if (current != null) updateMiniPlayerUI(current)
         }
 
         miniPlayerContainer.setOnClickListener {
@@ -248,16 +266,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateMiniPlayerUI(item: Any) {
-        miniPlayerContainer.visibility = View.VISIBLE
-        if (item is Song) {
-            tvMiniTitle.text = item.title
-        } else if (item is OnlineSong) {
-            tvMiniTitle.text = item.title
-            Glide.with(this).load(item.thumbnailUrl).into(ivMiniArt)
+        miniPlayerContainer.setOnClickListener {
+            startActivity(Intent(this, FullPlayerActivity::class.java))
         }
-        btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
     }
+
+   private fun updateMiniPlayerUI(item: Any) {
+        miniPlayerContainer.visibility = View.VISIBLE
+        
+        when (item) {
+            is Song -> {
+                tvMiniTitle.text = item.title
+                tvMiniArtist.text = item.artist
+                ivMiniArt.setImageResource(android.R.drawable.ic_media_play) // Ou use Glide para o albumArt
+            }
+            is OnlineSong -> {
+                tvMiniTitle.text = item.title
+                tvMiniArtist.text = item.author
+                Glide.with(this).load(item.thumbnailUrl).into(ivMiniArt)
+            }
+        }
+        updatePlayPauseButton()
+    }
+
+    private fun updatePlayPauseButton() {
+        val icon = if (LocalPlayerManager.isPlaying()) 
+            android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        btnPlayPause.setImageResource(icon)
+    }
+}
 
     private fun setupSwipeToDismiss() {
         val helper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
