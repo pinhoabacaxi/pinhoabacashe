@@ -95,7 +95,7 @@ class FullPlayerActivity : AppCompatActivity() {
 
         btnFavorite.setOnClickListener { toggleFavorite() }
 
-        btnOptions.setOnClickListener { openOptionsMenu() }
+        btnOptions.setOnClickListener { showFullPlayerOptions() } // Corrigido para chamar a função renomeada
 
         // Barra de Progresso da Música
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -120,18 +120,25 @@ class FullPlayerActivity : AppCompatActivity() {
     }
 
     // Altere o nome da função e a chamada no clique do botão
-private fun showFullPlayerOptions() { // Renomeado de openOptionsMenu
-        val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return
-        val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
-            when(action) {
-                "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
-                "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
-                "DOWNLOAD_MP3" -> Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
-                "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack)
+private fun showFullPlayerOptions() {
+    val currentTrack = LocalPlayerManager.getCurrentTrack() ?: return
+    val bottomSheet = OptionsBottomSheet(currentTrack) { action ->
+        when(action) {
+            "PLAY_NEXT" -> LocalPlayerManager.playNext(currentTrack)
+            "ADD_QUEUE" -> LocalPlayerManager.addToEnd(currentTrack)
+            "DOWNLOAD_MP3" -> {
+                if (currentTrack is OnlineSong) {
+                    val data = androidx.work.workDataOf("URL" to currentTrack.url, "FILE_NAME" to "${currentTrack.title}.mp3")
+                    val request = androidx.work.OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
+                    androidx.work.WorkManager.getInstance(this).enqueue(request)
+                    Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
+                }
             }
+            "ADD_PLAYLIST" -> showPlaylistSelection(currentTrack)
         }
-        bottomSheet.show(supportFragmentManager, "Options")
     }
+    bottomSheet.show(supportFragmentManager, "Options")
+}
 
     private fun toggleFavorite() {
         val track = LocalPlayerManager.getCurrentTrack() ?: return
