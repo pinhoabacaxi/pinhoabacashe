@@ -116,7 +116,7 @@ class PlaybackService : Service() {
         val notification = NotificationCompat.Builder(this, "playback_channel")
             .setContentTitle(onlineSong.title)
             .setContentText(onlineSong.author)
-            .setSmallIcon(R.drawable.ic_music_note)
+            .setSmallIcon(android.R.drawable.ic_media_play)
             // Adicione controles de Play/Pause se necessário
             .setOngoing(true)
             .build()
