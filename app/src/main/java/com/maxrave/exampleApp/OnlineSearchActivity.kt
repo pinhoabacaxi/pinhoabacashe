@@ -7,7 +7,6 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.activity.viewModels
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -66,9 +65,12 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private fun observeViewModel() {
         lifecycleScope.launch {
+            // Usando collect para observar o StateFlow do SearchViewModel
             viewModel.searchState.collect { state ->
                 when (state) {
-                    is SearchState.Loading -> binding.progressBar.visibility = View.VISIBLE
+                    is SearchState.Loading -> {
+                        binding.progressBar.visibility = View.VISIBLE
+                    }
                     is SearchState.Success -> {
                         binding.progressBar.visibility = View.GONE
                         searchAdapter.submitList(state.results)
@@ -88,37 +90,45 @@ class OnlineSearchActivity : AppCompatActivity() {
         
         lifecycleScope.launch {
             try {
-                // BYPASS/Extração do YouTube
+                // Chama o repositório para extrair o link direto do áudio (Streaming Data)
                 val streamData = youtubeRepository.extractAudioLink(videoMeta.videoId)
                 
                 if (streamData != null) {
-                    // Convertemos o VideoMeta da busca para o nosso modelo OnlineSong
+                    // Mapeamento correto para o modelo OnlineSong.kt que definimos
                     val onlineSong = OnlineSong(
-                        id = videoMeta.videoId,
+                        videoId = videoMeta.videoId,
                         title = videoMeta.title,
                         author = videoMeta.author,
                         thumbnailUrl = videoMeta.thumbnailUrl,
-                        streamingUrl = streamData.url, // URL real do servidor do YT
+                        url = streamData.url, // URL final de streaming do YouTube
                         duration = videoMeta.duration
                     )
                     
                     binding.progressBar.visibility = View.GONE
                     
-                    // Lógica Híbrida: Toca a música e a coloca na fila atual
+                    // Envia para o Manager tocar e atualizar a fila híbrida
                     LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
                     
-                    Toast.makeText(this@OnlineSearchActivity, "A tocar: ${videoMeta.title}", Toast.LENGTH_SHORT).show()
-                    finish() // Opcional: volta para a tela principal para ver o player
+                    Toast.makeText(this@OnlineSearchActivity, "Iniciando: ${videoMeta.title}", Toast.LENGTH_SHORT).show()
+                    
+                    // Fecha a busca para que o usuário veja o Mini Player na tela principal
+                    finish() 
+                } else {
+                    binding.progressBar.visibility = View.GONE
+                    Toast.makeText(this@OnlineSearchActivity, "Não foi possível obter o áudio", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 binding.progressBar.visibility = View.GONE
-                Toast.makeText(this@OnlineSearchActivity, "Erro ao carregar áudio", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@OnlineSearchActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun hideKeyboard() {
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(binding.etSearchOnline.windowToken, 0)
+        val view = this.currentFocus
+        if (view != null) {
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(view.windowToken, 0)
+        }
     }
 }
