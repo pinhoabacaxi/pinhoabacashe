@@ -67,7 +67,7 @@ class YTExtractor(
         val encSignatures = SparseArray<String>()
 
         try {
-            val apiUrl = "https://www.youtubei.googleapis.com/youtubei/v1/player?prettyPrint=false"
+            val apiUrl = "https://youtubei.googleapis.com/youtubei/v1/player?prettyPrint=false"
             val url = URL(apiUrl)
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -136,7 +136,7 @@ class YTExtractor(
 
     private fun fetchAndProcessSignatures(encSignatures: SparseArray<String>, ytFiles: SparseArray<YtFile>) {
         try {
-            val watchUrl = URL("https://www.youtube.com/watch?v=$videoID")
+            val watchUrl = URL("https://youtube.com/watch?v=$videoID")
             val html = watchUrl.openConnection().inputStream.bufferedReader().use { it.readText() }
             val matJs = Pattern.compile("/s/player/[a-zA-Z0-9_-]+?/player_ias\\.vflset/[a-zA-Z0-9_-]+?/(?:base|embed)\\.js").matcher(html)
             
@@ -163,7 +163,7 @@ class YTExtractor(
 
     private fun decipherSignature(encSignatures: SparseArray<String>) {
         try {
-            val jsUrl = "https://www.youtube.com$decipherJsFileName"
+            val jsUrl = "https://youtube.com$decipherJsFileName"
             val jsContent = URL(jsUrl).openConnection().apply {
                 setRequestProperty("User-Agent", USER_AGENT)
             }.getInputStream().bufferedReader().use { it.readText() }
