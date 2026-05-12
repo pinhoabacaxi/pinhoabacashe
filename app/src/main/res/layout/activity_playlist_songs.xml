@@ -91,6 +91,16 @@
         app:layout_anchor="@id/appBarLayout"
         app:layout_anchorGravity="bottom|end" />
 
+    <TextView
+        android:id="@+id/tvEmptyState"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Esta playlist está vazia."
+        android:textColor="#88FFFFFF"
+        android:textSize="16sp"
+        android:visibility="gone" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvPlaylistSongs"
         android:layout_width="match_parent"
@@ -106,6 +116,7 @@
         layout="@layout/layout_mini_player"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom" />
+        android:layout_gravity="bottom"
+        android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
