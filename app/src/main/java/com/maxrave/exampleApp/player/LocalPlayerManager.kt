@@ -37,7 +37,8 @@ object LocalPlayerManager {
     var onOnlineTrackChanged: ((OnlineSong) -> Unit)? = null
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
     var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
-    
+   
+    private val playbackQueue = mutableListOf<Any>()
     private val hybridQueue = mutableListOf<Any>() // Aceita Song ou OnlineSong
     private val handler = Handler(Looper.getMainLooper())
     private val updateProgressRunnable = object : Runnable {
@@ -62,9 +63,28 @@ object LocalPlayerManager {
         }
     }
 
-    /**
-     * Toca uma música vinda da busca online (YouTube)
-     */
+        // No LocalPlayerManager.kt
+
+
+    fun addToQueue(item: Any) {
+        playbackQueue.add(item)
+    }
+
+    fun playFromQueue(index: Int, context: Context) {
+        if (index !in playbackQueue.indices) return
+        currentIndex = index
+    
+        when (val item = playbackQueue[index]) {
+            is Song -> play(context, item)
+            is VideoMeta -> {
+            // Aqui você chama o seu Repository para pegar o streamUrl antes de tocar
+                extractAndPlay(item, context)
+            }
+            is OnlineSong -> playOnline(item, context)
+        }
+    }
+
+   
     fun playOnline(onlineSong: OnlineSong, context: Context) {
         val url = onlineSong.streamUrl ?: return
         
