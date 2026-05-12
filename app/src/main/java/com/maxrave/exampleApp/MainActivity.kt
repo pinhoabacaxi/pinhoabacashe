@@ -43,13 +43,13 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var miniPlayerContainer: View
     private lateinit var tvMiniTitle: TextView
+    private lateinit var tvMiniArtist: TextView
     private lateinit var ivMiniArt: ImageView
     private lateinit var btnPlayPause: ImageButton
     private lateinit var btnNext: ImageButton
     private lateinit var btnPrev: ImageButton
     private lateinit var pbMiniProgress: ProgressBar
-    private lateinit var tvMiniArtist: TextView
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
+        // CORREÇÃO: Passando todos os 4 lambdas explicitamente 
         hybridAdapter = HybridAdapter(
             onItemClick = { item, position ->
                 LocalPlayerManager.setQueueAndPlay(filteredList, position, this)
@@ -98,6 +99,7 @@ class MainActivity : AppCompatActivity() {
             val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
             updateDisplayList(sorted.toMutableList())
         }
+        
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(q: String?): Boolean = true
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -156,6 +158,7 @@ class MainActivity : AppCompatActivity() {
         val data = workDataOf("URL" to song.url, "FILE_NAME" to "${song.title}.mp3")
         val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
         WorkManager.getInstance(this).enqueue(request)
+        Toast.makeText(this, "Download iniciado", Toast.LENGTH_SHORT).show()
     }
 
     private fun checkPermissionsAndLoad() {
