@@ -5,6 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:padding="8dp"
+    android:clickable="true"
+    android:focusable="true"
     android:background="?attr/selectableItemBackground">
 
     <androidx.cardview.widget.CardView
@@ -32,7 +34,8 @@
         android:layout_marginStart="12dp"
         android:ellipsize="end"
         android:maxLines="2"
-        android:textColor="?attr/colorOnSurface"
+        /* Alterado de colorOnSurface para uma cor fixa ou atributo padrão */
+        android:textColor="?android:attr/textColorPrimary"
         android:textSize="16sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
@@ -44,7 +47,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:textColor="#FF000000"
+        android:textColor="?android:attr/textColorSecondary"
         android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="@id/tvOnlineTitle"
