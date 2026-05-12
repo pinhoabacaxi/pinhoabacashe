@@ -41,16 +41,15 @@ class MainActivity : AppCompatActivity() {
     private var currentList = mutableListOf<Any>()
     private var filteredList = mutableListOf<Any>()
 
-    // Variáveis do Mini Player (Sincronizadas com seu layoutplayer.xml)
     private lateinit var miniPlayerContainer: View
     private lateinit var tvMiniTitle: TextView
-    private lateinit var tvMiniArtist: TextView
     private lateinit var ivMiniArt: ImageView
     private lateinit var btnPlayPause: ImageButton
     private lateinit var btnNext: ImageButton
     private lateinit var btnPrev: ImageButton
     private lateinit var pbMiniProgress: ProgressBar
-
+    private lateinit var tvMiniArtist: TextView
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -62,7 +61,7 @@ class MainActivity : AppCompatActivity() {
         setupMiniPlayerUI()
         setupRecyclerView()
         setupFiltersAndSearch()
-        setupSwipeToDismiss() // Agora dentro da classe corretamente
+        setupSwipeToDismiss()
         checkPermissionsAndLoad()
     }
 
@@ -83,7 +82,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupFiltersAndSearch() {
         findViewById<Chip>(R.id.chipAll).setOnClickListener { updateDisplayList(currentList) }
-    
         findViewById<Chip>(R.id.chipFavorites).setOnClickListener {
             lifecycleScope.launch {
                 val favorites = currentList.filter { item ->
@@ -93,11 +91,13 @@ class MainActivity : AppCompatActivity() {
                 updateDisplayList(favorites)
             }
         }
-    
         findViewById<Chip>(R.id.chipPlaylists).setOnClickListener {
             startActivity(Intent(this, PlaylistActivity::class.java))
         }
-
+        findViewById<Chip>(R.id.chipRecent).setOnClickListener {
+            val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
+            updateDisplayList(sorted.toMutableList())
+        }
         findViewById<SearchView>(R.id.searchViewLibrary).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(q: String?): Boolean = true
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -108,9 +108,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun filterList(query: String?) {
-        val filtered = if (query.isNullOrBlank()) {
-            currentList
-        } else {
+        val filtered = if (query.isNullOrBlank()) currentList else {
             currentList.filter { item ->
                 when (item) {
                     is Song -> item.title.contains(query, true) || item.artist.contains(query, true)
@@ -134,10 +132,10 @@ class MainActivity : AppCompatActivity() {
             val id = if (item is Song) item.id.toString() else (item as OnlineSong).videoId
             if (repository.isFavorite(id)) {
                 repository.removeFavorite(id)
-                Toast.makeText(this@MainActivity, "Removido dos favoritos", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Removido", Toast.LENGTH_SHORT).show()
             } else {
                 repository.addFavorite(id)
-                Toast.makeText(this@MainActivity, "Adicionado aos favoritos", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Favoritado", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -145,13 +143,11 @@ class MainActivity : AppCompatActivity() {
     private fun showSongOptions(item: Any) {
         val options = if (item is OnlineSong) arrayOf("Baixar e Tocar", "Adicionar à Playlist") 
                       else arrayOf("Adicionar à Playlist", "Informações")
-
         AlertDialog.Builder(this)
             .setTitle(if (item is Song) item.title else (item as OnlineSong).title)
             .setItems(options) { _, which ->
                 when (options[which]) {
                     "Baixar e Tocar" -> startDownload(item as OnlineSong)
-                    "Adicionar à Playlist" -> {} // Implementar lógica de playlist
                 }
             }.show()
     }
@@ -160,22 +156,17 @@ class MainActivity : AppCompatActivity() {
         val data = workDataOf("URL" to song.url, "FILE_NAME" to "${song.title}.mp3")
         val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
         WorkManager.getInstance(this).enqueue(request)
-        Toast.makeText(this, "Baixando...", Toast.LENGTH_SHORT).show()
     }
 
     private fun checkPermissionsAndLoad() {
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
             Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-        
-        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
-            loadSongs()
-        } else {
-            requestPermissionLauncher.launch(permission)
-        }
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) loadSongs()
+        else requestPermissionLauncher.launch(permission)
     }
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) loadSongs() else Toast.makeText(this, "Permissão necessária para carregar músicas", Toast.LENGTH_SHORT).show()
+        if (isGranted) loadSongs()
     }
 
     private fun loadSongs() {
@@ -201,17 +192,14 @@ class MainActivity : AppCompatActivity() {
             LocalPlayerManager.togglePlayPause(this)
             updatePlayPauseButton()
         }
-
-        btnNext.setOnClickListener { 
-            LocalPlayerManager.playNext(this)
+        btnNext.setOnClickListener {
+            LocalPlayerManager.next(this)
             LocalPlayerManager.getCurrentTrack()?.let { updateMiniPlayerUI(it) }
         }
-
-        btnPrev.setOnClickListener { 
-            LocalPlayerManager.playPrevious(this)
+        btnPrev.setOnClickListener {
+            LocalPlayerManager.previous(this)
             LocalPlayerManager.getCurrentTrack()?.let { updateMiniPlayerUI(it) }
         }
-
         miniPlayerContainer.setOnClickListener {
             startActivity(Intent(this, FullPlayerActivity::class.java))
         }
@@ -248,7 +236,7 @@ class MainActivity : AppCompatActivity() {
                 val item = filteredList[pos]
                 hybridAdapter.removeItem(pos)
                 filteredList.removeAt(pos)
-                Snackbar.make(rvSongs, "Removido da fila", Snackbar.LENGTH_LONG).setAction("Desfazer") {
+                Snackbar.make(rvSongs, "Removido", Snackbar.LENGTH_LONG).setAction("Desfazer") {
                     hybridAdapter.restoreItem(item, pos)
                     filteredList.add(pos, item)
                 }.show()
