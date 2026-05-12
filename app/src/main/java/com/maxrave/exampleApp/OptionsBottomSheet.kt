@@ -38,4 +38,9 @@ class OptionsBottomSheet(
 
         return view
     }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Define um estilo para o BottomSheet ter fundo transparente e permitir bordas arredondadas no XML
+        setStyle(STYLE_NORMAL, R.style.CustomBottomSheetDialogTheme)
+}
 }
