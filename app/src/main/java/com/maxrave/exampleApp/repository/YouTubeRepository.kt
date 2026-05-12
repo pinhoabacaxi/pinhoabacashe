@@ -101,12 +101,15 @@ class YouTubeRepository(private val context: Context) {
                             val streamUrl = format.optString("url")
                             if (streamUrl.isNotEmpty()) {
                                 Log.d(TAG, "Sucesso: streamingData extraído para $videoId")
+                                // Onde você cria o objeto de retorno da extração, mude para:
                                 return OnlineSong(
                                     videoId = videoId,
-                                    title = videoDetails?.optString("title") ?: "Música Online",
-                                    author = videoDetails?.optString("author") ?: "YouTube",
-                                    streamUrl = streamUrl,
-                                    thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+                                    title = title,
+                                    author = author,
+                                    thumbnailUrl = thumb,
+                                    url = audioUrl, // Use 'url' para coincidir com o modelo
+                                    duration = duration.toString() // Garanta que é String
+                                
                                 )
                             }
                         }
