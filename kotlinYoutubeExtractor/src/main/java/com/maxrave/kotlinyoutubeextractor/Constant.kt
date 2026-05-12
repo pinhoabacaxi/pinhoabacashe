@@ -12,3 +12,8 @@ object Constant {
         ERROR // Adicionado para sincronizar com a lógica de tratamento de falhas do Extrator
     }
 }
+object YTConstants {
+    const val ANDROID_MUSIC_CLIENT = "ANDROID_MUSIC"
+    const val ANDROID_VR_CLIENT = "ANDROID_VR" // Útil para pular certas restrições
+    const val WEB_REMIX_CLIENT = "WEB_REMIX"   // Versão YouTube Music Web
+}
