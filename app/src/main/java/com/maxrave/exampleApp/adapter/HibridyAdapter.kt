@@ -113,26 +113,16 @@ class HybridAdapter(
                 }
             }
 
-            // --- LISTENERS CORRIGIDOS ---
-            
-            // Clique simples na música (Play)
+            // CORREÇÃO: Escopo dos listeners 100% garantido dentro do bind com o itemView apropriado
             itemView.setOnClickListener { onItemClick(item, position) }
         
-            // Clique longo na música (Ações rápidas)
             itemView.setOnLongClickListener { 
                 onLongItemClick(item)
                 true
             }
 
-            // Botão de Favoritos
-            btnFavorite.setOnClickListener {
-                onFavoriteClick(item)
-            }
-
-            // Botão de Mais Opções
-            btnMore.setOnClickListener { 
-                onMoreOptionsClick(item) 
-            }
+            btnFavorite.setOnClickListener { onFavoriteClick(item) }
+            btnMore.setOnClickListener { onMoreOptionsClick(item) }
         }
     }
 
