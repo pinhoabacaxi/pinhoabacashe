@@ -46,7 +46,17 @@ object LocalPlayerManager {
             playlistQueue.add(currentIndex + 1, item)
         }
     }
-
+    fun playOnline(onlineSong: OnlineSong, context: Context) {
+    // Adiciona à fila na posição logo após a atual e toca
+        if (playlistQueue.isEmpty()) {
+            playlistQueue.add(onlineSong)
+            currentIndex = 0
+        } else {
+            playlistQueue.add(currentIndex + 1, onlineSong)
+            currentIndex++
+        }
+        play(context)
+    }
     fun addToEnd(item: Any) {
         playlistQueue.add(item)
         if (playlistQueue.size == 1) {
