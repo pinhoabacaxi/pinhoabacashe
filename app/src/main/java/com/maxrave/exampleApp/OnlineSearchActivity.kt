@@ -3,7 +3,6 @@ package com.maxrave.exampleApp
 import android.content.Context
 import android.os.Bundle
 import android.view.View
-import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -40,7 +39,6 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         searchAdapter = SearchAdapter { videoMeta ->
-            // Ao clicar, extraímos o link de streaming e tocamos
             startStreaming(videoMeta)
         }
         
@@ -50,9 +48,12 @@ class OnlineSearchActivity : AppCompatActivity() {
         }
     }
 
-    // No setupSearchInput, use o ID correto do layout premium (searchViewOnline)
     private fun setupSearchInput() {
+        // CORREÇÃO: Aceder ao SearchView de forma segura usando o ViewBinding
+        // Se o ID no XML for 'searchViewOnline', o binding deve reconhecer. 
+        // Caso contrário, usamos o findViewById dentro do container.
         val searchView = binding.cardSearchContainer.findViewById<androidx.appcompat.widget.SearchView>(R.id.searchViewOnline)
+        
         searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 if (!query.isNullOrEmpty()) {
@@ -67,15 +68,19 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private fun observeViewModel() {
         lifecycleScope.launch {
-            // Usando collect para observar o StateFlow do SearchViewModel
             viewModel.searchState.collect { state ->
                 when (state) {
                     is SearchState.Loading -> {
                         binding.progressBar.visibility = View.VISIBLE
+                        // Esconder o estado vazio ao carregar
+                        binding.emptyStateContainer.visibility = View.GONE
                     }
                     is SearchState.Success -> {
                         binding.progressBar.visibility = View.GONE
                         searchAdapter.submitList(state.results)
+                        if (state.results.isEmpty()) {
+                            binding.emptyStateContainer.visibility = View.VISIBLE
+                        }
                     }
                     is SearchState.Error -> {
                         binding.progressBar.visibility = View.GONE
@@ -92,32 +97,32 @@ class OnlineSearchActivity : AppCompatActivity() {
         
         lifecycleScope.launch {
             try {
-                // Chama o repositório para extrair o link direto do áudio (Streaming Data)
+                // CORREÇÃO: Agora chama 'extractAudioLink' que foi atualizada no Repository
                 val streamData = youtubeRepository.extractAudioLink(videoMeta.videoId)
                 
                 if (streamData != null) {
-                    // Mapeamento correto para o modelo OnlineSong.kt que definimos
+                    // Mapeamento corrigido para o modelo OnlineSong
                     val onlineSong = OnlineSong(
                         videoId = videoMeta.videoId,
                         title = videoMeta.title,
                         author = videoMeta.author,
                         thumbnailUrl = videoMeta.thumbnailUrl,
-                        url = streamData.url, // URL final de streaming do YouTube
-                        duration = videoMeta.duration.toString()
+                        url = streamData.url, // URL final de áudio
+                        duration = videoMeta.duration.toString() // Convertido para String
                     )
                     
                     binding.progressBar.visibility = View.GONE
                     
-                    // Envia para o Manager tocar e atualizar a fila híbrida
+                    // Envia para o Manager atualizar a fila híbrida e começar o play
                     LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
                     
                     Toast.makeText(this@OnlineSearchActivity, "Iniciando: ${videoMeta.title}", Toast.LENGTH_SHORT).show()
                     
-                    // Fecha a busca para que o usuário veja o Mini Player na tela principal
+                    // Volta para a tela principal para mostrar o Mini Player
                     finish() 
                 } else {
                     binding.progressBar.visibility = View.GONE
-                    Toast.makeText(this@OnlineSearchActivity, "Não foi possível obter o áudio", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@OnlineSearchActivity, "Falha ao extrair áudio.", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 binding.progressBar.visibility = View.GONE
