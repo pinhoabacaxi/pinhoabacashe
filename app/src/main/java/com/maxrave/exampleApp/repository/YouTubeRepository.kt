@@ -24,7 +24,7 @@ class YouTubeRepository(private val context: Context) {
         val youtubeUrl = if (videoId.startsWith("http")) videoId else "https://www.youtube.com/watch?v=$videoId"
         try {
             extractor.extract(youtubeUrl)
-            val ytFiles = extractor.getYTFiles()
+            val ytFiles = extractor.YTFiles()
             
             // CORREÇÃO: Verificando o tamanho com size() em vez de isEmpty()
             if (ytFiles == null || ytFiles.size() <= 0) {
@@ -32,7 +32,7 @@ class YouTubeRepository(private val context: Context) {
                 return@withContext
             }
 
-            val meta = extractor.getVideoMeta()
+            val meta = extractor.VideoMeta()
             val bestAudio = ytFiles.getAudioOnly().firstOrNull()
 
             if (meta != null && bestAudio?.url != null) {
@@ -52,7 +52,7 @@ class YouTubeRepository(private val context: Context) {
         val url = if (input.contains("http")) input else "https://www.youtube.com/watch?v=$input"
         try {
             extractor.extract(url)
-            val ytFiles = extractor.getYTFiles()
+            val ytFiles = extractor.YTFiles()
             
             // CORREÇÃO: Verificando o tamanho com size() em vez de isEmpty()
             if (ytFiles == null || ytFiles.size() <= 0) {
@@ -60,7 +60,7 @@ class YouTubeRepository(private val context: Context) {
                 return@withContext null
             }
 
-            val meta = extractor.getVideoMeta()
+            val meta = extractor.VideoMeta()
             val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url
 
             if (meta != null) {
