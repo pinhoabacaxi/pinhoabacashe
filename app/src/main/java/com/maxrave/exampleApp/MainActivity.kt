@@ -147,7 +147,20 @@ class MainActivity : AppCompatActivity() {
         findViewById<Chip>(R.id.chipAll).setOnClickListener {
             updateDisplayList(currentList)
         }
+        // Dentro de setupFiltersAndSearch() na sua MainActivity.kt
+        findViewById<Chip>(R.id.chipArtists).setOnClickListener {
+            // Agrupa a lista atual por artista e exibe apenas os nomes dos artistas primeiro
+            // Ou simplesmente ordena a lista por artista
+            filteredList = currentList.filterIsInstance<Song>()
+                .sortedBy { it.artist }.toMutableList()
+            hybridAdapter.setList(filteredList) [cite: 41]
+        }
 
+        findViewById<Chip>(R.id.chipAlbums).setOnClickListener {
+            filteredList = currentList.filterIsInstance<Song>()
+                .sortedBy { it.album }.toMutableList()
+            hybridAdapter.setList(filteredList) [cite: 41]
+        }
         // Chip "Recentes" (Ordena por ID decrescente)
         findViewById<Chip>(R.id.chipRecent).setOnClickListener {
             val sorted = currentList.filterIsInstance<Song>().sortedByDescending { it.id }
