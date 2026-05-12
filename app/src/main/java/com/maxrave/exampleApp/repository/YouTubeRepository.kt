@@ -49,7 +49,14 @@ class YouTubeRepository(private val context: Context) {
             extractor.extract(url)
             val meta = extractor.getVideoMeta()
             val ytFiles = extractor.getYTFiles()
-            val bestAudio = ytFiles?.getAudioOnly()?.firstOrNull()?.url
+        
+        // Verificação de segurança: Se ytFiles for nulo, a extração falhou internamente
+            if (ytFiles == null || ytFiles.isEmpty()) {
+                Log.e("YouTubeRepo", "streamingData não encontrado ou vazio")
+                return@withContext null
+            }
+
+            val bestAudio = ytFiles.getAudioOnly().firstOrNull()?.url
 
             if (meta != null) {
                 OnlineSong(
@@ -61,6 +68,8 @@ class YouTubeRepository(private val context: Context) {
                 )
             } else null
         } catch (e: Exception) {
+            // Captura o JSONException: No value for streamingData aqui
+            Log.e("YouTubeRepo", "Falha crítica na extração: ${e.message}")
             null
         }
     }
