@@ -88,15 +88,16 @@ class PlaylistSongsActivity : AppCompatActivity() {
                             url = entity.sourcePath,
                             duration = "0"
                         )
+                    // Dentro de loadPlaylistSongs, no mapeamento do Song:
                     } else {
                         Song(
                             id = entity.id.toLongOrNull() ?: 0L,
                             title = entity.title, 
                             artist = entity.artist, 
+                            album = "Playlist", // Adicionado para bater com o modelo
+                            duration = 0L,      // Mudado para Long
                             path = entity.sourcePath,
-                            album = "Playlist", 
-                            duration = 0, 
-                            albumArtUri = null
+                            albumId = 0L        // Adicionado para bater com o modelo
                         )
                     }
                 }
