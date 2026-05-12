@@ -283,3 +283,4 @@ class MainActivity : AppCompatActivity() {
         helper.attachToRecyclerView(rvSongs)
     }
 }
+}
