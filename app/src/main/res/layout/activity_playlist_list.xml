@@ -10,14 +10,16 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#121212">
+        android:background="#121212"
+        app:elevation="0dp">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:title="Minhas Playlists"
-            app:titleTextColor="#FFFFFF" />
+            app:titleTextColor="#FFFFFF"
+            app:navigationIcon="@android:drawable/ic_menu_revert" />
             
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -27,8 +29,9 @@
         android:layout_height="match_parent"
         android:padding="8dp"
         android:clipToPadding="false"
+        android:paddingBottom="100dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        tools:listitem="@android:layout/simple_list_item_1" />
+        tools:listitem="@layout/item_playlist" />
 
     <LinearLayout
         android:id="@+id/emptyStatePlaylists"
@@ -37,12 +40,13 @@
         android:layout_gravity="center"
         android:gravity="center"
         android:orientation="vertical"
-        android:visibility="gone">
+        android:visibility="gone"
+        tools:visibility="visible">
 
         <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:alpha="0.3"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:alpha="0.2"
             android:src="@android:drawable/ic_menu_agenda"
             app:tint="#FFFFFF" />
 
@@ -50,9 +54,17 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Nenhuma playlist criada"
-            android:textColor="#88FFFFFF"
+            android:text="Nenhuma playlist criada ainda"
+            android:textColor="#55FFFFFF"
             android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Toque no + para começar"
+            android:textColor="#33FFFFFF"
+            android:textSize="14sp" />
     </LinearLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -64,6 +76,16 @@
         android:contentDescription="Criar nova playlist"
         android:src="@android:drawable/ic_input_add"
         app:backgroundTint="#FFFFFF"
+        app:elevation="6dp"
+        app:fabSize="normal"
         app:tint="#121212" />
+
+    <include
+        android:id="@+id/includeMiniPlayer"
+        layout="@layout/layout_mini_player"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
