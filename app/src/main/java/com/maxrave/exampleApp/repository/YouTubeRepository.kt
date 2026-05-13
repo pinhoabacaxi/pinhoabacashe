@@ -242,15 +242,18 @@ class YouTubeRepository(private val context: Context) {
         conn.doOutput = true
         return conn
     }
-
-    private fun sendPayload(conn: HttpURLConnection, payload: JSONObject) {
-        conn.outputStream.use { it.write(payload.toString().toByteArray()) }
-    }
-
-    private fun createInnerTubeContext() = JSONObject().apply {
+        private fun createInnerTubeContext() = JSONObject().apply {
         put("client", JSONObject().apply {
-            put("clientName", "ANDROID")
-            put("clientVersion", "19.05.36")
+            // Usar "ANDROID_MUSIC" ou "WEB" é mais estável para busca unificada
+            put("clientName", "ANDROID_MUSIC")
+            put("clientVersion", "6.41.51")
+            put("hl", "pt-BR")
+            put("gl", "BR")
         })
     }
+    private fun sendPayload(conn: HttpURLConnection, payload: JSONObject) {
+        // Garante que o charset seja UTF-8 para evitar erros de caracteres na query
+        conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+    }
+
 }
