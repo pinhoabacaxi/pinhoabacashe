@@ -241,7 +241,18 @@ class OnlineSearchActivity : AppCompatActivity() {
             }
         }
     }
-
+    // Dentro da OnlineSearchActivity
+    private fun performPlaylistSearch(query: String) {
+        lifecycleScope.launch {
+            binding.progressBar.visibility = View.VISIBLE
+            // Use o repositório DIRETAMENTE na Activity, onde ele é visível
+            val playlists = youtubeRepository.searchPlaylists(query) 
+            
+            // Envie os resultados para o adapter manualmente
+            searchAdapter.submitList(playlists)
+            binding.progressBar.visibility = View.GONE
+        }
+    }
     private fun hideKeyboard() {
         val view = this.currentFocus
         if (view != null) {
