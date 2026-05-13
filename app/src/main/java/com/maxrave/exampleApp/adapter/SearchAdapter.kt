@@ -1,7 +1,6 @@
 package com.maxrave.exampleApp.adapter
 
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -12,9 +11,9 @@ import com.maxrave.kotlinyoutubeextractor.VideoMeta
 
 class SearchAdapter(
     private val onItemClick: (Any) -> Unit,
-    private val onDownloadClick: (Any) -> Unit // Adicione esta linha aqui
+    private val onDownloadClick: (Any) -> Unit
 ) : RecyclerView.Adapter<SearchAdapter.SearchViewHolder>() {
-    // Agora aceita qualquer tipo de objeto (Video ou Playlist)
+
     private var results: List<Any> = emptyList()
 
     class SearchViewHolder(val binding: ItemOnlineSongBinding) : RecyclerView.ViewHolder(binding.root)
@@ -34,31 +33,30 @@ class SearchAdapter(
         holder.binding.apply {
             when (item) {
                 is VideoMeta -> {
-                    // Configuração para VÍDEO
                     tvOnlineTitle.text = item.title
                     tvOnlineChannel.text = item.author
-                    
-                    // Ícone indicador (opcional: mostrar que é uma música única)
                     ivTypeIcon?.setImageResource(android.R.drawable.ic_media_play)
-
+                    
                     val thumbToLoad = item.thumbnailUrl.ifEmpty { 
                         "https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg" 
                     }
-
                     loadImage(holder, thumbToLoad)
                 }
                 is YouTubePlaylist -> {
-                    // Configuração para PLAYLIST
+                    // Diferenciação para Playlist
                     tvOnlineTitle.text = "[PLAYLIST] ${item.title}"
                     tvOnlineChannel.text = "${item.author} • ${item.videoCount} vídeos"
                     
-                    // Diferenciação visual (opcional: mudar cor do texto ou ícone)
+                    // Ícone de álbum/lista para playlists
                     ivTypeIcon?.setImageResource(android.R.drawable.ic_menu_agenda)
 
                     loadImage(holder, item.thumbnailUrl)
                 }
             }
+            
             root.setOnClickListener { onItemClick(item) }
+            
+            // Botão de download só faz sentido para vídeos individuais
             btnDownload?.setOnClickListener { onDownloadClick(item) }
         }
     }
@@ -68,16 +66,12 @@ class SearchAdapter(
             .load(url)
             .transition(DrawableTransitionOptions.withCrossFade())
             .placeholder(android.R.drawable.ic_menu_gallery)
-            .error(android.R.drawable.ic_menu_report_image)
             .centerCrop()
             .into(ivThumbnail)
     }
 
     override fun getItemCount(): Int = results.size
 
-    /**
-     * Atualizado para aceitar List<Any> vindo do ViewModel
-     */
     fun submitList(newList: List<Any>) {
         this.results = newList
         notifyDataSetChanged()
