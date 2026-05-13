@@ -20,16 +20,10 @@ data class YouTubePlaylist(
 
 class YouTubeRepository(private val context: Context) {
     private val TAG = "YouTubeRepo"
-    private val youtubeApiKey1 = "insira sua chave aqui"
-    private val youtubeApiKey2 = "insira sua chave aqui" 
-    // --- MÉTODOS DE EXTRAÇÃO (Para Activity e Worker) ---
-
-    // Esta função resolve o erro "Unresolved reference: extractAudioLink"
+    
     suspend fun extractAudioLink(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
         return@withContext fetchFromInnerTube(videoId)
     }
-
-    // --- BUSCA UNIFICADA (VÍDEOS E PLAYLISTS) ---
 
     suspend fun searchVideos(query: String): List<VideoMeta> = withContext(Dispatchers.IO) {
         val videoResults = mutableListOf<VideoMeta>()
@@ -144,8 +138,6 @@ class YouTubeRepository(private val context: Context) {
         return@withContext videoResults
     }
 
-    // --- MÉTODOS AUXILIARES DE PARSING ---
-
     private fun parseVideoRenderer(obj: JSONObject): VideoMeta {
         val videoId = obj.optString("videoId")
         val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
@@ -153,7 +145,6 @@ class YouTubeRepository(private val context: Context) {
         val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
         
-        // CORREÇÃO: Passando channelId e tipos corretos para VideoMeta
         return VideoMeta(
             videoId = videoId,
             title = title,
@@ -163,7 +154,7 @@ class YouTubeRepository(private val context: Context) {
             viewCount = 0L,
             isLiveStream = false,
             description = "",
-            channelId = "" // Adicionado para satisfazer o construtor 
+            channelId = "" 
         )
     }
     
@@ -172,7 +163,7 @@ class YouTubeRepository(private val context: Context) {
         val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
             ?: obj.optJSONObject("title")?.optString("simpleText") ?: ""
         
-        // CORREÇÃO 1: Use optString para pegar o valor da chave "videoCount"
+        // CORREÇÃO: optString garante o retorno de String para evitar conflito com Int
         val countString = obj.optString("videoCount") 
         
         val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
@@ -182,18 +173,15 @@ class YouTubeRepository(private val context: Context) {
         
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
         
-        // CORREÇÃO 2: Use nomes de parâmetros para garantir que cada valor vá para o lugar certo
-        // e converta countString para o tipo que sua data class exige (provavelmente String)
+        // CORREÇÃO: Argumentos nomeados para evitar erro de tipo/posição
         return YouTubePlaylist(
             playlistId = id,
             title = title,
             thumbnailUrl = thumbUrl,
-            videoCount = countString, // Passando como String
+            videoCount = countString,
             author = author
         )
     }
-
-    // --- LÓGICA DE EXTRAÇÃO REAL (fetchFromInnerTube) ---
 
     private fun fetchFromInnerTube(videoId: String): OnlineSong? {
         try {
