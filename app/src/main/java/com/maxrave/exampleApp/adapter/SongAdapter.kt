@@ -23,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 
 class SongAdapter(
     private var songs: List<Song>,
