@@ -24,7 +24,8 @@ class MusicDownloadWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     private val notificationManager =
-        context.getSystemService(Context.APPLICATION_SERVICE) as NotificationManager
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
     private val channelId = "download_channel"
 
     override suspend fun doWork(): Result {
