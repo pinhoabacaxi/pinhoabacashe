@@ -160,29 +160,33 @@ class YouTubeRepository(private val context: Context) {
     
     private fun parsePlaylistRenderer(obj: JSONObject): YouTubePlaylist {
         val id = obj.optString("playlistId")
+        
+        // Tenta pegar o título de diferentes estruturas possíveis do JSON do YouTube
         val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
             ?: obj.optJSONObject("title")?.optString("simpleText") ?: ""
         
-        // CORREÇÃO: optString garante o retorno de String para evitar conflito com Int
-        val countString = obj.optString("videoCount") 
+        // Pega a contagem de vídeos como String
+        val count = obj.optString("videoCount") 
         
-        val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
+        val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
+            ?: "YouTube"
         
+        // Tenta pegar a melhor thumbnail disponível
         val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails") 
             ?: obj.optJSONObject("thumbnails")?.optJSONArray(0)?.optJSONArray("thumbnails")
         
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
         
-        // CORREÇÃO: Argumentos nomeados para evitar erro de tipo/posição
+        // RETORNO COM PARÂMETROS NOMEADOS:
+        // Isso garante que cada variável entre no campo correto da data class
         return YouTubePlaylist(
             playlistId = id,
             title = title,
             thumbnailUrl = thumbUrl,
-            videoCount = countString,
+            videoCount = count, // Passando o valor como String
             author = author
         )
     }
-
     private fun fetchFromInnerTube(videoId: String): OnlineSong? {
         try {
             val apiUrl = "https://youtubei.googleapis.com/youtubei/v1/player"
