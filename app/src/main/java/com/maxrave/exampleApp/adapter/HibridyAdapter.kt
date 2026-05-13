@@ -250,3 +250,4 @@ class HybridAdapter(
         private const val TYPE_ONLINE = 1
     }
 }
+}
