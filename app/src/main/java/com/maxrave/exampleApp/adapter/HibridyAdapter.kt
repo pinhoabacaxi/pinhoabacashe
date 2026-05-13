@@ -83,90 +83,99 @@ class HybridAdapter(
         private val btnFavorite: ImageButton = itemView.findViewById(R.id.btnFavorite)
         private val btnMore: ImageButton = itemView.findViewById(R.id.btnMoreOptions)
 
-        fun bind(item: Any, position: Int) {
-            when (item) {
-                is Song -> {
-                    tvTitle.text = item.title
-                    tvArtist.text = item.artist
-                    ivSourceIndicator.setImageResource(android.R.drawable.ic_menu_save)
-                    ivSourceIndicator.alpha = 0.5f
-
-                    val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, item.id)
-                    Glide.with(itemView.context)
-                        .load(uri)
-                        .placeholder(android.R.drawable.ic_media_play)
-                        .error(android.R.drawable.ic_media_play)
-                        .into(ivArt)
-                }
-                
-                is OnlineSong -> {
-                    tvTitle.text = item.title
-                    tvArtist.text = item.author
-                    ivSourceIndicator.setImageResource(android.R.drawable.ic_menu_search)
-                    ivSourceIndicator.alpha = 0.8f
-
-                    Glide.with(itemView.context)
-                        .load(item.thumbnailUrl)
-                        .placeholder(android.R.drawable.ic_menu_gallery)
-                        .centerCrop()
-                        .into(ivArt)
-                }
-
-                is VideoMeta -> {
-                    tvTitle.text = item.title
-                    tvArtist.text = item.author
-                    ivSourceIndicator.setImageResource(android.R.drawable.ic_menu_search)
-                    
-                    Glide.with(itemView.context)
-                        .load(item.thumbnailUrl)
-                        .placeholder(android.R.drawable.ic_menu_gallery)
-                        .error(R.drawable.ic_music_note)
-                        .fallback(R.drawable.ic_music_note) // Adicionado para casos de NULL pointer
-                        .centerCrop()
-                        .into(ivArt)
-                }
+    fun bind(item: Any, position: Int) {
+        when (item) {
+            is Song -> {
+                tvTitle.text = item.title
+                tvArtist.text = item.artist
+                ivSourceIndicator.setImageResource(android.R.drawable.ic_menu_save)
+                ivSourceIndicator.alpha = 0.5f
+    
+                // CORREÇÃO: Carregando a capa do álbum via albumId para evitar erro de JNI
+                val albumArtUri = ContentUris.withAppendedId(
+                    Uri.parse("content://media/external/audio/albumart"),
+                    item.albumId
+                )
+    
+                Glide.with(itemView.context)
+                    .asBitmap() // Força tratamento como imagem
+                    .load(albumArtUri)
+                    .placeholder(android.R.drawable.ic_media_play)
+                    .error(android.R.drawable.ic_media_play)
+                    .centerCrop()
+                    .into(ivArt)
             }
-
-            itemView.setOnClickListener { onItemClick(item, position) }
-        
-            itemView.setOnLongClickListener { 
-                onLongItemClick(item)
-                true
+    
+            is OnlineSong -> {
+                tvTitle.text = item.title
+                tvArtist.text = item.author
+                ivSourceIndicator.setImageResource(android.R.drawable.ic_menu_search)
+                ivSourceIndicator.alpha = 0.8f
+    
+                Glide.with(itemView.context)
+                    .asBitmap()
+                    .load(item.thumbnailUrl)
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .error(android.R.drawable.ic_menu_gallery)
+                    .centerCrop()
+                    .into(ivArt)
             }
-
-            btnFavorite.setOnClickListener { onFavoriteClick(item) }
-            
-            // MENU POPUP FUNCIONAL (Fila e Playlist)
-            btnMore.setOnClickListener { view ->
-                val popup = PopupMenu(view.context, view)
-                popup.menu.add(0, 1, 0, "Tocar a seguir")
-                popup.menu.add(0, 2, 1, "Último da fila de reprodução")
-                popup.menu.add(0, 3, 2, "Adicionar à playlist")
-
-                popup.setOnMenuItemClickListener { menuItem ->
-                    when (menuItem.itemId) {
-                        1 -> {
-                            LocalPlayerManager.playNext(item)
-                            Toast.makeText(view.context, "Tocará a seguir", Toast.LENGTH_SHORT).show()
-                            true
-                        }
-                        2 -> {
-                            LocalPlayerManager.addToEnd(item)
-                            Toast.makeText(view.context, "Adicionado ao final da fila", Toast.LENGTH_SHORT).show()
-                            true
-                        }
-                        3 -> {
-                            showAddToPlaylistDialog(view.context, item)
-                            true
-                        }
-                        else -> false
-                    }
-                }
-                popup.show()
+    
+            is VideoMeta -> {
+                tvTitle.text = item.title
+                tvArtist.text = item.author
+                ivSourceIndicator.setImageResource(android.R.drawable.ic_menu_search)
+                ivSourceIndicator.alpha = 0.8f
+    
+                Glide.with(itemView.context)
+                    .asBitmap()
+                    .load(item.thumbnailUrl)
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .error(android.R.drawable.ic_menu_gallery)
+                    .fallback(android.R.drawable.ic_menu_gallery)
+                    .centerCrop()
+                    .into(ivArt)
             }
         }
+    
+        itemView.setOnClickListener { onItemClick(item, position) }
+    
+        itemView.setOnLongClickListener {
+            onLongItemClick(item)
+            true
+        }
+    
+        btnFavorite.setOnClickListener { onFavoriteClick(item) }
+    
+        // MENU POPUP FUNCIONAL (Fila e Playlist)
+        btnMore.setOnClickListener { view ->
+            val popup = PopupMenu(view.context, view)
+            popup.menu.add(0, 1, 0, "Tocar a seguir")
+            popup.menu.add(0, 2, 1, "Último da fila de reprodução")
+            popup.menu.add(0, 3, 2, "Adicionar à playlist")
+    
+            popup.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    1 -> {
+                        LocalPlayerManager.playNext(item)
+                        Toast.makeText(view.context, "Tocará a seguir", Toast.LENGTH_SHORT).show()
+                        true
+                    }
+                    2 -> {
+                        LocalPlayerManager.addToEnd(item)
+                        Toast.makeText(view.context, "Adicionado ao final da fila", Toast.LENGTH_SHORT).show()
+                        true
+                    }
+                    3 -> {
+                        showAddToPlaylistDialog(view.context, item)
+                        true
+                    }
+                    else -> false
+                }
+            }
+            popup.show()
+        }
     }
-
     // --- DIÁLOGOS DE PLAYLIST (Igual ao SongAdapter para garantir consistência) ---
     private fun showAddToPlaylistDialog(context: Context, item: Any) {
         val repository = PlaylistRepository(context)
