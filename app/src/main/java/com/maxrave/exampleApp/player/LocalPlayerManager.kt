@@ -88,7 +88,6 @@ object LocalPlayerManager {
     fun getCurrentTrack(): Any? = currentTrack
     fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
     fun getDuration(): Int = mediaPlayer?.duration ?: 0
-    fun isPlaying() = mediaPlayer?.isPlaying ?: false
 
     fun seekTo(pos: Int) {
         mediaPlayer?.seekTo(pos)
