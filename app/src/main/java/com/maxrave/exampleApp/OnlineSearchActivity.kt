@@ -119,19 +119,31 @@ class OnlineSearchActivity : AppCompatActivity() {
             viewModel.searchState.collect { state ->
                 when (state) {
                     is SearchState.Loading -> {
-                        binding.progressBar.visibility = View.VISIBLE
-                        binding.emptyStateContainer.visibility = View.GONE
+                        binding.progressBar.visibility = View.VISIBLE 
+                        binding.emptyStateContainer.visibility = View.GONE 
                     }
                     is SearchState.Success -> {
-                        binding.progressBar.visibility = View.GONE
-                        searchAdapter.submitList(state.results)
-                        binding.emptyStateContainer.visibility = if (state.results.isEmpty()) View.VISIBLE else View.GONE
+                        binding.progressBar.visibility = View.GONE 
+                        
+                        // Garantimos que o resultado seja tratado como uma lista de Any
+                        // para que o SearchAdapter (que aceita List<Any>) receba o tipo correto
+                        val results = state.results as? List<Any> ?: emptyList() 
+                        searchAdapter.submitList(results) 
+                        
+                        binding.emptyStateContainer.visibility = if (results.isEmpty()) View.VISIBLE else View.GONE 
+                        
+                        if (results.isEmpty()) {
+                            binding.tvEmptyMessage.text = "Nenhum resultado encontrado para esta busca." 
+                        }
                     }
                     is SearchState.Error -> {
-                        binding.progressBar.visibility = View.GONE
-                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_LONG).show()
+                        binding.progressBar.visibility = View.GONE 
+                        binding.emptyStateContainer.visibility = View.VISIBLE 
+                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_LONG).show() 
                     }
-                    else -> binding.progressBar.visibility = View.GONE
+                    else -> {
+                        binding.progressBar.visibility = View.GONE 
+                    }
                 }
             }
         }
