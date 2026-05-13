@@ -153,29 +153,32 @@ class YouTubeRepository(private val context: Context) {
         val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
         
-        // Ajustado para bater com os tipos Long/Int que sua classe VideoMeta exige
+        // CORREÇÃO: Passando channelId e tipos corretos para VideoMeta
         return VideoMeta(
             videoId = videoId,
             title = title,
             author = author,
             thumbnailUrl = thumbUrl,
-            duration = 0L,       // Tipo Long conforme erro
-            viewCount = 0L,      // Tipo Long conforme erro
+            duration = 0L,
+            viewCount = 0L,
             isLiveStream = false,
-            description = ""
+            description = "",
+            channelId = "" // Adicionado para satisfazer o construtor 
         )
     }
-
+    
     private fun parsePlaylistRenderer(obj: JSONObject): YouTubePlaylist {
         val id = obj.optString("playlistId")
         val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
             ?: obj.optJSONObject("title")?.optString("simpleText") ?: ""
-        val count = obj.optString("videoCount")
+        
+        // CORREÇÃO: Convertendo contagem de vídeos para String conforme sua data class
+        val count = obj.optString("videoCount") 
+        
         val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
         
         val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails") 
             ?: obj.optJSONObject("thumbnails")?.optJSONArray(0)?.optJSONArray("thumbnails")
-        
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
         
         return YouTubePlaylist(id, title, thumbUrl, count, author)
