@@ -25,20 +25,21 @@ class MusicDownloadWorker(
     
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    val videoId = inputData.getString("VIDEO_ID") ?: Result.failure()
-    val fileName = inputData.getString("FILE_NAME") ?: "music.mp3"
+    val videoId = inputData.getString("VIDEO_ID") ?: return Result.failure()
+    val fileName = inputData.getString("FILE_NAME") ?: "download.mp3"
     private val channelId = "download_channel"
     private val NOTIFICATION_ID = 101
-
+    val playlistName = inputData.getString("PLAYLIST_NAME")
     override suspend fun doWork(): Result {
         // Obtemos os dados de entrada
         val repository = YouTubeRepository(applicationContext)
-        val onlineSong = repository.extractAudioLink(videoId) // Nome deve ser o mesmo do passo 1
-        var audioUrl = inputData.getString("URL")
+        // 2. Obtemos os dados de entrada (ID e URL)
         val videoId = inputData.getString("VIDEO_ID")
+        var audioUrl = inputData.getString("URL")
+        // 3. Obtemos os metadados do arquivo
         val fileName = inputData.getString("FILE_NAME") ?: "musica_${System.currentTimeMillis()}.mp3"
         val playlistName = inputData.getString("PLAYLIST_NAME")
-
+        val onlineSong = repository.extractAudioLink(videoId) // Nome deve ser o mesmo do passo 1
         // 1. BYPASS DE LINK EXPIRADO: Se tivermos o videoId, extraímos um link fresco.
         // Isso é vital para playlists, onde o link de uma música pode expirar enquanto a anterior baixa.
         if (videoId != null) {
