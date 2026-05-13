@@ -25,29 +25,24 @@ class MusicDownloadWorker(
     
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    val videoId = inputData.getString("VIDEO_ID") ?: return Result.failure()
-    val fileName = inputData.getString("FILE_NAME") ?: "download.mp3"
+    
     private val channelId = "download_channel"
     private val NOTIFICATION_ID = 101
-    val playlistName = inputData.getString("PLAYLIST_NAME")
+
     override suspend fun doWork(): Result {
-        // Obtemos os dados de entrada
-        val repository = YouTubeRepository(applicationContext)
-        // 2. Obtemos os dados de entrada (ID e URL)
-        val videoId = inputData.getString("VIDEO_ID")
+        // 1. EXTRAÇÃO DOS DADOS (Sem 'return' nas propriedades da classe)
+        val videoId = inputData.getString("VIDEO_ID") ?: return Result.failure()
         var audioUrl = inputData.getString("URL")
-        // 3. Obtemos os metadados do arquivo
         val fileName = inputData.getString("FILE_NAME") ?: "musica_${System.currentTimeMillis()}.mp3"
         val playlistName = inputData.getString("PLAYLIST_NAME")
-        val onlineSong = repository.extractAudioLink(videoId) // Nome deve ser o mesmo do passo 1
-        // 1. BYPASS DE LINK EXPIRADO: Se tivermos o videoId, extraímos um link fresco.
-        // Isso é vital para playlists, onde o link de uma música pode expirar enquanto a anterior baixa.
-        if (videoId != null) {
-            val repo = YouTubeRepository(context)
-            val song = repo.extractAudioLink(videoId)
-            if (song != null) {
-                audioUrl = song.url
-            }
+
+        val repo = YouTubeRepository(context)
+
+        // 2. BYPASS DE LINK EXPIRADO: Extraímos um link fresco se necessário
+        // O videoId aqui já é garantido como não nulo pela verificação acima
+        val song = repo.extractAudioLink(videoId) 
+        if (song != null) {
+            audioUrl = song.url
         }
 
         if (audioUrl.isNullOrEmpty()) {
@@ -55,7 +50,6 @@ class MusicDownloadWorker(
             return Result.failure()
         }
 
-        // Configura a notificação de primeiro plano
         createNotificationChannel()
         setForeground(createForegroundInfo(fileName))
 
@@ -69,7 +63,6 @@ class MusicDownloadWorker(
             val body = response.body ?: return Result.failure()
             val inputStream: InputStream = body.byteStream()
             
-            // 2. LÓGICA DE PASTA: Se houver nome de playlist, cria uma subpasta
             val baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
             val targetFolder = if (!playlistName.isNullOrEmpty()) {
                 File(baseDir, playlistName).apply { if (!exists()) mkdirs() }
@@ -78,7 +71,6 @@ class MusicDownloadWorker(
             }
 
             val file = File(targetFolder, fileName)
-            
             val outputStream = FileOutputStream(file)
             val buffer = ByteArray(8 * 1024)
             var bytesRead: Int
@@ -91,7 +83,6 @@ class MusicDownloadWorker(
                 
                 if (fileSize > 0) {
                     val progress = (totalBytesRead * 100 / fileSize).toInt()
-                    // Atualiza a notificação apenas em intervalos para poupar processamento
                     if (progress % 5 == 0) {
                         updateNotification(fileName, progress)
                     }
