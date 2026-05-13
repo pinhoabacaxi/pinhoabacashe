@@ -56,14 +56,12 @@ object LocalPlayerManager {
         return if (currentIndex in playlistQueue.indices) playlistQueue[currentIndex] else null
     }
 
-    // --- CORREÇÃO: Função playOnline ---
     fun playOnline(song: OnlineSong, context: Context) {
         playlistQueue.add(song)
         currentIndex = playlistQueue.size - 1
         play(context)
     }
 
-    // --- CORREÇÃO: Funções de Volume ---
     fun getVolume(): Float = currentVolume
 
     fun setVolume(volume: Float) {
@@ -71,21 +69,28 @@ object LocalPlayerManager {
         mediaPlayer?.setVolume(volume, volume)
     }
 
-    // --- CORREÇÃO: Funções de Fila (playNext e addToEnd) ---
+    // --- ENFILEIRAMENTO ---
     fun playNext(item: Any) {
-        if (currentIndex == -1) {
+        if (playlistQueue.isEmpty()) {
+            // Se não houver fila, adiciona e já não inicia automaticamente a menos que chamem o play()
             playlistQueue.add(item)
             currentIndex = 0
         } else {
+            // Adiciona logo após a música atual sem interromper o que está tocando
             playlistQueue.add(currentIndex + 1, item)
         }
     }
 
     fun addToEnd(item: Any) {
-        playlistQueue.add(item)
+        if (playlistQueue.isEmpty()) {
+            playlistQueue.add(item)
+            currentIndex = 0
+        } else {
+            // Adiciona diretamente ao final da fila atual
+            playlistQueue.add(item)
+        }
     }
 
-    // --- CORREÇÃO: Controle de Repetição ---
     fun toggleRepeatMode(): RepeatMode {
         repeatMode = when (repeatMode) {
             RepeatMode.NONE -> RepeatMode.ALL
