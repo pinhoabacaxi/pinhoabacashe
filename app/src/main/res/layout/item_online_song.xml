@@ -38,12 +38,12 @@
         android:ellipsize="end"
         android:maxLines="2"
         android:textColor="#FFFFFF"
-        android:textSize="16sp"
+        android:textSize="15sp"
         android:textStyle="bold"
-        app:layout_constraintEnd_toStartOf="@+id/ivTypeIcon"
+        app:layout_constraintEnd_toStartOf="@id/ivTypeIcon"
         app:layout_constraintStart_toEndOf="@id/cardThumbnail"
         app:layout_constraintTop_toTopOf="@id/cardThumbnail"
-        tools:text="Título do Vídeo ou Playlist" />
+        tools:text="Título do vídeo do YouTube que pode ser longo" />
 
     <TextView
         android:id="@+id/tvOnlineChannel"
@@ -54,7 +54,7 @@
         android:textColor="#88FFFFFF"
         android:textSize="14sp"
         android:alpha="0.7"
-        app:layout_constraintEnd_toStartOf="@+id/ivTypeIcon"
+        app:layout_constraintEnd_toStartOf="@id/ivTypeIcon"
         app:layout_constraintStart_toStartOf="@id/tvOnlineTitle"
         app:layout_constraintTop_toBottomOf="@id/tvOnlineTitle"
         tools:text="Nome do Canal" />
@@ -90,10 +90,9 @@
         android:layout_width="16dp"
         android:layout_height="16dp"
         android:layout_marginTop="4dp"
-        android:src="@drawable/ic_cloud"
+        android:src="@android:drawable/ic_menu_share"
         app:tint="#44FFFFFF"
         app:layout_constraintStart_toStartOf="@id/tvOnlineTitle"
-        app:layout_constraintTop_toBottomOf="@id/tvOnlineChannel"
-        tools:ignore="ContentDescription" />
+        app:layout_constraintTop_toBottomOf="@id/tvOnlineChannel" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
