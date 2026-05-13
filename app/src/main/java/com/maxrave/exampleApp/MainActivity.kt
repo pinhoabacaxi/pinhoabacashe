@@ -277,4 +277,15 @@ class MainActivity : AppCompatActivity() {
         // Remove a inscrição ao sair para evitar vazamento de memória
         LocalPlayerManager.unsubscribe(this)
     }
+    override fun onTrackChanged(item: Any) {
+        runOnUiThread {
+            updateMiniPlayer(item)
+        }
+    }
+
+    override fun onStatusChanged(isPlaying: Boolean) {
+        runOnUiThread {
+            updatePlayPauseButton()
+        }
+    }
 }
