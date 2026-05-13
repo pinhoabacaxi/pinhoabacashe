@@ -17,7 +17,6 @@ object LocalPlayerManager {
     private var originalQueue = mutableListOf<Any>()
     private var currentVolume = 1.0f 
     
-    // Interface para os componentes (MainActivity, etc) ouvirem o player
     interface PlayerListener {
         fun onTrackChanged(item: Any)
         fun onStatusChanged(isPlaying: Boolean)
@@ -36,25 +35,15 @@ object LocalPlayerManager {
     enum class RepeatMode { NONE, ONE, ALL }
     var repeatMode: RepeatMode = RepeatMode.NONE
 
-    // Callbacks para compatibilidade simples
-    var onTrackChanged: ((Any) -> Unit)? = null 
-    var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
-
     fun init(context: Context) {
         recentManager = RecentSongsManager(context)
         prefs = PlayerPrefs(context)
     }
 
-    // --- FUNÇÃO DE STATUS (CORRIGIDA) ---
-    fun isPlaying(): Boolean {
-        return mediaPlayer?.isPlaying ?: false
-    }
+    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
 
     fun subscribe(listener: PlayerListener) {
-        if (!listeners.contains(listener)) {
-            listeners.add(listener)
-        }
-        // Ao se inscrever, já recebe o estado atual
+        if (!listeners.contains(listener)) listeners.add(listener)
         getCurrentTrack()?.let { listener.onTrackChanged(it) }
         listener.onStatusChanged(isPlaying())
     }
@@ -67,6 +56,45 @@ object LocalPlayerManager {
         return if (currentIndex in playlistQueue.indices) playlistQueue[currentIndex] else null
     }
 
+    // --- CORREÇÃO: Função playOnline ---
+    fun playOnline(song: OnlineSong, context: Context) {
+        playlistQueue.add(song)
+        currentIndex = playlistQueue.size - 1
+        play(context)
+    }
+
+    // --- CORREÇÃO: Funções de Volume ---
+    fun getVolume(): Float = currentVolume
+
+    fun setVolume(volume: Float) {
+        currentVolume = volume
+        mediaPlayer?.setVolume(volume, volume)
+    }
+
+    // --- CORREÇÃO: Funções de Fila (playNext e addToEnd) ---
+    fun playNext(item: Any) {
+        if (currentIndex == -1) {
+            playlistQueue.add(item)
+            currentIndex = 0
+        } else {
+            playlistQueue.add(currentIndex + 1, item)
+        }
+    }
+
+    fun addToEnd(item: Any) {
+        playlistQueue.add(item)
+    }
+
+    // --- CORREÇÃO: Controle de Repetição ---
+    fun toggleRepeatMode(): RepeatMode {
+        repeatMode = when (repeatMode) {
+            RepeatMode.NONE -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.NONE
+        }
+        return repeatMode
+    }
+
     fun setQueueAndPlay(list: List<Any>, index: Int, context: Context) {
         playlistQueue = list.toMutableList()
         originalQueue = list.toMutableList()
@@ -76,7 +104,6 @@ object LocalPlayerManager {
 
     fun play(context: Context) {
         val track = getCurrentTrack() ?: return
-        
         mediaPlayer?.stop()
         mediaPlayer?.release()
 
@@ -89,6 +116,7 @@ object LocalPlayerManager {
         try {
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(path)
+                setVolume(currentVolume, currentVolume)
                 prepareAsync()
                 setOnPreparedListener { 
                     start()
@@ -97,7 +125,8 @@ object LocalPlayerManager {
                     updateService(context, "ACTION_PLAY")
                 }
                 setOnCompletionListener {
-                    next(context)
+                    if (repeatMode == RepeatMode.ONE) play(context)
+                    else next(context)
                 }
             }
         } catch (e: Exception) {
@@ -121,12 +150,10 @@ object LocalPlayerManager {
     }
 
     private fun notifyStatusChanged(playing: Boolean) {
-        onPlaybackStatusChanged?.invoke(playing)
         listeners.forEach { it.onStatusChanged(playing) }
     }
 
     private fun notifyTrackChanged(item: Any) {
-        onTrackChanged?.invoke(item)
         listeners.forEach { it.onTrackChanged(item) }
     }
 
@@ -142,21 +169,12 @@ object LocalPlayerManager {
         play(context)
     }
 
-    fun stop() {
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-        mediaPlayer = null
-        notifyStatusChanged(false)
-    }
-
     fun updateService(context: Context, action: String) {
         val intent = Intent(context, PlaybackService::class.java).apply { this.action = action }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
             else context.startService(intent)
-        } catch (e: Exception) {
-            Log.e("PlayerManager", "Service error: ${e.message}")
-        }
+        } catch (e: Exception) { }
     }
 
     fun getDuration(): Int = mediaPlayer?.duration ?: 0
