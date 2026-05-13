@@ -39,31 +39,25 @@
             app:iconifiedByDefault="false"
             app:queryBackground="@android:color/transparent"
             app:searchIcon="@android:drawable/ic_menu_search"
-            app:queryHint="Músicas ou Playlists no YouTube..." />
+            app:queryHint="Músicas ou Playlists..." />
     </androidx.cardview.widget.CardView>
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="@android:style/Widget.ProgressBar.Horizontal"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:indeterminate="true"
         android:visibility="gone"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/cardSearchContainer"
-        tools:visibility="visible" />
+        app:layout_constraintTop_toBottomOf="@id/cardSearchContainer" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvOnlineResults"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
         android:clipToPadding="false"
-        android:paddingBottom="80dp"
+        android:paddingBottom="100dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/progressBar"
         tools:listitem="@layout/item_online_song" />
 
@@ -86,6 +80,7 @@
             app:tint="#FFFFFF" />
 
         <TextView
+            android:id="@+id/tvEmptyMessage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
