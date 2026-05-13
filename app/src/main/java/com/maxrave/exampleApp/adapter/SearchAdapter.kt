@@ -1,18 +1,21 @@
 package com.maxrave.exampleApp.adapter
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.maxrave.exampleApp.databinding.ItemOnlineSongBinding
+import com.maxrave.exampleApp.repository.YouTubePlaylist
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
 
 class SearchAdapter(
-    private val onItemClick: (VideoMeta) -> Unit
+    private val onItemClick: (Any) -> Unit
 ) : RecyclerView.Adapter<SearchAdapter.SearchViewHolder>() {
 
-    private var results: List<VideoMeta> = emptyList()
+    // Agora aceita qualquer tipo de objeto (Video ou Playlist)
+    private var results: List<Any> = emptyList()
 
     class SearchViewHolder(val binding: ItemOnlineSongBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -27,34 +30,59 @@ class SearchAdapter(
 
     override fun onBindViewHolder(holder: SearchViewHolder, position: Int) {
         val item = results[position]
+        
         holder.binding.apply {
-            // Mapeamento dos campos do VideoMeta para o seu XML
-            tvOnlineTitle.text = item.title
-            tvOnlineChannel.text = item.author
-            
-            // Usando a melhor thumbnail (dinâmica do InnerTube ou fallback estático)
-            // Note: Se você não criou a propriedade 'bestThumbnail' no VideoMeta, 
-            // pode usar 'item.thumbnailUrl.ifEmpty { item.hqImageUrl }'
-            val thumbToLoad = if (item.thumbnailUrl.isNotEmpty()) item.thumbnailUrl else "https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg"
+            when (item) {
+                is VideoMeta -> {
+                    // Configuração para VÍDEO
+                    tvOnlineTitle.text = item.title
+                    tvOnlineChannel.text = item.author
+                    
+                    // Ícone indicador (opcional: mostrar que é uma música única)
+                    // ivTypeIcon?.setImageResource(android.R.drawable.ic_media_play)
 
-            Glide.with(holder.itemView.context)
-                .load(thumbToLoad)
-                .transition(DrawableTransitionOptions.withCrossFade())
-                .placeholder(android.R.drawable.ic_menu_gallery)
-                .error(android.R.drawable.ic_menu_report_image)
-                .centerCrop()
-                .into(ivThumbnail)
+                    val thumbToLoad = item.thumbnailUrl.ifEmpty { 
+                        "https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg" 
+                    }
 
+                    loadImage(holder, thumbToLoad)
+                }
+                is YouTubePlaylist -> {
+                    // Configuração para PLAYLIST
+                    tvOnlineTitle.text = "[PLAYLIST] ${item.title}"
+                    tvOnlineChannel.text = "${item.author} • ${item.videoCount} vídeos"
+                    
+                    // Diferenciação visual (opcional: mudar cor do texto ou ícone)
+                    // ivTypeIcon?.setImageResource(android.R.drawable.ic_menu_agenda)
+
+                    loadImage(holder, item.thumbnailUrl)
+                }
+            }
+
+            // Clique unificado: a Activity decide o que fazer via 'when'
             root.setOnClickListener { onItemClick(item) }
+            
+            // Se você tiver um botão de download específico no seu item_online_song.xml:
+            // btnDownload?.setOnClickListener { onDownloadClick?.invoke(item) }
         }
+    }
+
+    private fun ItemOnlineSongBinding.loadImage(holder: SearchViewHolder, url: String) {
+        Glide.with(holder.itemView.context)
+            .load(url)
+            .transition(DrawableTransitionOptions.withCrossFade())
+            .placeholder(android.R.drawable.ic_menu_gallery)
+            .error(android.R.drawable.ic_menu_report_image)
+            .centerCrop()
+            .into(ivThumbnail)
     }
 
     override fun getItemCount(): Int = results.size
 
     /**
-     * Este é o método que o ViewModel chamará através da Activity
+     * Atualizado para aceitar List<Any> vindo do ViewModel
      */
-    fun submitList(newList: List<VideoMeta>) {
+    fun submitList(newList: List<Any>) {
         this.results = newList
         notifyDataSetChanged()
     }
