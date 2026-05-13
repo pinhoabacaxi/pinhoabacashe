@@ -1,23 +1,35 @@
 package com.maxrave.exampleApp.adapter
 
 import android.content.ContentUris
+import android.content.Context
 import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.maxrave.exampleApp.R
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.model.OnlineSong
+import com.maxrave.exampleApp.player.LocalPlayerManager
+import com.maxrave.exampleApp.repository.PlaylistRepository
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HybridAdapter(
     private val onItemClick: (item: Any, position: Int) -> Unit,
-    private val onMoreOptionsClick: (item: Any) -> Unit,
+    // Opcionalmente você pode usar esse callback ou deixar a lógica apenas no adapter
+    private val onMoreOptionsClick: (item: Any) -> Unit, 
     private val onFavoriteClick: (item: Any) -> Unit,
     private val onLongItemClick: (item: Any) -> Unit
 ): RecyclerView.Adapter<HybridAdapter.MusicViewHolder>() {
@@ -113,7 +125,6 @@ class HybridAdapter(
                 }
             }
 
-            // CORREÇÃO: Escopo dos listeners 100% garantido dentro do bind com o itemView apropriado
             itemView.setOnClickListener { onItemClick(item, position) }
         
             itemView.setOnLongClickListener { 
@@ -122,8 +133,105 @@ class HybridAdapter(
             }
 
             btnFavorite.setOnClickListener { onFavoriteClick(item) }
-            btnMore.setOnClickListener { onMoreOptionsClick(item) }
+            
+            // MENU POPUP FUNCIONAL (Fila e Playlist)
+            btnMore.setOnClickListener { view ->
+                val popup = PopupMenu(view.context, view)
+                popup.menu.add(0, 1, 0, "Tocar a seguir")
+                popup.menu.add(0, 2, 1, "Último da fila de reprodução")
+                popup.menu.add(0, 3, 2, "Adicionar à playlist")
+
+                popup.setOnMenuItemClickListener { menuItem ->
+                    when (menuItem.itemId) {
+                        1 -> {
+                            LocalPlayerManager.playNext(item)
+                            Toast.makeText(view.context, "Tocará a seguir", Toast.LENGTH_SHORT).show()
+                            true
+                        }
+                        2 -> {
+                            LocalPlayerManager.addToEnd(item)
+                            Toast.makeText(view.context, "Adicionado ao final da fila", Toast.LENGTH_SHORT).show()
+                            true
+                        }
+                        3 -> {
+                            showAddToPlaylistDialog(view.context, item)
+                            true
+                        }
+                        else -> false
+                    }
+                }
+                popup.show()
+            }
         }
+    }
+
+    // --- DIÁLOGOS DE PLAYLIST (Igual ao SongAdapter para garantir consistência) ---
+    private fun showAddToPlaylistDialog(context: Context, item: Any) {
+        val repository = PlaylistRepository(context)
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val playlists = withContext(Dispatchers.IO) { repository.getAllPlaylists() }
+                
+                if (playlists.isEmpty()) {
+                    showCreateNewPlaylistDialog(context, item, repository)
+                    return@launch
+                }
+
+                val playlistNames = playlists.map { it.name }.toTypedArray()
+
+                AlertDialog.Builder(context)
+                    .setTitle("Adicionar à Playlist")
+                    .setItems(playlistNames) { _, which ->
+                        val selectedPlaylist = playlists[which]
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                repository.addSongToPlaylist(selectedPlaylist.id, item)
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Adicionado à '${selectedPlaylist.name}'", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) { Toast.makeText(context, "Erro ao salvar música.", Toast.LENGTH_SHORT).show() }
+                            }
+                        }
+                    }
+                    .setPositiveButton("Nova Playlist") { _, _ ->
+                        showCreateNewPlaylistDialog(context, item, repository)
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Erro ao carregar playlists", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun showCreateNewPlaylistDialog(context: Context, item: Any, repository: PlaylistRepository) {
+        val input = EditText(context)
+        input.hint = "Nome da nova playlist"
+
+        AlertDialog.Builder(context)
+            .setTitle("Criar Nova Playlist")
+            .setView(input)
+            .setPositiveButton("Criar e Adicionar") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        repository.createPlaylist(name)
+                        val playlists = repository.getAllPlaylists()
+                        val newPlaylist = playlists.find { it.name == name }
+                        
+                        newPlaylist?.let {
+                            try { repository.addSongToPlaylist(it.id, item) } catch (e: Exception) { }
+                        }
+                        
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Playlist '$name' criada com sucesso!", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     companion object {
