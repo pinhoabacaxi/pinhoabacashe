@@ -34,12 +34,13 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
         android:ellipsize="end"
         android:maxLines="2"
         android:textColor="#FFFFFF"
         android:textSize="16sp"
         android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnDownload"
         app:layout_constraintStart_toEndOf="@id/cardThumbnail"
         app:layout_constraintTop_toTopOf="@id/cardThumbnail"
         tools:text="Nome do Vídeo Extraído do YouTube" />
@@ -49,15 +50,31 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
         android:textColor="#88FFFFFF"
         android:textSize="14sp"
         android:alpha="0.7"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnDownload"
         app:layout_constraintStart_toStartOf="@id/tvOnlineTitle"
         app:layout_constraintTop_toBottomOf="@id/tvOnlineTitle"
         tools:text="Nome do Canal" />
 
+    <ImageButton
+        android:id="@+id/btnDownload"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="12dp"
+        android:scaleType="centerInside"
+        android:src="@android:drawable/stat_sys_download"
+        app:tint="#FFFFFF"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:ignore="ContentDescription" />
+
     <ImageView
+        android:id="@+id/ivCloudIcon"
         android:layout_width="16dp"
         android:layout_height="16dp"
         android:layout_marginTop="4dp"
