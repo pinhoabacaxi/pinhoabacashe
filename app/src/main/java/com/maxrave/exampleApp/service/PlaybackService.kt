@@ -26,7 +26,7 @@ class PlaybackService : Service() {
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                if (LocalPlayerManager.isPlaying()) {
+                if (LocalPlayerManager.isPlaying ()) {
                     LocalPlayerManager.togglePlayPause(this@PlaybackService)
                     // Atualiza a notificação com o que estiver tocando no momento
                     updateGeneralNotification()
@@ -89,8 +89,31 @@ class PlaybackService : Service() {
      * Identifica automaticamente se a música é local ou online e chama a função correta
      */
     private fun updateGeneralNotification() {
-        val currentTrack = LocalPlayerManager.getCurrentTrack()
-        val isPlaying = LocalPlayerManager.isPlaying
+        val item = LocalPlayerManager.getCurrentTrack() ?: return
+        val isPlaying = LocalPlayerManager.isPlaying ()
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_music_note)
+            .setContentTitle(if (item is Song) item.title else (item as OnlineSong).title)
+            .setContentText(if (item is Song) item.artist else (item as OnlineSong).author)
+            .setOngoing(isPlaying)
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle())
+            .addAction(android.R.drawable.ic_media_previous, "Previous", getPendingAction("ACTION_PREV"))
+            .addAction(
+                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                "Play/Pause",
+                getPendingAction("ACTION_TOGGLE")
+            )
+            .addAction(android.R.drawable.ic_media_next, "Next", getPendingAction("ACTION_NEXT"))
+            .setContentIntent(getTapIntent())
+
+        val notification = builder.build() // Criamos a variável 'notification' aqui
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
         
         val notification = when (currentTrack) {
             is Song -> buildNotification(currentTrack.title, currentTrack.artist, currentTrack.path, isPlaying)
@@ -130,7 +153,7 @@ class PlaybackService : Service() {
     }
 
     private fun showOnlineNotification(onlineSong: OnlineSong) {
-        val isPlaying = LocalPlayerManager.isPlaying()
+        val isPlaying = LocalPlayerManager.isPlaying ()
         val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -151,7 +174,7 @@ class PlaybackService : Service() {
     }
 
     private fun showNotification(song: Song) {
-        val isPlaying = LocalPlayerManager.isPlaying
+        val isPlaying = LocalPlayerManager.isPlaying ()
         val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
