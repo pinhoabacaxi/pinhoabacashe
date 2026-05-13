@@ -16,6 +16,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import android.content.pm.ServiceInfo
+import com.maxrave.exampleApp.R
 
 class MusicDownloadWorker(
     private val context: Context,
@@ -23,13 +24,15 @@ class MusicDownloadWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     private val notificationManager =
-        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        context.getSystemService(Context.APPLICATION_SERVICE) as NotificationManager
+    private val channelId = "download_channel"
 
     override suspend fun doWork(): Result {
         val audioUrl = inputData.getString("URL") ?: return Result.failure()
         val fileName = inputData.getString("FILE_NAME") ?: "downloaded_music.mp3"
 
-        // Configura a notificação de primeiro plano (obrigatório para Android 12+)
+        // Configura a notificação de primeiro plano
+        createNotificationChannel()
         setForeground(createForegroundInfo(fileName))
 
         return try {
@@ -41,34 +44,33 @@ class MusicDownloadWorker(
 
             val body = response.body ?: return Result.failure()
             val inputStream: InputStream = body.byteStream()
-
-            // Define o diretório de destino: Pasta de Músicas padrão do Android
-            // Isso garante que o MusicLoader.kt encontre o arquivo via MediaStore
-            val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
-            if (!directory.exists()) directory.mkdirs()
-
-            val file = File(directory, fileName)
+            
+            // Salva na pasta de Músicas pública do Android
+            val file = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                fileName
+            )
+            
             val outputStream = FileOutputStream(file)
-
             val buffer = ByteArray(8 * 1024)
             var bytesRead: Int
             val fileSize = body.contentLength()
-            var downloadedBytes = 0L
+            var totalBytesRead: Long = 0
 
             while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                 outputStream.write(buffer, 0, bytesRead)
-                downloadedBytes += bytesRead
+                totalBytesRead += bytesRead
                 
-                // Atualiza o progresso da notificação opcionalmente
-                val progress = (downloadedBytes * 100 / fileSize).toInt()
-                updateNotification(fileName, progress)
+                if (fileSize > 0) {
+                    val progress = (totalBytesRead * 100 / fileSize).toInt()
+                    updateNotification(fileName, progress)
+                }
             }
 
             outputStream.flush()
             outputStream.close()
             inputStream.close()
 
-            Log.d("DownloadWorker", "Sucesso: Arquivo salvo em ${file.absolutePath}")
             Result.success()
         } catch (e: Exception) {
             Log.e("DownloadWorker", "Erro no download: ${e.message}")
@@ -76,54 +78,42 @@ class MusicDownloadWorker(
         }
     }
 
-    private fun createForegroundInfo(notification: Notification): ForegroundInfo {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        // Para Android 10+ e obrigatório no Android 14 (API 34)
-            ForegroundInfo(
-                NOTIFICATION_ID, // O ID numérico da sua notificação
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC // <-- O SEGREDO ESTÁ AQUI
-            )
-        } else {
-        // Para versões mais antigas do Android
-            ForegroundInfo(NOTIFICATION_ID, notification)
-        }
-    }
-    override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notification = NotificationCompat.Builder(applicationContext, "download_channel")
-            .setSmallIcon(R.drawable.ic_download)
-            .setContentTitle("Baixando música...")
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ForegroundInfo(
-                1002, 
-                notification, 
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC // O tipo que colocamos no Manifesto
-            )
-        } else {
-            ForegroundInfo(1002, notification)
-        }
-    }
-
+    private fun createForegroundInfo(fileName: String): ForegroundInfo {
         val notification = NotificationCompat.Builder(context, channelId)
             .setContentTitle("Baixando Música")
             .setContentText(fileName)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
-        return ForegroundInfo(101, notification)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            ForegroundInfo(101, notification)
+        }
     }
 
     private fun updateNotification(fileName: String, progress: Int) {
-        val notification = NotificationCompat.Builder(context, "download_channel")
+        val notification = NotificationCompat.Builder(context, channelId)
             .setContentTitle("Baixando: $fileName")
             .setContentText("$progress%")
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setProgress(100, progress, false)
+            .setSilent(true) // Evita que o celular vibre a cada atualização de progresso
             .build()
+        
         notificationManager.notify(101, notification)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Downloads",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
     }
 }
