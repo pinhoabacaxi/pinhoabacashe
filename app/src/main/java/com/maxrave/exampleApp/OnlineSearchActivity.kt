@@ -247,12 +247,22 @@ class OnlineSearchActivity : AppCompatActivity() {
     private fun performPlaylistSearch(query: String) {
         lifecycleScope.launch {
             binding.progressBar.visibility = View.VISIBLE
-            // Use o repositório DIRETAMENTE na Activity, onde ele é visível
-            val playlists = youtubeRepository.searchPlaylists(query) 
-            
-            // Envie os resultados para o adapter manualmente
-            searchAdapter.submitList(playlists)
-            binding.progressBar.visibility = View.GONE
+            try {
+                // Chama o repositório diretamente (já que a Activity conhece o módulo App)
+                val playlists = youtubeRepository.searchPlaylists(query) 
+                
+                if (playlists.isNotEmpty()) {
+                    searchAdapter.submitList(playlists)
+                    binding.rvOnlineResults.visibility = View.VISIBLE
+                    binding.emptyStateContainer.visibility = View.GONE
+                } else {
+                    // Tratar lista vazia
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@OnlineSearchActivity, "Erro ao buscar playlists", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.progressBar.visibility = View.GONE
+            }
         }
     }
     private fun hideKeyboard() {
