@@ -119,8 +119,8 @@ class OnlineSearchActivity : AppCompatActivity() {
                     showSavePlaylistDialog(item.playlistId, item.title)
                 }
             }
-        }
-        
+        },
+        { item -> iniciarDownload(item) }
         binding.rvOnlineResults.apply {
             layoutManager = LinearLayoutManager(this@OnlineSearchActivity)
             adapter = searchAdapter
