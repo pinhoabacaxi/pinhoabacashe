@@ -162,16 +162,18 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupSearchInput() {
-        binding.searchViewOnline.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
+        binding.searchViewOnline.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                if (!query.isNullOrEmpty()) {
-                    // Aqui você pode implementar um seletor para buscar Playlist ou Vídeo
-                    viewModel.performSearch(query)
-                    hideKeyboard()
+                query?.let {
+                    if (isPlaylistSearchMode) { // Você pode criar um botão/chip para alternar o modo
+                        performPlaylistSearch(it)
+                    } else {
+                        viewModel.performSearch(it) // Busca de vídeos normal via ViewModel
+                    }
                 }
                 return true
             }
-            override fun onQueryTextChange(newText: String?): Boolean = true
+            override fun onQueryTextChange(newText: String?): Boolean = false
         })
     }
     private fun observeViewModel() {
