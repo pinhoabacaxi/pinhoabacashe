@@ -13,50 +13,23 @@ import kotlinx.coroutines.launch
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
     
     private val context = application.applicationContext
-    
-    // Mantemos apenas o YTSearch que pertence a este módulo
     private val ytSearch = YTSearch(context)
     
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState
 
-    /**
-     * Busca padrão de VÍDEOS
-     */
     fun performSearch(query: String) {
         if (query.isBlank()) return
 
         viewModelScope.launch {
-            Log.d("SearchVM", "Solicitando busca de vídeos para: $query")
             _searchState.value = SearchState.Loading
-            
             try {
+                // A biblioteca faz a busca padrão de vídeos
                 val results = ytSearch.search(query)
                 _searchState.value = SearchState.Success(results)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Erro na busca: ${e.message}")
                 _searchState.value = SearchState.Error(e.localizedMessage ?: "Erro na conexão")
-            }
-        }
-    }
-
-    /**
-     * Busca de PLAYLISTS
-     * Movida a lógica para usar o ytSearch se ele suportar, 
-     * ou processar o resultado na Activity para evitar o import circular.
-     */
-    fun performPlaylistSearch(query: String) {
-        if (query.isBlank()) return
-
-        viewModelScope.launch {
-            _searchState.value = SearchState.Loading
-            try {
-                 Log.d("SearchVM", "Playlists encontradas: ${playlists.size}").
-                val results = ytSearch.search(query) 
-                _searchState.value = SearchState.Success(results)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Erro na busca de playlists: ${e.message}")
-                _searchState.value = SearchState.Error("Não foi possível encontrar playlists.")
             }
         }
     }
