@@ -3,6 +3,7 @@ package com.maxrave.exampleApp.service
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Environment
 import android.util.Log
@@ -10,13 +11,12 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.maxrave.exampleApp.repository.YouTubeRepository
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import android.content.pm.ServiceInfo
-import com.maxrave.exampleApp.R
 
 class MusicDownloadWorker(
     private val context: Context,
@@ -27,10 +27,29 @@ class MusicDownloadWorker(
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private val channelId = "download_channel"
+    private val NOTIFICATION_ID = 101
 
     override suspend fun doWork(): Result {
-        val audioUrl = inputData.getString("URL") ?: return Result.failure()
-        val fileName = inputData.getString("FILE_NAME") ?: "downloaded_music.mp3"
+        // Obtemos os dados de entrada
+        var audioUrl = inputData.getString("URL")
+        val videoId = inputData.getString("VIDEO_ID")
+        val fileName = inputData.getString("FILE_NAME") ?: "musica_${System.currentTimeMillis()}.mp3"
+        val playlistName = inputData.getString("PLAYLIST_NAME")
+
+        // 1. BYPASS DE LINK EXPIRADO: Se tivermos o videoId, extraímos um link fresco.
+        // Isso é vital para playlists, onde o link de uma música pode expirar enquanto a anterior baixa.
+        if (videoId != null) {
+            val repo = YouTubeRepository(context)
+            val song = repo.extractAudioLink(videoId)
+            if (song != null) {
+                audioUrl = song.url
+            }
+        }
+
+        if (audioUrl.isNullOrEmpty()) {
+            Log.e("DownloadWorker", "Erro: Nenhuma URL de áudio disponível para $fileName")
+            return Result.failure()
+        }
 
         // Configura a notificação de primeiro plano
         createNotificationChannel()
@@ -46,11 +65,15 @@ class MusicDownloadWorker(
             val body = response.body ?: return Result.failure()
             val inputStream: InputStream = body.byteStream()
             
-            // Salva na pasta de Músicas pública do Android
-            val file = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
-                fileName
-            )
+            // 2. LÓGICA DE PASTA: Se houver nome de playlist, cria uma subpasta
+            val baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+            val targetFolder = if (!playlistName.isNullOrEmpty()) {
+                File(baseDir, playlistName).apply { if (!exists()) mkdirs() }
+            } else {
+                baseDir
+            }
+
+            val file = File(targetFolder, fileName)
             
             val outputStream = FileOutputStream(file)
             val buffer = ByteArray(8 * 1024)
@@ -64,7 +87,10 @@ class MusicDownloadWorker(
                 
                 if (fileSize > 0) {
                     val progress = (totalBytesRead * 100 / fileSize).toInt()
-                    updateNotification(fileName, progress)
+                    // Atualiza a notificação apenas em intervalos para poupar processamento
+                    if (progress % 5 == 0) {
+                        updateNotification(fileName, progress)
+                    }
                 }
             }
 
@@ -72,9 +98,10 @@ class MusicDownloadWorker(
             outputStream.close()
             inputStream.close()
 
+            Log.d("DownloadWorker", "Sucesso: $fileName salvo em ${file.absolutePath}")
             Result.success()
         } catch (e: Exception) {
-            Log.e("DownloadWorker", "Erro no download: ${e.message}")
+            Log.e("DownloadWorker", "Erro no download de $fileName: ${e.message}")
             Result.failure()
         }
     }
@@ -89,9 +116,9 @@ class MusicDownloadWorker(
             .build()
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ForegroundInfo(101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         } else {
-            ForegroundInfo(101, notification)
+            ForegroundInfo(NOTIFICATION_ID, notification)
         }
     }
 
@@ -101,19 +128,21 @@ class MusicDownloadWorker(
             .setContentText("$progress%")
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setProgress(100, progress, false)
-            .setSilent(true) // Evita que o celular vibre a cada atualização de progresso
+            .setSilent(true) 
             .build()
         
-        notificationManager.notify(101, notification)
+        notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Downloads",
+                "Downloads de Música",
                 NotificationManager.IMPORTANCE_LOW
-            )
+            ).apply {
+                description = "Progresso de download de músicas do YouTube"
+            }
             notificationManager.createNotificationChannel(channel)
         }
     }
