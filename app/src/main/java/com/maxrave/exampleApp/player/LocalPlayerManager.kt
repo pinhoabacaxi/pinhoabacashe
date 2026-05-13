@@ -44,7 +44,9 @@ object LocalPlayerManager {
         recentManager = RecentSongsManager(context)
         prefs = PlayerPrefs(context)
     }
-
+    fun isPlaying(): Boolean {
+        return mediaPlayer?.isPlaying ?: false
+    }
     fun subscribe(listener: PlayerListener) {
         listeners.add(listener)
         // Ao se inscrever, já envia o estado atual para a tela
