@@ -1,19 +1,30 @@
 package com.maxrave.exampleApp
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.maxrave.exampleApp.adapter.SearchAdapter
 import com.maxrave.exampleApp.databinding.ActivityOnlineSearchBinding
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.YouTubeRepository
+import com.maxrave.exampleApp.service.MusicDownloadWorker
 import com.maxrave.kotlinyoutubeextractor.SearchState
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
 import com.maxrave.kotlinyoutubeextractor.viewmodel.SearchViewModel
@@ -26,52 +37,129 @@ class OnlineSearchActivity : AppCompatActivity() {
     private lateinit var searchAdapter: SearchAdapter
     private lateinit var youtubeRepository: YouTubeRepository
 
+    // 1. GERENCIADOR DE PERMISSÕES (Moderno)
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.entries.all { it.value }
+        if (!allGranted) {
+            Toast.makeText(this, "Algumas permissões foram negadas. O download pode não funcionar.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityOnlineSearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         youtubeRepository = YouTubeRepository(this)
+        
+        checkAndRequestPermissions()
         setupRecyclerView()
         setupSearchInput()
         observeViewModel()
     }
-    
+
+    // 2. LÓGICA DE PERMISSÕES
+    private fun checkAndRequestPermissions() {
+        val permissions = mutableListOf<String>()
+
+        // Para Notificações (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // Para Armazenamento (Android 12 ou inferior)
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+        }
+
+        if (permissions.isNotEmpty()) {
+            requestPermissionLauncher.launch(permissions.toTypedArray())
+        }
+    }
+
     private fun setupRecyclerView() {
+        // Configuramos o clique simples para Play e o clique longo para Download
         searchAdapter = SearchAdapter { videoMeta ->
             startStreaming(videoMeta)
         }
+        
+        // Se o seu SearchAdapter suportar clique longo para download, adicione aqui
+        // Caso contrário, você pode adicionar um botão de download no item_search.xml
         
         binding.rvOnlineResults.apply {
             layoutManager = LinearLayoutManager(this@OnlineSearchActivity)
             adapter = searchAdapter
         }
     }
-    private fun showSavePlaylistDialog(playlistItems: List<OnlineSong>) {
+
+    // 3. LÓGICA DE DOWNLOAD DE PLAYLIST COM NOME CUSTOMIZADO
+    fun showSavePlaylistDialog(playlistId: String, playlistTitle: String) {
         val editText = EditText(this)
-        editText.hint = "Nome da Playlist Local"
+        editText.setText(playlistTitle) // Sugere o nome original da playlist
+        editText.setSelection(editText.text.length)
 
         AlertDialog.Builder(this)
-            .setTitle("Salvar Playlist Localmente")
-            .setMessage("Digite o nome para sua nova playlist:")
+            .setTitle("Baixar Playlist")
+            .setMessage("Escolha um nome para a pasta da playlist:")
             .setView(editText)
             .setPositiveButton("Baixar Tudo") { _, _ ->
-                val customName = editText.text.toString()
-                if (customName.isNotEmpty()) {
-                    downloadFullPlaylist(customName, playlistItems)
+                val customFolderName = editText.text.toString()
+                if (customFolderName.isNotEmpty()) {
+                    downloadFullPlaylist(playlistId, customFolderName)
                 } else {
-                    Toast.makeText(this, "Nome não pode ser vazio", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "O nome não pode ser vazio", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancelar", null)
             .show()
     }
 
+    private fun downloadFullPlaylist(playlistId: String, customName: String) {
+        lifecycleScope.launch {
+            binding.progressBar.visibility = View.VISIBLE
+            try {
+                // Busca todos os vídeos da playlist via repositório
+                val songs = youtubeRepository.getPlaylistVideos(playlistId)
+                
+                if (songs.isNotEmpty()) {
+                    val workManager = WorkManager.getInstance(this@OnlineSearchActivity)
+                    
+                    songs.forEach { song ->
+                        val workData = workDataOf(
+                            "VIDEO_ID" to song.videoId,
+                            "FILE_NAME" to "${song.title}.mp3",
+                            "PLAYLIST_NAME" to customName
+                        )
+
+                        val downloadRequest = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
+                            .setInputData(workData)
+                            .build()
+
+                        workManager.enqueue(downloadRequest)
+                    }
+                    Toast.makeText(this@OnlineSearchActivity, "Iniciado download de ${songs.size} músicas em '$customName'", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this@OnlineSearchActivity, "Nenhuma música encontrada na playlist", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@OnlineSearchActivity, "Erro ao processar playlist: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.progressBar.visibility = View.GONE
+            }
+        }
+    }
+
     private fun setupSearchInput() {
-        // Corrigido: Acesso direto via binding para evitar findViewById desnecessário
         binding.searchViewOnline.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 if (!query.isNullOrEmpty()) {
+                    // Aqui você pode implementar um seletor para buscar Playlist ou Vídeo
                     viewModel.performSearch(query)
                     hideKeyboard()
                 }
@@ -109,7 +197,6 @@ class OnlineSearchActivity : AppCompatActivity() {
         
         lifecycleScope.launch {
             try {
-                // Extrai o link real
                 val streamData = youtubeRepository.extractAudioLink(videoMeta.videoId)
                 
                 if (streamData != null) {
@@ -122,7 +209,6 @@ class OnlineSearchActivity : AppCompatActivity() {
                         duration = videoMeta.duration.toString()
                     )
                     
-                    // CORREÇÃO: Chama a função que adicionamos/verificamos no LocalPlayerManager
                     LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
                     
                     kotlinx.coroutines.delay(200)
