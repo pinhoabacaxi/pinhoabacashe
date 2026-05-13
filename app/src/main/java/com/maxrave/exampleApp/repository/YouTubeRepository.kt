@@ -172,10 +172,10 @@ class YouTubeRepository(private val context: Context) {
             ?: "YouTube"
         
         // Tenta pegar a melhor thumbnail disponível
-        val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails") 
-            ?: obj.optJSONObject("thumbnails")?.optJSONArray(0)?.optJSONArray("thumbnails")
         
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
+        val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails") 
+            ?: obj.optJSONObject("thumbnails")?.optJSONArray(0)?.optJSONArray("thumbnails")
         
         // RETORNO COM PARÂMETROS NOMEADOS:
         // Isso garante que cada variável entre no campo correto da data class
