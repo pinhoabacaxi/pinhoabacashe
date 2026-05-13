@@ -18,7 +18,7 @@ class SearchAdapter(
     private var results: List<Any> = emptyList()
 
     class SearchViewHolder(val binding: ItemOnlineSongBinding) : RecyclerView.ViewHolder(binding.root)
-
+    
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SearchViewHolder {
         val binding = ItemOnlineSongBinding.inflate(
             LayoutInflater.from(parent.context), 
@@ -58,12 +58,8 @@ class SearchAdapter(
                     loadImage(holder, item.thumbnailUrl)
                 }
             }
-
-            // Clique unificado: a Activity decide o que fazer via 'when'
             root.setOnClickListener { onItemClick(item) }
-            
-            // Se você tiver um botão de download específico no seu item_online_song.xml:
-            btnDownload?.setOnClickListener { onDownloadClick?.invoke(item) }
+            btnDownload?.setOnClickListener { onDownloadClick(item) }
         }
     }
 
