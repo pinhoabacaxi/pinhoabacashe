@@ -90,7 +90,7 @@ class PlaybackService : Service() {
      */
     private fun updateGeneralNotification() {
         val currentTrack = LocalPlayerManager.getCurrentTrack()
-        val isPlaying = LocalPlayerManager.isPlaying()
+        val isPlaying = LocalPlayerManager.isPlaying
         
         val notification = when (currentTrack) {
             is Song -> buildNotification(currentTrack.title, currentTrack.artist, currentTrack.path, isPlaying)
@@ -151,7 +151,7 @@ class PlaybackService : Service() {
     }
 
     private fun showNotification(song: Song) {
-        val isPlaying = LocalPlayerManager.isPlaying()
+        val isPlaying = LocalPlayerManager.isPlaying
         val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
