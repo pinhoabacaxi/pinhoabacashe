@@ -200,13 +200,13 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
     }
 
     private fun observePlayer() {
-        LocalPlayerManager.onTrackChanged = { track -> updateUI(track) }
-        LocalPlayerManager.onPlaybackStatusChanged = { isPlaying ->
-            btnPlayPause.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
-        }
-        LocalPlayerManager.getCurrentTrack()?.let { updateUI(it) }
+    // Inscreve esta Activity para receber atualizações do player
+        LocalPlayerManager.subscribe(this)
+    
+    // Inicia a atualização da barra de progresso
         handler.post(updateProgressAction)
     }
+
 
     private fun updateUI(track: Any) {
         val title: String
