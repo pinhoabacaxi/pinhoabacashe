@@ -105,7 +105,7 @@ class OnlineSearchActivity : AppCompatActivity() {
             }
         })
     }
-}
+
     private fun setupRecyclerView() {
         // Agora o clique deve verificar se o item é um vídeo ou uma playlist
         searchAdapter = SearchAdapter { item ->
