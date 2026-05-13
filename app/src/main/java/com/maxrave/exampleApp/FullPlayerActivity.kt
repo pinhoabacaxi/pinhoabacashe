@@ -67,7 +67,15 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         btnRepeat = findViewById(R.id.btnRepeat)
         btnDownload = findViewById(R.id.btnDownload)
         btnShuffle = findViewById(R.id.btnShuffle)
-
+        btnDownload.setOnClickListener {
+        // Lógica de download
+        val currentSong = LocalPlayerManager.currentSong
+        if (currentSong is OnlineSong) {
+            startDownload(currentSong)
+        } else {
+            Toast.makeText(this, "Esta música já é local", Toast.LENGTH_SHORT).show()
+            }
+        }
         // Sincroniza o volume inicial
         seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt()
     }
