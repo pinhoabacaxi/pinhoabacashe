@@ -170,6 +170,7 @@ object LocalPlayerManager {
                 updateService(context, "ACTION_PLAY")
             }
         }
+        listeners.forEach { it.onStatusChanged(isPlaying) }
     }
 
     fun next(context: Context) {
