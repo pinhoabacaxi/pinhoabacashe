@@ -172,16 +172,29 @@ class YouTubeRepository(private val context: Context) {
         val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
             ?: obj.optJSONObject("title")?.optString("simpleText") ?: ""
         
-        // CORREÇÃO: Convertendo contagem de vídeos para String conforme sua data class
-        val count = obj.optString("videoCount") 
+        // Tenta obter o vídeoCount do JSON. 
+        // O InnerTube às vezes envia como String ("10") e às vezes dentro de outro objeto.
+        val countString = obj.optString("videoCount") 
+        
+        // Converte para Int para satisfazer o erro "Type mismatch: String but Int was expected"
+        // Se não conseguir converter, o padrão é 0.
+        val countInt = countString.toIntOrNull() ?: 0
         
         val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
         
         val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails") 
             ?: obj.optJSONObject("thumbnails")?.optJSONArray(0)?.optJSONArray("thumbnails")
+        
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
         
-        return YouTubePlaylist(id, title, thumbUrl, count, author)
+        // Certifique-se de que a ordem dos parâmetros abaixo bate exatamente com a sua data class
+        return YouTubePlaylist(
+            playlistId = id,
+            title = title,
+            thumbnailUrl = thumbUrl,
+            videoCount = countInt.toString(), // Se a sua data class pedir String, use .toString()
+            author = author
+        )
     }
 
     // --- LÓGICA DE EXTRAÇÃO REAL (fetchFromInnerTube) ---
