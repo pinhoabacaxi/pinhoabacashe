@@ -33,10 +33,7 @@ class YouTubeRepository(private val context: Context) {
     suspend fun extractAudioLink(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
         return@withContext fetchFromInnerTube(videoId)
     }
-
-    /**
-     * PESQUISA: Busca por playlists no YouTube
-     */
+     
     suspend fun searchPlaylists(query: String): List<YouTubePlaylist> = withContext(Dispatchers.IO) {
         val playlistResults = mutableListOf<YouTubePlaylist>()
         try {
@@ -87,10 +84,6 @@ class YouTubeRepository(private val context: Context) {
         }
         return@withContext playlistResults
     }
-
-    /**
-     * EXTRAÇÃO: Obtém todos os vídeos (OnlineSong) de uma playlist
-     */
     suspend fun getPlaylistVideos(playlistId: String): List<OnlineSong> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<OnlineSong>()
         try {
