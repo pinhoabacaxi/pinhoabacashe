@@ -56,6 +56,7 @@ class YouTubeRepository(private val context: Context) {
                     val videoRenderer = it.optJSONObject(i)?.optJSONObject("videoRenderer")
                     if (videoRenderer != null) {
                         videoResults.add(parseVideoRenderer(videoRenderer))
+      
                     }
                 }
             }
@@ -171,10 +172,12 @@ class YouTubeRepository(private val context: Context) {
         
         val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
             ?: "YouTube"
-        
-        // Tenta pegar a melhor thumbnail disponível
+        // 1. Tenta o caminho padrão de vídeo (thumbnail -> thumbnails)
+            // 2. Se falhar, tenta o caminho de playlist (thumbnails -> array no índice 0 -> thumbnails)
         val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails") 
-            ?: obj.optJSONObject("thumbnails")?.optJSONArray("thumbnails")?.optJSONArray(0)
+            ?: obj.optJSONArray("thumbnails")?.optJSONObject(0)?.optJSONArray("thumbnails")
+            
+            // 3. Extrai a URL do último item do array (geralmente a de maior resolução)
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
         
         
