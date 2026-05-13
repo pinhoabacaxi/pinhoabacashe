@@ -16,15 +16,15 @@ object LocalPlayerManager {
     private var playlistQueue = mutableListOf<Any>()
     private var originalQueue = mutableListOf<Any>()
     private var currentVolume = 1.0f 
-    // NOVO: Guarda a música atual para consulta rápida
-    private var currentTrack: Any? = null
-    // NOVO: Lista de ouvintes para não sobrescrever um ao outro
+    
+    // Interface para os componentes (MainActivity, etc) ouvirem o player
+    interface PlayerListener {
+        fun onTrackChanged(item: Any)
+        fun onStatusChanged(isPlaying: Boolean)
+    }
+
     private val listeners = mutableListOf<PlayerListener>()
 
-        interface PlayerListener {
-            fun onTrackChanged(item: Any)
-            fun onStatusChanged(isPlaying: Boolean)
-        }
     var currentIndex: Int = -1
         private set
     
@@ -36,143 +36,98 @@ object LocalPlayerManager {
     enum class RepeatMode { NONE, ONE, ALL }
     var repeatMode: RepeatMode = RepeatMode.NONE
 
+    // Callbacks para compatibilidade simples
     var onTrackChanged: ((Any) -> Unit)? = null 
     var onPlaybackStatusChanged: ((Boolean) -> Unit)? = null
-    var onProgressChanged: ((current: Int, total: Int) -> Unit)? = null
 
     fun init(context: Context) {
         recentManager = RecentSongsManager(context)
         prefs = PlayerPrefs(context)
     }
+
+    // --- FUNÇÃO DE STATUS (CORRIGIDA) ---
     fun isPlaying(): Boolean {
         return mediaPlayer?.isPlaying ?: false
     }
+
     fun subscribe(listener: PlayerListener) {
-        listeners.add(listener)
-        // Ao se inscrever, já envia o estado atual para a tela
-        currentTrack?.let { listener.onTrackChanged(it) }
+        if (!listeners.contains(listener)) {
+            listeners.add(listener)
+        }
+        // Ao se inscrever, já recebe o estado atual
+        getCurrentTrack()?.let { listener.onTrackChanged(it) }
         listener.onStatusChanged(isPlaying())
     }
+
     fun unsubscribe(listener: PlayerListener) {
         listeners.remove(listener)
     }
-    // --- LÓGICA DE FILA CORRIGIDA ---
-    fun playNext(item: Any) {
-        if (playlistQueue.isEmpty()) {
-            playlistQueue.add(item)
-            currentIndex = 0 
-        } else {
-            playlistQueue.add(currentIndex + 1, item)
-        }
+
+    fun getCurrentTrack(): Any? {
+        return if (currentIndex in playlistQueue.indices) playlistQueue[currentIndex] else null
     }
-    fun playOnline(onlineSong: OnlineSong, context: Context) {
-    // Adiciona à fila na posição logo após a atual e toca
-        if (playlistQueue.isEmpty()) {
-            playlistQueue.add(onlineSong)
-            currentIndex = 0
-        } else {
-            playlistQueue.add(currentIndex + 1, onlineSong)
-            currentIndex++
-        }
+
+    fun setQueueAndPlay(list: List<Any>, index: Int, context: Context) {
+        playlistQueue = list.toMutableList()
+        originalQueue = list.toMutableList()
+        currentIndex = index
         play(context)
-        listeners.forEach { it.onStatusChanged(isPlaying) }
-    }
-    fun addToEnd(item: Any) {
-        playlistQueue.add(item)
-        if (playlistQueue.size == 1) {
-            currentIndex = 0 
-        }
     }
 
-    fun getCurrentQueue() = playlistQueue
-    fun getCurrentTrack(): Any? = currentTrack
-    fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
-    fun getDuration(): Int = mediaPlayer?.duration ?: 0
-
-    fun seekTo(pos: Int) {
-        mediaPlayer?.seekTo(pos)
-    }
-
-    fun setVolume(volume: Float) {
-        currentVolume = volume
-        mediaPlayer?.setVolume(volume, volume)
-    }
-
-    fun getVolume() = currentVolume
-
-    fun toggleRepeatMode(): RepeatMode {
-        repeatMode = when (repeatMode) {
-            RepeatMode.NONE -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.NONE
-        }
-        return repeatMode
-    }
-
-    // --- REPRODUÇÃO ---
     fun play(context: Context) {
-        if (currentIndex !in playlistQueue.indices) return
-        val item = playlistQueue[currentIndex]
-        currentTrack = item // Salva o item atual
         val track = getCurrentTrack() ?: return
-        listeners.forEach { it.onTrackChanged(item) }
-        val dataSource = when (track) {
-            is Song -> track.path 
-            is OnlineSong -> track.url 
+        
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+
+        val path = when (track) {
+            is Song -> track.path
+            is OnlineSong -> track.url
             else -> return
         }
 
         try {
-            mediaPlayer?.release()
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(dataSource)
-                setVolume(currentVolume, currentVolume)
+                setDataSource(path)
                 prepareAsync()
                 setOnPreparedListener { 
-                    start() 
-                    onPlaybackStatusChanged?.invoke(true)
+                    start()
+                    notifyStatusChanged(true)
+                    notifyTrackChanged(track)
                     updateService(context, "ACTION_PLAY")
                 }
-                setOnCompletionListener { 
-                    handleCompletion(context) 
+                setOnCompletionListener {
+                    next(context)
                 }
             }
-            onTrackChanged?.invoke(track)
-        } catch (e: Exception) { 
+        } catch (e: Exception) {
             Log.e("PlayerManager", "Erro ao tocar: ${e.message}")
         }
     }
 
-    private fun handleCompletion(context: Context) {
-        when (repeatMode) {
-            RepeatMode.ONE -> play(context) 
-            RepeatMode.ALL -> next(context) 
-            RepeatMode.NONE -> {
-                if (currentIndex < playlistQueue.size - 1) next(context) else stop()
-            }
-        }
-    }
-
-    fun setQueueAndPlay(list: List<Any>, index: Int, context: Context) {
-        originalQueue = list.toMutableList()
-        playlistQueue = if (isShuffle) list.shuffled().toMutableList() else list.toMutableList()
-        currentIndex = if (isShuffle) playlistQueue.indexOf(list[index]) else index
-        play(context)
-    }
-
     fun togglePlayPause(context: Context) {
         mediaPlayer?.let {
-            if (it.isPlaying) {
+            val playing = if (it.isPlaying) {
                 it.pause()
-                onPlaybackStatusChanged?.invoke(false)
                 updateService(context, "ACTION_PAUSE")
+                false
             } else {
                 it.start()
-                onPlaybackStatusChanged?.invoke(true)
                 updateService(context, "ACTION_PLAY")
+                true
             }
+            notifyStatusChanged(playing)
         }
-        listeners.forEach { it.onStatusChanged(isPlaying) }
+    }
+
+    private fun notifyStatusChanged(playing: Boolean) {
+        onPlaybackStatusChanged?.invoke(playing)
+        listeners.forEach { it.onStatusChanged(playing) }
+    }
+
+    private fun notifyTrackChanged(item: Any) {
+        onTrackChanged?.invoke(item)
+        listeners.forEach { it.onTrackChanged(item) }
     }
 
     fun next(context: Context) {
@@ -191,7 +146,7 @@ object LocalPlayerManager {
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
-        onPlaybackStatusChanged?.invoke(false)
+        notifyStatusChanged(false)
     }
 
     fun updateService(context: Context, action: String) {
@@ -203,4 +158,8 @@ object LocalPlayerManager {
             Log.e("PlayerManager", "Service error: ${e.message}")
         }
     }
+
+    fun getDuration(): Int = mediaPlayer?.duration ?: 0
+    fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
+    fun seekTo(pos: Int) = mediaPlayer?.seekTo(pos)
 }
