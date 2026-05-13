@@ -25,7 +25,8 @@ class MusicDownloadWorker(
     
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
+    val videoId = inputData.getString("VIDEO_ID") ?: return Result.failure()
+    val fileName = inputData.getString("FILE_NAME") ?: "music.mp3"
     private val channelId = "download_channel"
     private val NOTIFICATION_ID = 101
 
