@@ -168,7 +168,6 @@ class OnlineSearchActivity : AppCompatActivity() {
             override fun onQueryTextChange(newText: String?): Boolean = true
         })
     }
-
     private fun observeViewModel() {
         lifecycleScope.launch {
             viewModel.searchState.collect { state ->
@@ -179,14 +178,26 @@ class OnlineSearchActivity : AppCompatActivity() {
                     }
                     is SearchState.Success -> {
                         binding.progressBar.visibility = View.GONE
+                        
+                        // state.results agora contém a lista (seja de vídeos ou de playlists)
                         searchAdapter.submitList(state.results)
+                        
+                        // Gerencia o estado vazio
                         binding.emptyStateContainer.visibility = if (state.results.isEmpty()) View.VISIBLE else View.GONE
+                        
+                        // Opcional: Feedback visual se não houver resultados
+                        if (state.results.isEmpty()) {
+                            binding.tvEmptyMessage.text = "Nenhum resultado encontrado para esta busca."
+                        }
                     }
                     is SearchState.Error -> {
                         binding.progressBar.visibility = View.GONE
+                        binding.emptyStateContainer.visibility = View.VISIBLE
                         Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_SHORT).show()
                     }
-                    else -> binding.progressBar.visibility = View.GONE
+                    else -> {
+                        binding.progressBar.visibility = View.GONE
+                    }
                 }
             }
         }
