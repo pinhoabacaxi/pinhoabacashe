@@ -11,9 +11,9 @@ import com.maxrave.exampleApp.repository.YouTubePlaylist
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
 
 class SearchAdapter(
-    private val onItemClick: (Any) -> Unit
+    private val onItemClick: (Any) -> Unit,
+    private val onDownloadClick: (Any) -> Unit // Adicione esta linha aqui
 ) : RecyclerView.Adapter<SearchAdapter.SearchViewHolder>() {
-
     // Agora aceita qualquer tipo de objeto (Video ou Playlist)
     private var results: List<Any> = emptyList()
 
