@@ -11,9 +11,9 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.appcompat.widget.SearchView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -25,7 +25,7 @@ import com.maxrave.exampleApp.databinding.ActivityOnlineSearchBinding
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.YouTubeRepository
-import com.maxrave.exampleApp.repository.YouTubePlaylist // Ensure this is defined in your repository
+import com.maxrave.exampleApp.repository.YouTubePlaylist
 import com.maxrave.exampleApp.service.MusicDownloadWorker
 import com.maxrave.kotlinyoutubeextractor.SearchState
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
@@ -36,16 +36,15 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityOnlineSearchBinding
     private val viewModel: SearchViewModel by viewModels()
+    private val youtubeRepository by lazy { YouTubeRepository(this) }
     private lateinit var searchAdapter: SearchAdapter
-    private lateinit var youtubeRepository: YouTubeRepository
-    private var isPlaylistSearchMode = false 
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val allGranted = permissions.entries.all { it.value }
         if (!allGranted) {
-            Toast.makeText(this, "Algumas permissões foram negadas. O download pode não funcionar.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Algumas permissões foram negadas. O download pode não funcionar corretamente.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -54,11 +53,9 @@ class OnlineSearchActivity : AppCompatActivity() {
         binding = ActivityOnlineSearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        youtubeRepository = YouTubeRepository(this)
-        
         checkAndRequestPermissions()
         setupRecyclerView()
-        setupSearchInput()
+        setupSearchView()
         observeViewModel()
     }
 
@@ -80,48 +77,96 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        // Correct initialization passing two parameters
         searchAdapter = SearchAdapter(
             onItemClick = { item ->
                 when (item) {
-                    is VideoMeta -> startStreaming(item)
-                    is YouTubePlaylist -> showSavePlaylistDialog(item.playlistId, item.title)
+                    is VideoMeta -> playVideo(item)
+                    is YouTubePlaylist -> {
+                        // Ao invés de apenas baixar a playlist ao clicar, o comportamento padrão aqui
+                        // será listar as músicas dela na tela usando o ViewModel.
+                        Toast.makeText(this, "Abrindo playlist...", Toast.LENGTH_SHORT).show()
+                        viewModel.loadPlaylistVideos(item.playlistId)
+                    }
                 }
             },
             onDownloadClick = { item ->
-                iniciarDownload(item)
+                when (item) {
+                    is VideoMeta -> startDownload(item)
+                    is YouTubePlaylist -> showSavePlaylistDialog(item.playlistId, item.title)
+                }
             }
         )
+        binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)
+        binding.rvOnlineResults.adapter = searchAdapter
+    }
 
-        binding.rvOnlineResults.apply {
-            layoutManager = LinearLayoutManager(this@OnlineSearchActivity)
-            adapter = searchAdapter
+    private fun setupSearchView() {
+        // Agora usamos a busca unificada (performSearch) que traz Playlists e Vídeos
+        binding.searchViewOnline.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                query?.let { 
+                    viewModel.performSearch(it)
+                    hideKeyboard()
+                }
+                return true
+            }
+            override fun onQueryTextChange(newText: String?): Boolean = false
+        })
+    }
+
+    private fun observeViewModel() {
+        lifecycleScope.launch {
+            viewModel.searchState.collect { state ->
+                when (state) {
+                    is SearchState.Loading -> {
+                        binding.progressBar.visibility = View.VISIBLE
+                        binding.emptyStateContainer.visibility = View.GONE
+                    }
+                    is SearchState.Success -> {
+                        binding.progressBar.visibility = View.GONE
+                        searchAdapter.submitList(state.results)
+                        binding.emptyStateContainer.visibility = if (state.results.isEmpty()) View.VISIBLE else View.GONE
+                    }
+                    is SearchState.Error -> {
+                        binding.progressBar.visibility = View.GONE
+                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_LONG).show()
+                    }
+                    else -> binding.progressBar.visibility = View.GONE
+                }
+            }
         }
     }
 
-    private fun iniciarDownload(item: Any) {
-        val workManager = WorkManager.getInstance(this)
-        val workData = when (item) {
-            is VideoMeta -> workDataOf(
-                "VIDEO_ID" to item.videoId,
-                "FILE_NAME" to "${item.title}.mp3"
-            )
-            is OnlineSong -> workDataOf(
-                "VIDEO_ID" to item.videoId,
-                "FILE_NAME" to "${item.title}.mp3"
-            )
-            else -> return
+    private fun playVideo(videoMeta: VideoMeta) {
+        lifecycleScope.launch {
+            binding.progressBar.visibility = View.VISIBLE
+            val onlineSong = youtubeRepository.extractAudioLink(videoMeta.videoId)
+            binding.progressBar.visibility = View.GONE
+            
+            if (onlineSong != null) {
+                LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
+                finish()
+            } else {
+                Toast.makeText(this@OnlineSearchActivity, "Não foi possível reproduzir este vídeo", Toast.LENGTH_SHORT).show()
+            }
         }
+    }
 
+    private fun startDownload(videoMeta: VideoMeta) {
         val downloadRequest = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
-            .setInputData(workData)
+            .setInputData(workDataOf(
+                "VIDEO_ID" to videoMeta.videoId,
+                "FILE_NAME" to "${videoMeta.title}.mp3", // Usando FILE_NAME para manter consistência com o Worker
+                "TITLE" to videoMeta.title,
+                "ARTIST" to videoMeta.author,
+                "THUMBNAIL" to videoMeta.thumbnailUrl
+            ))
             .build()
-
-        workManager.enqueue(downloadRequest)
-        Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
+        WorkManager.getInstance(this).enqueue(downloadRequest)
+        Toast.makeText(this, "Download iniciado: ${videoMeta.title}", Toast.LENGTH_SHORT).show()
     }
 
-    fun showSavePlaylistDialog(playlistId: String, playlistTitle: String) {
+    private fun showSavePlaylistDialog(playlistId: String, playlistTitle: String) {
         val editText = EditText(this)
         editText.setText(playlistTitle)
         editText.setSelection(editText.text.length)
@@ -146,6 +191,7 @@ class OnlineSearchActivity : AppCompatActivity() {
         lifecycleScope.launch {
             binding.progressBar.visibility = View.VISIBLE
             try {
+                // Busca as músicas usando o repositório
                 val songs = youtubeRepository.getPlaylistVideos(playlistId)
                 if (songs.isNotEmpty()) {
                     val workManager = WorkManager.getInstance(this@OnlineSearchActivity)
@@ -153,7 +199,7 @@ class OnlineSearchActivity : AppCompatActivity() {
                         val workData = workDataOf(
                             "VIDEO_ID" to song.videoId,
                             "FILE_NAME" to "${song.title}.mp3",
-                            "PLAYLIST_NAME" to customName
+                            "PLAYLIST_NAME" to customName // Passa o nome da pasta para o Worker
                         )
                         val downloadRequest = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
                             .setInputData(workData)
@@ -161,92 +207,11 @@ class OnlineSearchActivity : AppCompatActivity() {
                         workManager.enqueue(downloadRequest)
                     }
                     Toast.makeText(this@OnlineSearchActivity, "Iniciado download de ${songs.size} músicas", Toast.LENGTH_LONG).show()
+                } else {
+                     Toast.makeText(this@OnlineSearchActivity, "A playlist está vazia ou inacessível.", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 Toast.makeText(this@OnlineSearchActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
-            } finally {
-                binding.progressBar.visibility = View.GONE
-            }
-        }
-    }
-
-    private fun setupSearchInput() {
-        binding.searchViewOnline.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
-                query?.let {
-                    hideKeyboard()
-                    if (isPlaylistSearchMode) {
-                        performPlaylistSearch(it)
-                    } else {
-                        viewModel.performSearch(it) // Corrected method name
-                    }
-                }
-                return true
-            }
-            override fun onQueryTextChange(newText: String?): Boolean = false
-        })
-    }
-
-    private fun observeViewModel() {
-        lifecycleScope.launch {
-            viewModel.searchState.collect { state ->
-                when (state) {
-                    is SearchState.Loading -> {
-                        binding.progressBar.visibility = View.VISIBLE
-                        binding.emptyStateContainer.visibility = View.GONE
-                    }
-                    is SearchState.Success -> {
-                        binding.progressBar.visibility = View.GONE
-                        searchAdapter.submitList(state.results)
-                        binding.emptyStateContainer.visibility = if (state.results.isEmpty()) View.VISIBLE else View.GONE
-                    }
-                    is SearchState.Error -> {
-                        binding.progressBar.visibility = View.GONE
-                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_SHORT).show()
-                    }
-                    else -> binding.progressBar.visibility = View.GONE
-                }
-            }
-        }
-    }
-
-    private fun startStreaming(videoMeta: VideoMeta) {
-        binding.progressBar.visibility = View.VISIBLE
-        lifecycleScope.launch {
-            try {
-                val streamData = youtubeRepository.extractAudioLink(videoMeta.videoId)
-                if (streamData != null) {
-                    val onlineSong = OnlineSong(
-                        videoId = videoMeta.videoId,
-                        title = videoMeta.title,
-                        author = videoMeta.author,
-                        thumbnailUrl = videoMeta.thumbnailUrl,
-                        url = streamData.url, 
-                        duration = videoMeta.duration.toString()
-                    )
-                    LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
-                    finish() 
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this@OnlineSearchActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
-            } finally {
-                binding.progressBar.visibility = View.GONE
-            }
-        }
-    }
-
-    private fun performPlaylistSearch(query: String) {
-        lifecycleScope.launch {
-            binding.progressBar.visibility = View.VISIBLE
-            try {
-                val playlists = youtubeRepository.searchPlaylists(query) 
-                if (playlists.isNotEmpty()) {
-                    searchAdapter.submitList(playlists)
-                    binding.rvOnlineResults.visibility = View.VISIBLE
-                    binding.emptyStateContainer.visibility = View.GONE
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this@OnlineSearchActivity, "Erro", Toast.LENGTH_SHORT).show()
             } finally {
                 binding.progressBar.visibility = View.GONE
             }
