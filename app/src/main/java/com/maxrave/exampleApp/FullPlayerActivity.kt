@@ -25,7 +25,7 @@ import com.maxrave.exampleApp.service.MusicDownloadWorker
 import jp.wasabeef.glide.transformations.BlurTransformation
 import kotlinx.coroutines.launch
 
-class FullPlayerActivity : AppCompatActivity() {
+class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListener { 
 
     private lateinit var ivAlbumArt: ImageView
     private lateinit var ivBackgroundBlur: ImageView
