@@ -73,6 +73,7 @@ object LocalPlayerManager {
             currentIndex++
         }
         play(context)
+        listeners.forEach { it.onStatusChanged(isPlaying) }
     }
     fun addToEnd(item: Any) {
         playlistQueue.add(item)
