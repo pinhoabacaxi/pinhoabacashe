@@ -55,7 +55,10 @@ class SongAdapter(
 
             Glide.with(holder.itemView.context)
                 .load(albumArtUri)
+                .transition(DrawableTransitionOptions.withCrossFade())
                 .placeholder(android.R.drawable.ic_media_play) 
+                .placeholder(R.drawable.ic_music_note) // Use um ícone padrão do seu app
+                .error(R.drawable.ic_music_note)       // Caso falhe (como no seu log), carrega o padrão
                 .error(android.R.drawable.ic_media_play)      
                 .into(ivAlbumArt)
 
