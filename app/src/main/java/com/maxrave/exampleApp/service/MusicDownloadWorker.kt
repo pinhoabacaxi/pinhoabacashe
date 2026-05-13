@@ -22,7 +22,7 @@ class MusicDownloadWorker(
     private val context: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
-
+    
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -31,6 +31,8 @@ class MusicDownloadWorker(
 
     override suspend fun doWork(): Result {
         // Obtemos os dados de entrada
+        val repository = YouTubeRepository(applicationContext)
+        val onlineSong = repository.extractAudioLink(videoId) // Nome deve ser o mesmo do passo 1
         var audioUrl = inputData.getString("URL")
         val videoId = inputData.getString("VIDEO_ID")
         val fileName = inputData.getString("FILE_NAME") ?: "musica_${System.currentTimeMillis()}.mp3"
