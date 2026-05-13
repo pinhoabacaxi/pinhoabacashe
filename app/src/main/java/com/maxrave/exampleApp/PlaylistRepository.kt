@@ -36,7 +36,7 @@ class PlaylistRepository(context: Context) {
                 id = item.id.toString(),
                 title = item.title,
                 artist = item.artist,
-                path = item.path,
+                sourcePath = item.path,
                 thumbnailUrl = null,
                 isOnline = false
             )
@@ -44,7 +44,7 @@ class PlaylistRepository(context: Context) {
                 id = item.videoId,
                 title = item.title,
                 artist = item.author,
-                path = item.url,
+                sourcePath = item.url,
                 thumbnailUrl = item.thumbnailUrl,
                 isOnline = true
             )
@@ -52,7 +52,7 @@ class PlaylistRepository(context: Context) {
                 id = item.videoId,
                 title = item.title,
                 artist = item.author,
-                path = "", // URL ainda não extraída na busca
+                sourcePath = "", // URL ainda não extraída na busca
                 thumbnailUrl = item.thumbnailUrl,
                 isOnline = true
             )
