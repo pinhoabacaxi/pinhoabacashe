@@ -50,6 +50,7 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         initViews()
         setupListeners()
         observePlayer()
+        LocalPlayerManager.getCurrentTrack()?.let { updateUI(it) }
     }
 
     private fun initViews() {
@@ -69,18 +70,18 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         btnShuffle = findViewById(R.id.btnShuffle)
     
         // Inicialização e Configuração do Botão de Download
-        btnDownload = findViewById(R.id.btnDownload) [cite: 4]
+        btnDownload = findViewById(R.id.btnDownload) // Agora o ID existe no XML!
         btnDownload.setOnClickListener {
-            val currentSong = LocalPlayerManager.getCurrentTrack() [cite: 6]
+            val currentSong = LocalPlayerManager.getCurrentTrack()
             if (currentSong is OnlineSong) {
-                startDownload(currentSong) [cite: 6]
+                startDownload(currentSong)
             } else {
                 Toast.makeText(this, "Esta música já é local", Toast.LENGTH_SHORT).show()
             }
         }
     
         // Configuração de Volume inicial
-        seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt() [cite: 5]
+        seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt()
     }
     private fun setupListeners() {
         btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
