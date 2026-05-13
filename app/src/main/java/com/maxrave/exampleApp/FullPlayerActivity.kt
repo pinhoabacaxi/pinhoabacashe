@@ -50,11 +50,12 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         initViews()
         setupListeners()
         observePlayer()
+        
+        // Inicializa a UI com a música atual, se houver
         LocalPlayerManager.getCurrentTrack()?.let { updateUI(it) }
     }
 
     private fun initViews() {
-    // Inicialização básica dos componentes de UI
         ivAlbumArt = findViewById(R.id.ivAlbumArt)
         ivBackgroundBlur = findViewById(R.id.ivBackgroundBlur)
         tvTitle = findViewById(R.id.tvTitle)
@@ -68,21 +69,12 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         btnPrev = findViewById(R.id.btnPrev)
         btnRepeat = findViewById(R.id.btnRepeat)
         btnShuffle = findViewById(R.id.btnShuffle)
-    
-        // Inicialização e Configuração do Botão de Download
-        btnDownload = findViewById(R.id.btnDownload) // Agora o ID existe no XML!
-        btnDownload.setOnClickListener {
-            val currentSong = LocalPlayerManager.getCurrentTrack()
-            if (currentSong is OnlineSong) {
-                startDownload(currentSong)
-            } else {
-                Toast.makeText(this, "Esta música já é local", Toast.LENGTH_SHORT).show()
-            }
-        }
-    
-        // Configuração de Volume inicial
+        btnDownload = findViewById(R.id.btnDownload)
+
+        // Sincroniza o volume inicial
         seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt()
     }
+
     private fun setupListeners() {
         btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
         btnNext.setOnClickListener { LocalPlayerManager.next(this) }
@@ -96,10 +88,19 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         btnDownload.setOnClickListener {
             val track = LocalPlayerManager.getCurrentTrack()
             if (track is OnlineSong) {
-                val data = workDataOf("URL" to track.url, "FILE_NAME" to "${track.title}.mp3")
-                val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>().setInputData(data).build()
+                // Envia VIDEO_ID e FILE_NAME para o Worker de download
+                val data = workDataOf(
+                    "VIDEO_ID" to track.videoId, 
+                    "FILE_NAME" to "${track.title}.mp3"
+                )
+                val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
+                    .setInputData(data)
+                    .build()
+                
                 WorkManager.getInstance(this).enqueue(request)
                 Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Esta música já é local", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -107,7 +108,9 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
             override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
                 if (fromUser) tvCurrentTime.text = formatTime(p)
             }
-            override fun onStartTrackingTouch(s: SeekBar?) { handler.removeCallbacks(updateProgressAction) }
+            override fun onStartTrackingTouch(s: SeekBar?) { 
+                handler.removeCallbacks(updateProgressAction) 
+            }
             override fun onStopTrackingTouch(s: SeekBar?) {
                 s?.let { LocalPlayerManager.seekTo(it.progress) }
                 handler.post(updateProgressAction)
@@ -134,7 +137,10 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
 
     override fun onStatusChanged(isPlaying: Boolean) {
         runOnUiThread {
-            btnPlayPause.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+            btnPlayPause.setImageResource(
+                if (isPlaying) android.R.drawable.ic_media_pause 
+                else android.R.drawable.ic_media_play
+            )
         }
     }
 
@@ -143,7 +149,7 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
             is Song -> {
                 tvTitle.text = item.title
                 tvArtist.text = item.artist
-                ivAlbumArt.setImageResource(R.drawable.ic_music_note)
+                ivAlbumArt.setImageResource(android.R.drawable.ic_media_play)
                 applyBlur(null)
             }
             is OnlineSong -> {
@@ -158,7 +164,11 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
 
     private fun applyBlur(url: String?) {
         val options = RequestOptions.bitmapTransform(BlurTransformation(25, 3))
-        Glide.with(this).load(url ?: R.drawable.ic_music_note).apply(options).into(ivBackgroundBlur)
+        // Carrega o placeholder se a URL for nula
+        Glide.with(this)
+            .load(url ?: android.R.drawable.ic_media_play)
+            .apply(options)
+            .into(ivBackgroundBlur)
     }
 
     private fun updateProgress() {
@@ -174,7 +184,10 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
 
     private fun updateRepeatButtonUI(mode: LocalPlayerManager.RepeatMode) {
         btnRepeat.alpha = if (mode == LocalPlayerManager.RepeatMode.NONE) 0.5f else 1.0f
-        val icon = if (mode == LocalPlayerManager.RepeatMode.ONE) android.R.drawable.ic_menu_today else android.R.drawable.ic_menu_revert
+        val icon = if (mode == LocalPlayerManager.RepeatMode.ONE) 
+            android.R.drawable.ic_menu_today 
+        else 
+            android.R.drawable.ic_menu_revert
         btnRepeat.setImageResource(icon)
     }
 
