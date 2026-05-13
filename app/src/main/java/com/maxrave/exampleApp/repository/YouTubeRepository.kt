@@ -152,9 +152,17 @@ class YouTubeRepository(private val context: Context) {
         val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
         val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
         val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
-        return VideoMeta(videoId, title, author, thumbUrl, "")
+        
+        // Certifique-se de que VideoMeta tenha esses parâmetros. 
+        // Se a sua classe VideoMeta for a da biblioteca, use os parâmetros que ela exige:
+        return VideoMeta(
+            videoId = videoId,
+            title = title,
+            author = author,
+            thumbnailUrl = thumbUrl,
+            duration = "" // Passe o que a classe espera aqui
+        )
     }
-
     private fun parsePlaylistRenderer(obj: JSONObject): YouTubePlaylist {
         val id = obj.optString("playlistId")
         val title = obj.optJSONObject("title")?.optString("simpleText") ?: ""
