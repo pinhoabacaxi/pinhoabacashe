@@ -26,7 +26,7 @@ class YouTubeRepository(private val context: Context) {
     
     // API Keys (Omitidas conforme solicitado)
     private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
-    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU
+    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU"
     /**
      * Extrai o link direto de áudio de um vídeo específico
      */
