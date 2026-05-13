@@ -29,7 +29,7 @@ import com.maxrave.exampleApp.repository.YouTubePlaylist
 import com.maxrave.exampleApp.service.MusicDownloadWorker
 import com.maxrave.kotlinyoutubeextractor.SearchState
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
-import com.maxrave.kotlinyoutubeextractor.viewmodel.SearchViewModel
+import com.maxrave.exampleApp.viewmodel.SearchViewModel // Caminho correto após a mudança
 import kotlinx.coroutines.launch
 
 class OnlineSearchActivity : AppCompatActivity() {
