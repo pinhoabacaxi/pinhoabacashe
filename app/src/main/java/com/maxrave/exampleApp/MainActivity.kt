@@ -266,4 +266,15 @@ class MainActivity : AppCompatActivity() {
         })
         helper.attachToRecyclerView(rvSongs)
     }
+    override fun onStart() {
+        super.onStart()
+        // Se inscreve para receber atualizações
+        LocalPlayerManager.subscribe(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Remove a inscrição ao sair para evitar vazamento de memória
+        LocalPlayerManager.unsubscribe(this)
+    }
 }
