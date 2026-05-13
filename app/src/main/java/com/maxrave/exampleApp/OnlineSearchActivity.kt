@@ -37,6 +37,7 @@ class OnlineSearchActivity : AppCompatActivity() {
     private val viewModel: SearchViewModel by viewModels()
     private lateinit var searchAdapter: SearchAdapter
     private lateinit var youtubeRepository: YouTubeRepository
+    private var isPlaylistSearchMode = false // Adicione esta linha que estava faltando
 
     // 1. GERENCIADOR DE PERMISSÕES (Moderno)
     private val requestPermissionLauncher = registerForActivityResult(
@@ -84,6 +85,27 @@ class OnlineSearchActivity : AppCompatActivity() {
         }
     }
 
+   
+    private fun setupListeners() {
+        binding.searchViewOnline.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                query?.let {
+                    hideKeyboard()
+                    if (isPlaylistSearchMode) {
+                        performPlaylistSearch(it)
+                    } else {
+                        viewModel.search(it)
+                    }
+                }
+                return true
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                return false
+            }
+        })
+    }
+}
     private fun setupRecyclerView() {
         // Agora o clique deve verificar se o item é um vídeo ou uma playlist
         searchAdapter = SearchAdapter { item ->
