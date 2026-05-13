@@ -84,13 +84,19 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        // Configuramos o clique simples para Play e o clique longo para Download
-        searchAdapter = SearchAdapter { videoMeta ->
-            startStreaming(videoMeta)
+        // Agora o clique deve verificar se o item é um vídeo ou uma playlist
+        searchAdapter = SearchAdapter { item ->
+            when (item) {
+                is VideoMeta -> {
+                    // Se for vídeo normal, inicia o streaming como antes
+                    startStreaming(item)
+                }
+                is YouTubePlaylist -> {
+                    // NOVA FUNCIONALIDADE: Se for playlist, abre o diálogo de download
+                    showSavePlaylistDialog(item.playlistId, item.title)
+                }
+            }
         }
-        
-        // Se o seu SearchAdapter suportar clique longo para download, adicione aqui
-        // Caso contrário, você pode adicionar um botão de download no item_search.xml
         
         binding.rvOnlineResults.apply {
             layoutManager = LinearLayoutManager(this@OnlineSearchActivity)
