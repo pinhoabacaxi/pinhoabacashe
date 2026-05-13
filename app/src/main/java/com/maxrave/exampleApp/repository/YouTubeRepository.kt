@@ -174,7 +174,7 @@ class YouTubeRepository(private val context: Context) {
         
         // Tenta obter o vídeoCount do JSON. 
         // O InnerTube às vezes envia como String ("10") e às vezes dentro de outro objeto.
-        val countString = obj.optString("videoCount") 
+        val countString = obj.toString("videoCount") 
         
         // Converte para Int para satisfazer o erro "Type mismatch: String but Int was expected"
         // Se não conseguir converter, o padrão é 0.
