@@ -36,7 +36,7 @@ class OnlineSearchActivity : AppCompatActivity() {
         setupSearchInput()
         observeViewModel()
     }
-
+    
     private fun setupRecyclerView() {
         searchAdapter = SearchAdapter { videoMeta ->
             startStreaming(videoMeta)
@@ -46,6 +46,25 @@ class OnlineSearchActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@OnlineSearchActivity)
             adapter = searchAdapter
         }
+    }
+    private fun showSavePlaylistDialog(playlistItems: List<OnlineSong>) {
+        val editText = EditText(this)
+        editText.hint = "Nome da Playlist Local"
+
+        AlertDialog.Builder(this)
+            .setTitle("Salvar Playlist Localmente")
+            .setMessage("Digite o nome para sua nova playlist:")
+            .setView(editText)
+            .setPositiveButton("Baixar Tudo") { _, _ ->
+                val customName = editText.text.toString()
+                if (customName.isNotEmpty()) {
+                    downloadFullPlaylist(customName, playlistItems)
+                } else {
+                    Toast.makeText(this, "Nome não pode ser vazio", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun setupSearchInput() {
