@@ -257,23 +257,23 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         }
     }
 
-    private val updateProgressAction = object : Runnable {
-        override fun run() {
-            updateProgress()
-            handler.postDelayed(this, 1000)
+    override fun onTrackChanged(item: Any) {
+    // Quando a música mudar (pelo "Próximo" ou "Anterior"), a UI atualiza aqui
+        runOnUiThread {
+            updateUI(item)
         }
     }
 
-    private fun updateProgress() {
-        val current = LocalPlayerManager.getCurrentPosition()
-        val total = LocalPlayerManager.getDuration()
-        if (total > 0) {
-            seekBar.max = total
-            seekBar.progress = current
-            tvCurrentTime.text = formatTime(current)
-            tvTotalTime.text = formatTime(total)
+    override fun onStatusChanged(isPlaying: Boolean) {
+    // Quando der Play ou Pause, o botão muda aqui
+        runOnUiThread {
+            btnPlayPause.setImageResource(
+                if (isPlaying) android.R.drawable.ic_media_pause 
+                else android.R.drawable.ic_media_play
+            )
         }
     }
+
 
     private fun formatTime(ms: Int): String {
         val minutes = (ms / 1000) / 60
