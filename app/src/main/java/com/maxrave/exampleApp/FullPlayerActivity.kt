@@ -9,28 +9,24 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.maxrave.exampleApp.Room.SongEntity
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.player.LocalPlayerManager
-import com.maxrave.exampleApp.repository.PlaylistRepository
 import com.maxrave.exampleApp.service.MusicDownloadWorker
 import jp.wasabeef.glide.transformations.BlurTransformation
-import kotlinx.coroutines.launch
 
-class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListener { 
+class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListener {
 
     private lateinit var ivAlbumArt: ImageView
     private lateinit var ivBackgroundBlur: ImageView
-    private lateinit var tvTitle: TextView
-    private lateinit var tvArtist: TextView
+    private lateinit var tvSongTitle: TextView // Nome ajustado para evitar conflitos
+    private lateinit var tvSongArtist: TextView // Nome ajustado para evitar conflitos
     private lateinit var seekBar: SeekBar
     private lateinit var seekBarVolume: SeekBar
     private lateinit var tvCurrentTime: TextView
@@ -39,11 +35,11 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
     private lateinit var btnNext: ImageButton
     private lateinit var btnPrev: ImageButton
     private lateinit var btnRepeat: ImageButton
-    private lateinit var btnDownload: ImageButton
+    private lateinit var btnDownloadAction: ImageButton // Nome ajustado
 
     private val handler = Handler(Looper.getMainLooper())
-    
-    // CORREÇÃO: Objeto responsável por atualizar o progresso a cada 1 segundo
+
+    // Objeto que atualiza a barra de progresso a cada segundo
     private val updateProgressAction = object : Runnable {
         override fun run() {
             updateProgress()
@@ -63,8 +59,12 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
     private fun initViews() {
         ivAlbumArt = findViewById(R.id.ivAlbumArt)
         ivBackgroundBlur = findViewById(R.id.ivBackgroundBlur)
-        tvTitle = findViewById(R.id.tvTitle)
-        tvArtist = findViewById(R.id.tvArtist)
+        
+        // IMPORTANTE: Verifique se no seu XML as IDs são estas. 
+        // Se o erro persistir, altere o R.id.NOME para o que está no seu XML
+        tvSongTitle = findViewById(R.id.tvTitle) 
+        tvSongArtist = findViewById(R.id.tvArtist)
+        
         seekBar = findViewById(R.id.seekBar)
         seekBarVolume = findViewById(R.id.seekBarVolume)
         tvCurrentTime = findViewById(R.id.tvCurrentTime)
@@ -73,9 +73,9 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         btnNext = findViewById(R.id.btnNext)
         btnPrev = findViewById(R.id.btnPrev)
         btnRepeat = findViewById(R.id.btnRepeat)
-        btnDownload = findViewById(R.id.btnDownload)
+        btnDownloadAction = findViewById(R.id.btnDownload)
 
-        // Inicializa o volume da UI com o valor do Player
+        // Inicializa o volume da UI com o valor atual do Player
         seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt()
     }
 
@@ -97,12 +97,12 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
             updateRepeatButtonUI(newMode)
         }
 
-        btnDownload.setOnClickListener {
+        btnDownloadAction.setOnClickListener {
             val track = LocalPlayerManager.getCurrentTrack()
             if (track is OnlineSong) {
                 startDownloadWork(track)
             } else {
-                Toast.makeText(this, "Esta música já é local", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Música já disponível localmente", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -133,10 +133,9 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         handler.post(updateProgressAction)
     }
 
+    // Implementação da Interface PlayerListener
     override fun onTrackChanged(item: Any) {
-        runOnUiThread {
-            updateUI(item)
-        }
+        runOnUiThread { updateUI(item) }
     }
 
     override fun onStatusChanged(isPlaying: Boolean) {
@@ -151,14 +150,14 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
     private fun updateUI(item: Any) {
         when (item) {
             is Song -> {
-                tvTitle.text = item.title
-                tvArtist.text = item.artist
+                tvSongTitle.text = item.title
+                tvSongArtist.text = item.artist
                 ivAlbumArt.setImageResource(R.drawable.ic_music_note)
                 applyBlurBackground(null)
             }
             is OnlineSong -> {
-                tvTitle.text = item.title
-                tvArtist.text = item.author
+                tvSongTitle.text = item.title
+                tvSongArtist.text = item.author
                 Glide.with(this).load(item.thumbnailUrl).into(ivAlbumArt)
                 applyBlurBackground(item.thumbnailUrl)
             }
@@ -179,10 +178,11 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
 
     private fun applyBlurBackground(url: String?) {
         val requestOptions = RequestOptions.bitmapTransform(BlurTransformation(25, 3))
+        val target = ivBackgroundBlur
         if (url != null) {
-            Glide.with(this).load(url).apply(requestOptions).into(ivBackgroundBlur)
+            Glide.with(this).load(url).apply(requestOptions).into(target)
         } else {
-            Glide.with(this).load(R.drawable.ic_music_note).apply(requestOptions).into(ivBackgroundBlur)
+            Glide.with(this).load(R.drawable.ic_music_note).apply(requestOptions).into(target)
         }
     }
 
@@ -209,12 +209,12 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
             .setInputData(data)
             .build()
         WorkManager.getInstance(this).enqueue(request)
-        Toast.makeText(this, "Download iniciado...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Iniciando download...", Toast.LENGTH_SHORT).show()
     }
 
     private fun formatTime(ms: Int): String {
-        val minutes = (ms / 1000) / 60
         val seconds = (ms / 1000) % 60
+        val minutes = (ms / (1000 * 60)) % 60
         return String.format("%d:%02d", minutes, seconds)
     }
 
