@@ -120,6 +120,8 @@ class HybridAdapter(
                     Glide.with(itemView.context)
                         .load(item.thumbnailUrl)
                         .placeholder(android.R.drawable.ic_menu_gallery)
+                        .error(R.drawable.ic_music_note)
+                        .fallback(R.drawable.ic_music_note) // Adicionado para casos de NULL pointer
                         .centerCrop()
                         .into(ivArt)
                 }
