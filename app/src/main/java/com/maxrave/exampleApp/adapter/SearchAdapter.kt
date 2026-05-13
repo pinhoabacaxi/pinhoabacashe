@@ -39,7 +39,7 @@ class SearchAdapter(
                     tvOnlineChannel.text = item.author
                     
                     // Ícone indicador (opcional: mostrar que é uma música única)
-                    // ivTypeIcon?.setImageResource(android.R.drawable.ic_media_play)
+                    ivTypeIcon?.setImageResource(android.R.drawable.ic_media_play)
 
                     val thumbToLoad = item.thumbnailUrl.ifEmpty { 
                         "https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg" 
@@ -53,7 +53,7 @@ class SearchAdapter(
                     tvOnlineChannel.text = "${item.author} • ${item.videoCount} vídeos"
                     
                     // Diferenciação visual (opcional: mudar cor do texto ou ícone)
-                    // ivTypeIcon?.setImageResource(android.R.drawable.ic_menu_agenda)
+                    ivTypeIcon?.setImageResource(android.R.drawable.ic_menu_agenda)
 
                     loadImage(holder, item.thumbnailUrl)
                 }
@@ -63,7 +63,7 @@ class SearchAdapter(
             root.setOnClickListener { onItemClick(item) }
             
             // Se você tiver um botão de download específico no seu item_online_song.xml:
-            // btnDownload?.setOnClickListener { onDownloadClick?.invoke(item) }
+            btnDownload?.setOnClickListener { onDownloadClick?.invoke(item) }
         }
     }
 
