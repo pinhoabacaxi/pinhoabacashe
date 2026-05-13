@@ -53,6 +53,7 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
     }
 
     private fun initViews() {
+    // Inicialização básica dos componentes de UI
         ivAlbumArt = findViewById(R.id.ivAlbumArt)
         ivBackgroundBlur = findViewById(R.id.ivBackgroundBlur)
         tvTitle = findViewById(R.id.tvTitle)
@@ -65,21 +66,22 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         btnNext = findViewById(R.id.btnNext)
         btnPrev = findViewById(R.id.btnPrev)
         btnRepeat = findViewById(R.id.btnRepeat)
-        btnDownload = findViewById(R.id.btnDownload)
         btnShuffle = findViewById(R.id.btnShuffle)
+    
+        // Inicialização e Configuração do Botão de Download
+        btnDownload = findViewById(R.id.btnDownload) [cite: 4]
         btnDownload.setOnClickListener {
-        // Lógica de download
-        val currentSong = LocalPlayerManager.currentSong
-        if (currentSong is OnlineSong) {
-            startDownload(currentSong)
-        } else {
-            Toast.makeText(this, "Esta música já é local", Toast.LENGTH_SHORT).show()
+            val currentSong = LocalPlayerManager.getCurrentTrack() [cite: 6]
+            if (currentSong is OnlineSong) {
+                startDownload(currentSong) [cite: 6]
+            } else {
+                Toast.makeText(this, "Esta música já é local", Toast.LENGTH_SHORT).show()
             }
         }
-        // Sincroniza o volume inicial
-        seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt()
+    
+        // Configuração de Volume inicial
+        seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt() [cite: 5]
     }
-
     private fun setupListeners() {
         btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
         btnNext.setOnClickListener { LocalPlayerManager.next(this) }
