@@ -266,6 +266,30 @@ class MainActivity : AppCompatActivity() {
         })
         helper.attachToRecyclerView(rvSongs)
     }
+    private fun updateMiniPlayer(item: Any) {
+        val miniPlayer = findViewById<View>(R.id.includeMiniPlayer)
+        // Força a visibilidade a aparecer
+        miniPlayer.visibility = View.VISIBLE
+        
+        val tvMiniTitle = findViewById<TextView>(R.id.tvMiniTitle)
+        val tvMiniArtist = findViewById<TextView>(R.id.tvMiniArtist)
+        val ivMiniArt = findViewById<ImageView>(R.id.ivMiniArt)
+
+        when (item) {
+            is Song -> {
+                tvMiniTitle.text = item.title
+                tvMiniArtist.text = item.artist
+                ivMiniArt.setImageResource(R.drawable.ic_music_note) // ou seu padrão
+            }
+            is OnlineSong -> {
+                tvMiniTitle.text = item.title
+                tvMiniArtist.text = item.author
+                // Carrega a thumb do YouTube no Miniplayer
+                Glide.with(this).load(item.thumbnailUrl).into(ivMiniArt)
+            }
+        }
+        updatePlayPauseButton()
+    }
     override fun onStart() {
         super.onStart()
         // Se inscreve para receber atualizações
