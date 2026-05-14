@@ -18,31 +18,39 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState
 
+    /**
+     * Realiza a busca unificada de vídeos e playlists em paralelo.
+     */
     fun performSearch(query: String) {
         if (query.isBlank()) return
         
         viewModelScope.launch {
             _searchState.value = SearchState.Loading
             try {
-                // Inicia as buscas em paralelo para otimizar o tempo
+                // DISPARO EM PARALELO: Iniciamos as duas buscas ao mesmo tempo
                 val videosDeferred = async { repository.searchVideos(query) }
                 val playlistsDeferred = async { repository.searchPlaylists(query) }
 
+                // AGUARDAR RESULTADOS: Esperamos ambas terminarem
                 val videos = videosDeferred.await()
                 val playlists = playlistsDeferred.await()
 
+                // UNIFICAÇÃO: Criamos uma lista mista
                 val combinedResults = mutableListOf<Any>()
-                combinedResults.addAll(playlists)
+                combinedResults.addAll(playlists) // Adicionamos playlists primeiro (opcional)
                 combinedResults.addAll(videos)
 
                 _searchState.value = SearchState.Success(combinedResults)
             } catch (e: Exception) {
-                Log.e("SearchVM", "Erro na busca: ${e.message}")
+                Log.e("SearchVM", "Erro na busca unificada: ${e.message}")
                 _searchState.value = SearchState.Error(e.localizedMessage ?: "Erro na conexão")
             }
         }
     }
 
+    /**
+     * Carrega os vídeos de dentro de uma playlist selecionada.
+     */
     fun loadPlaylistVideos(playlistId: String) {
         viewModelScope.launch {
             _searchState.value = SearchState.Loading
