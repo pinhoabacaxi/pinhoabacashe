@@ -74,6 +74,7 @@ class OnlineSearchActivity : AppCompatActivity() {
         }
     }
 
+    // Dentro de OnlineSearchActivity.kt
     private fun handleVideoClick(video: VideoMeta) {
         lifecycleScope.launch(Dispatchers.Main) {
             binding.progressBar.visibility = View.VISIBLE
@@ -82,9 +83,12 @@ class OnlineSearchActivity : AppCompatActivity() {
                     youtubeRepository.extractAudioLink(video.videoId)
                 }
                 if (song != null) {
-                    LocalPlayerManager.playOnline(song, this@OnlineSearchActivity)
+                    // CORREÇÃO AQUI: Passa como uma lista de 1 item e posição 0
+                    LocalPlayerManager.setQueueAndPlay(listOf(song), 0, this@OnlineSearchActivity)
+                    // Opcional: Abrir a tela do player
+                    startActivity(Intent(this@OnlineSearchActivity, FullPlayerActivity::class.java))
                 } else {
-                    Toast.makeText(this@OnlineSearchActivity, "Erro ao extrair link", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@OnlineSearchActivity, "Link expirado ou vídeo restrito", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 Toast.makeText(this@OnlineSearchActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -93,6 +97,7 @@ class OnlineSearchActivity : AppCompatActivity() {
             }
         }
     }
+   
 
     private fun observeViewModel() {
         lifecycleScope.launchWhenStarted {
