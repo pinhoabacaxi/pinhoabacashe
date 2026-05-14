@@ -10,6 +10,9 @@ import com.maxrave.exampleApp.databinding.ItemOnlineSongBinding
 import com.maxrave.exampleApp.repository.YouTubePlaylist
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
 
+/**
+ * Adapter unificado capaz de renderizar tanto vídeos (VideoMeta) quanto coleções (YouTubePlaylist).
+ */
 class SearchAdapter(
     private val onItemClick: (Any) -> Unit,
     private val onDownloadClick: (Any) -> Unit
@@ -34,10 +37,14 @@ class SearchAdapter(
         holder.binding.apply {
             when (item) {
                 is VideoMeta -> {
-                    // Configuração visual para VÍDEO
+                    // CONFIGURAÇÃO PARA VÍDEO
                     tvOnlineTitle.text = item.title
                     tvOnlineChannel.text = item.author
+                    
+                    // Ícone de Play indica conteúdo executável imediatamente
                     ivTypeIcon?.setImageResource(android.R.drawable.ic_media_play)
+                    
+                    // Botão de download visível apenas para vídeos individuais
                     btnDownload?.visibility = View.VISIBLE
                     
                     val thumbToLoad = item.thumbnailUrl.ifEmpty { 
@@ -46,26 +53,35 @@ class SearchAdapter(
                     loadImage(holder, thumbToLoad)
                 }
                 is YouTubePlaylist -> {
-                    // Configuração visual para PLAYLIST
+                    // CONFIGURAÇÃO PARA PLAYLIST
                     tvOnlineTitle.text = "[PLAYLIST] ${item.title}"
+                    
+                    // Exibe o autor e a quantidade de vídeos da coleção
                     tvOnlineChannel.text = "${item.author} • ${item.videoCount} vídeos"
+                    
+                    // Ícone de Agenda/Lista indica que o clique abrirá uma nova lista
                     ivTypeIcon?.setImageResource(android.R.drawable.ic_menu_agenda)
                     
-                    // Esconde download para playlists (evita erros no Worker)
+                    // Download em massa será gerenciado por uma ação interna na Activity
                     btnDownload?.visibility = View.GONE
     
                     loadImage(holder, item.thumbnailUrl)
                 }
             }
             
-            // Repassa o clique para a Activity resolver
+            // AÇÃO DE CLIQUE: Repassa o objeto completo para a Activity decidir o fluxo
             root.setOnClickListener { onItemClick(item) }
             
+            // AÇÃO DE DOWNLOAD: Ativada apenas para vídeos
             btnDownload?.setOnClickListener { 
                 if (item is VideoMeta) onDownloadClick(item) 
             }
         }
     }
+
+    /**
+     * Gerencia o carregamento de imagens com transição crossfade para melhor UX.
+     */
     private fun ItemOnlineSongBinding.loadImage(holder: SearchViewHolder, url: String) {
         Glide.with(holder.itemView.context)
             .load(url)
@@ -78,6 +94,9 @@ class SearchAdapter(
 
     override fun getItemCount(): Int = results.size
 
+    /**
+     * Atualiza a lista unificada (vídeos + playlists) e notifica o RecyclerView.
+     */
     fun submitList(newList: List<Any>) {
         this.results = newList
         notifyDataSetChanged()
