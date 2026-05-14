@@ -11,6 +11,7 @@ class PlaylistRepository(context: Context) {
     private val dao = AppDatabase.getDatabase(context).musicDao()
 
     // --- PLAYLISTS ---
+
     suspend fun createPlaylist(name: String): Long {
         return dao.insertPlaylist(Playlist(name = name))
     }
@@ -23,20 +24,29 @@ class PlaylistRepository(context: Context) {
         dao.deletePlaylist(playlist)
     }
 
-    // --- GERENCIAMENTO DE MÚSICAS (ATUALIZADO) ---
+    /**
+     * Busca o ID de uma playlist pelo nome. 
+     * Essencial para o Worker vincular músicas baixadas sem saber o ID.
+     */
+    suspend fun getPlaylistIdByName(name: String): Long? {
+        return dao.getAllPlaylists().find { it.name.equals(name, ignoreCase = true) }?.id
+    }
+
+    // --- GERENCIAMENTO DE MÚSICAS ---
     
     /**
-     * Esta função agora aceita 'Any' para que os Adapters possam passar
-     * qualquer tipo de música (Local, Online ou Meta) sem erro de tipo.
+     * Insere ou atualiza uma música e a vincula a uma playlist.
+     * @param playlistId O ID da playlist no Room.
+     * @param item Pode ser Song, OnlineSong, VideoMeta ou SongEntity.
+     * @param localPath Opcional: O caminho do arquivo .mp3 no armazenamento (usado pelo Worker).
      */
-    suspend fun addSongToPlaylist(playlistId: Long, item: Any) {
-        // Converte o objeto recebido para a entidade do banco de dados (SongEntity)
+    suspend fun addSongToPlaylist(playlistId: Long, item: Any, localPath: String? = null) {
         val songEntity = when (item) {
             is Song -> SongEntity(
                 id = item.id.toString(),
                 title = item.title,
                 artist = item.artist,
-                sourcePath = item.path,
+                sourcePath = localPath ?: item.path,
                 thumbnailUrl = null,
                 isOnline = false
             )
@@ -44,23 +54,22 @@ class PlaylistRepository(context: Context) {
                 id = item.videoId,
                 title = item.title,
                 artist = item.author,
-                sourcePath = item.url,
+                sourcePath = localPath ?: item.url,
                 thumbnailUrl = item.thumbnailUrl,
-                isOnline = true
+                isOnline = localPath == null // Se tem path local, não é mais "apenas online"
             )
             is VideoMeta -> SongEntity(
                 id = item.videoId,
                 title = item.title,
                 artist = item.author,
-                sourcePath = "", // URL ainda não extraída na busca
+                sourcePath = localPath ?: "", 
                 thumbnailUrl = item.thumbnailUrl,
-                isOnline = true
+                isOnline = localPath == null
             )
             is SongEntity -> item
             else -> return
         }
 
-        // Insere a música no banco (se não existir) e cria o vínculo com a playlist
         dao.insertSong(songEntity)
         dao.addSongToPlaylist(PlaylistSongCrossRef(playlistId, songEntity.id))
     }
@@ -73,21 +82,10 @@ class PlaylistRepository(context: Context) {
         return dao.getSongsFromPlaylist(playlistId)
     }
 
-    // --- FILTROS ---
-    suspend fun getAllArtists(): List<String> {
-        return dao.getUniqueArtists()
-    }
-
     // --- FAVORITOS ---
-    suspend fun isFavorite(songId: String): Boolean {
-        return dao.isFavorite(songId)
-    }
+    suspend fun isFavorite(songId: String): Boolean = dao.isFavorite(songId)
 
-    suspend fun addFavorite(songId: String) {
-        dao.addFavorite(FavoriteEntity(songId))
-    }
+    suspend fun addFavorite(songId: String) = dao.addFavorite(FavoriteEntity(songId))
 
-    suspend fun removeFavorite(songId: String) {
-        dao.removeFavorite(FavoriteEntity(songId))
-    }
+    suspend fun removeFavorite(songId: String) = dao.removeFavorite(FavoriteEntity(songId))
 }
