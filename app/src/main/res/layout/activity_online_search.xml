@@ -33,7 +33,7 @@
         app:layout_constraintTop_toBottomOf="@id/tvOnlineHeader">
 
         <androidx.appcompat.widget.SearchView
-            android:id="@+id/searchView"
+            android:id="@+id/searchViewOnline"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             app:iconifiedByDefault="false"
