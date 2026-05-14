@@ -33,21 +33,24 @@ class SearchAdapter(
         
         holder.binding.apply {
             when (item) {
+                // No OnItemClick do SearchAdapter
                 is VideoMeta -> {
-                    // Configuração para VÍDEO
-                    tvOnlineTitle.text = item.title
-                    tvOnlineChannel.text = item.author
-                    
-                    // Ícone de Play para vídeos
-                    ivTypeIcon?.setImageResource(android.R.drawable.ic_media_play)
-                    
-                    // Mostra o botão de download para vídeos
-                    btnDownload?.visibility = View.VISIBLE
-                    
-                    val thumbToLoad = item.thumbnailUrl.ifEmpty { 
-                        "https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg" 
+                    lifecycleScope.launch(Dispatchers.Main) {
+                        binding.progressBar.visibility = View.VISIBLE
+                        
+                        // ESSENCIAL: O item da busca não tem a URL de áudio. Temos que extrair agora.
+                        val onlineSong = withContext(Dispatchers.IO) {
+                            youtubeRepository.extractAudioLink(item.videoId)
+                        }
+                        
+                        binding.progressBar.visibility = View.GONE
+                        
+                        if (onlineSong != null && !onlineSong.url.isNullOrEmpty()) {
+                            LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
+                        } else {
+                            Toast.makeText(this@OnlineSearchActivity, "Link de áudio expirado ou indisponível", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                    loadImage(holder, thumbToLoad)
                 }
                 is YouTubePlaylist -> {
                     // Configuração para PLAYLIST
