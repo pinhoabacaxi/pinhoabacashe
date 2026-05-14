@@ -111,26 +111,33 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
-        lifecycleScope.launchWhenStarted {
+        lifecycleScope.launch {
             viewModel.searchState.collect { state ->
                 when (state) {
                     is SearchState.Loading -> {
                         binding.progressBar.visibility = View.VISIBLE
+                        binding.emptyStateContainer.visibility = View.GONE
+                        binding.rvOnlineResults.visibility = View.GONE
                     }
                     is SearchState.Success -> {
                         binding.progressBar.visibility = View.GONE
-                        // Cast seguro para garantir compatibilidade com o Adapter
-                        searchAdapter.submitList(state.results as List<Any>)
-                        binding.rvOnlineResults.visibility = View.VISIBLE
-                        binding.emptyStateContainer.visibility = View.GONE
+                        searchAdapter.submitList(state.results)
+                        
+                        // CORREÇÃO DE VISIBILIDADE:
+                        if (state.results.isEmpty()) {
+                            binding.emptyStateContainer.visibility = View.VISIBLE
+                            binding.rvOnlineResults.visibility = View.GONE
+                        } else {
+                            binding.emptyStateContainer.visibility = View.GONE
+                            binding.rvOnlineResults.visibility = View.VISIBLE // Mostra a lista
+                        }
                     }
                     is SearchState.Error -> {
                         binding.progressBar.visibility = View.GONE
+                        binding.rvOnlineResults.visibility = View.GONE
                         Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_SHORT).show()
                     }
-                    else -> {
-                        binding.progressBar.visibility = View.GONE
-                    }
+                    else -> {}
                 }
             }
         }
