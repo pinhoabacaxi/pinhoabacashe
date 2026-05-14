@@ -22,11 +22,11 @@ class YouTubeRepository(private val context: Context) {
     private val TAG = "YouTubeRepo"
     private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
     private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
-    suspend fun extractAudioLink(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
-        return@withContext fetchFromInnerTube(videoId)
-    }
+    // === 1. BUSCA DE VÍDEOS E PLAYLISTS ===
     suspend fun searchVideos(query: String): List<VideoMeta> = searchYouTube(query, isPlaylist = false) as List<VideoMeta>
+    
     suspend fun searchPlaylists(query: String): List<YouTubePlaylist> = searchYouTube(query, isPlaylist = true) as List<YouTubePlaylist>
+
     private suspend fun searchYouTube(query: String, isPlaylist: Boolean): List<Any> = withContext(Dispatchers.IO) {
         val results = mutableListOf<Any>()
         try {
@@ -34,7 +34,7 @@ class YouTubeRepository(private val context: Context) {
             val payload = JSONObject().apply {
                 put("context", createInnerTubeContext())
                 put("query", query)
-                // Parâmetro "EgIUAQ%3D%3D" filtra apenas por Playlists no YouTube
+                // Se for playlist, adiciona o parâmetro específico
                 if (isPlaylist) put("params", "EgIUAQ%3D%3D") 
             }
             sendPayload(conn, payload)
@@ -64,6 +64,8 @@ class YouTubeRepository(private val context: Context) {
         } catch (e: Exception) { Log.e(TAG, "Erro na busca: ${e.message}") }
         return@withContext results
     }
+
+    // === 2. OBTER VÍDEOS DE UMA PLAYLIST ===
     suspend fun getPlaylistVideos(playlistId: String): List<VideoMeta> = withContext(Dispatchers.IO) {
         val videoResults = mutableListOf<VideoMeta>()
         try {
@@ -73,11 +75,10 @@ class YouTubeRepository(private val context: Context) {
                 put("context", createInnerTubeContext())
             }
             sendPayload(conn, payload)
-    
+
             val response = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(response)
-            
-            // Navegação no JSON do YouTube para extrair vídeos da playlist
+
             val contents = json.optJSONObject("contents")
                 ?.optJSONObject("twoColumnBrowseResultsRenderer")
                 ?.optJSONArray("tabs")
@@ -92,12 +93,12 @@ class YouTubeRepository(private val context: Context) {
                 ?.optJSONObject(0)
                 ?.optJSONObject("playlistVideoListRenderer")
                 ?.optJSONArray("contents")
-    
+
             contents?.let {
                 for (i in 0 until it.length()) {
                     val videoRenderer = it.optJSONObject(i)?.optJSONObject("playlistVideoRenderer")
                     if (videoRenderer != null) {
-                        videoResults.add(parseVideoRenderer(videoRenderer))
+                        videoResults.add(parseVideo(videoRenderer))
                     }
                 }
             }
@@ -106,55 +107,8 @@ class YouTubeRepository(private val context: Context) {
         }
         return@withContext videoResults
     }
-    suspend fun searchPlaylists(query: String): List<YouTubePlaylist> = withContext(Dispatchers.IO) {
-        val playlistResults = mutableListOf<YouTubePlaylist>()
-        try {
-            val conn = createPostConnection("https://youtubei.googleapis.com/youtubei/v1/search")
-            val payload = JSONObject().apply {
-                put("query", query)
-                put("params", "EgIUAQ%3D%3D") // Filtro de playlist
-                put("context", createInnerTubeContext())
-            }
-            sendPayload(conn, payload)
 
-            val response = conn.inputStream.bufferedReader().use { it.readText() }
-            val contents = JSONObject(response).optJSONObject("contents")
-                ?.optJSONObject("twoColumnSearchResultsRenderer")
-                ?.optJSONObject("primaryContents")
-                ?.optJSONObject("sectionListRenderer")
-                ?.optJSONArray("contents")
-                ?.optJSONObject(0)
-                ?.optJSONObject("itemSectionRenderer")
-                ?.optJSONArray("contents")
-
-            contents?.let {
-                for (i in 0 until it.length()) {
-                    val playlistRenderer = it.optJSONObject(i)?.optJSONObject("playlistRenderer")
-                    if (playlistRenderer != null) playlistResults.add(parsePlaylistRenderer(playlistRenderer))
-                }
-            }
-        } catch (e: Exception) { Log.e(TAG, "Erro busca playlist: ${e.message}") }
-        return@withContext playlistResults
-    }
-
-    private fun parseVideo(obj: JSONObject): VideoMeta {
-        val videoId = obj.optString("videoId")
-        val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
-        val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
-        val thumbs = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
-        val thumbUrl = thumbs?.optJSONObject(thumbs.length() - 1)?.optString("url") ?: ""
-        return VideoMeta(videoId, title, author, thumbUrl, 0, 0, false, "", "")
-    }
-    private fun parsePlaylist(obj: JSONObject): YouTubePlaylist {
-        return YouTubePlaylist(
-            playlistId = obj.optString("playlistId"),
-            title = obj.optJSONObject("title")?.optString("simpleText") ?: "Sem título",
-            thumbnailUrl = obj.optJSONObject("thumbnails")?.optJSONArray(0)?.optJSONObject(0)?.optString("url") ?: "",
-            videoCount = obj.optString("videoCount"),
-            author = obj.optJSONObject("shortBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
-        )
-    }
-    // EXTRAÇÃO DE LINK DE ÁUDIO (Para Streaming e Download)
+    // === 3. EXTRAÇÃO DE LINK DE ÁUDIO (Streaming e Download) ===
     suspend fun extractAudioLink(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
         try {
             val conn = createPostConnection("https://youtubei.googleapis.com/youtubei/v1/player")
@@ -183,17 +137,39 @@ class YouTubeRepository(private val context: Context) {
         null
     }
 
-    private fun sendPayload(conn: HttpURLConnection, payload: JSONObject) {
-        conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+    // === 4. FUNÇÕES DE PARSING E CONEXÃO ===
+    private fun parseVideo(obj: JSONObject): VideoMeta {
+        val videoId = obj.optString("videoId")
+        val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
+        val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
+        val thumbs = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+        val thumbUrl = thumbs?.optJSONObject(thumbs.length() - 1)?.optString("url") ?: ""
+        
+        // Passando 0L para evitar o erro de 'Integer Literal' do Kotlin
+        return VideoMeta(videoId, title, author, thumbUrl, 0L, 0L, false, "", "")
     }
+
+    private fun parsePlaylist(obj: JSONObject): YouTubePlaylist {
+        return YouTubePlaylist(
+            playlistId = obj.optString("playlistId"),
+            title = obj.optJSONObject("title")?.optString("simpleText") ?: "Sem título",
+            thumbnailUrl = obj.optJSONObject("thumbnails")?.optJSONArray(0)?.optJSONObject(0)?.optString("url") ?: "",
+            videoCount = obj.optString("videoCount"),
+            author = obj.optJSONObject("shortBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
+        )
+    }
+
     private fun createPostConnection(url: String): HttpURLConnection {
         return (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             setRequestProperty("Content-Type", "application/json")
-            // User-Agent de Desktop para estabilidade
             setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             doOutput = true
         }
+    }
+
+    private fun sendPayload(conn: HttpURLConnection, payload: JSONObject) {
+        conn.outputStream.use { it.write(payload.toString().toByteArray()) }
     }
 
     private fun createInnerTubeContext() = JSONObject().apply {
