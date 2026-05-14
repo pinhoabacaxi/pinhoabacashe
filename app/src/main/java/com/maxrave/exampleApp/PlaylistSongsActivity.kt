@@ -68,6 +68,7 @@ class PlaylistSongsActivity : AppCompatActivity() {
 
     private fun observePlaylistSongs() {
         lifecycleScope.launch {
+            // Agora a referência getSongsFromPlaylistFlow existirá no Repositório
             repository.getSongsFromPlaylistFlow(playlistId).collect { result ->
                 if (result.isNotEmpty()) {
                     val songsFromDb = result[0].songs
