@@ -56,7 +56,11 @@ class OnlineSearchActivity : AppCompatActivity() {
             onItemClick = { item ->
                 when (item) {
                     is VideoMeta -> handleVideoClick(item)
-                    is YouTubePlaylist -> viewModel.loadPlaylistVideos(item.playlistId)
+                    is YouTubePlaylist -> {
+                        // Ao clicar na playlist, o ViewModel carrega os vídeos dela
+                        viewModel.loadPlaylistVideos(item.playlistId)
+                        Toast.makeText(this, "Carregando playlist: ${item.title}", Toast.LENGTH_SHORT).show()
+                    }
                 }
             },
             onDownloadClick = { item ->
@@ -79,7 +83,7 @@ class OnlineSearchActivity : AppCompatActivity() {
                 if (song != null) {
                     LocalPlayerManager.playOnline(song, this@OnlineSearchActivity)
                 } else {
-                    Toast.makeText(this@OnlineSearchActivity, "Não foi possível obter o link de áudio", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@OnlineSearchActivity, "Erro ao extrair link", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 Toast.makeText(this@OnlineSearchActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -93,42 +97,65 @@ class OnlineSearchActivity : AppCompatActivity() {
         lifecycleScope.launchWhenStarted {
             viewModel.searchState.collect { state ->
                 when (state) {
-                    is SearchState.Loading -> {
-                        binding.progressBar.visibility = View.VISIBLE
-                        binding.tvMessage.visibility = View.GONE
-                    }
+                    is SearchState.Loading -> binding.progressBar.visibility = View.VISIBLE
                     is SearchState.Success -> {
                         binding.progressBar.visibility = View.GONE
                         searchAdapter.submitList(state.results)
                         
-                        // Lógica para download em massa se o resultado for de uma playlist
-                        val firstItem = state.results.firstOrNull()
-                        if (state.results.all { it is VideoMeta } && state.results.size > 5) {
-                            // Opcional: Mostrar um botão flutuante de "Baixar Tudo"
-                            showDownloadAllOption(state.results.filterIsInstance<VideoMeta>())
+                        // Verifica se o resultado atual é uma lista de vídeos (Playlist aberta)
+                        // Se houver muitos vídeos, oferece a opção de baixar tudo
+                        val videosOnly = state.results.filterIsInstance<VideoMeta>()
+                        if (videosOnly.isNotEmpty() && state.results.size == videosOnly.size) {
+                            showDownloadAllDialog(videosOnly)
                         }
                     }
                     is SearchState.Error -> {
                         binding.progressBar.visibility = View.GONE
-                        binding.tvMessage.apply {
-                            visibility = View.VISIBLE
-                            text = state.message
-                        }
+                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_LONG).show()
                     }
-                    is SearchState.Idle -> {
-                        binding.progressBar.visibility = View.GONE
-                        binding.tvMessage.visibility = View.VISIBLE
-                        binding.tvMessage.text = "Pesquise vídeos ou playlists"
-                    }
+                    else -> binding.progressBar.visibility = View.GONE
                 }
             }
         }
     }
 
-    private fun showDownloadAllOption(videos: List<VideoMeta>) {
-        // Aqui você pode implementar um Snackbar ou botão para download em massa
-        // Por agora, vamos apenas logar ou mostrar um Toast
-        Toast.makeText(this, "${videos.size} vídeos carregados. Clique num vídeo para baixar ou ouvir.", Toast.LENGTH_SHORT).show()
+    /**
+     * Exibe um diálogo perguntando se o usuário deseja baixar todos os vídeos da playlist atual.
+     */
+    private fun showDownloadAllDialog(videos: List<VideoMeta>) {
+        val input = EditText(this).apply {
+            hint = "Nome da pasta (ex: Minha Playlist)"
+            setPadding(50, 30, 50, 30)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Download em Massa")
+            .setMessage("Deseja baixar os ${videos.size} vídeos desta lista em uma pasta específica?")
+            .setView(input)
+            .setPositiveButton("Baixar Tudo") { _, _ ->
+                val folderName = input.text.toString().trim().ifEmpty { "Playlist_Download" }
+                startBulkDownload(videos, folderName)
+            }
+            .setNegativeButton("Agora não", null)
+            .show()
+    }
+
+    private fun startBulkDownload(videos: List<VideoMeta>, folderName: String) {
+        val workManager = WorkManager.getInstance(this)
+        videos.forEach { video ->
+            val workData = workDataOf(
+                "VIDEO_ID" to video.videoId,
+                "FILE_NAME" to "${video.title}.mp3",
+                "PLAYLIST_NAME" to folderName
+            )
+            val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
+                .setInputData(workData)
+                .addTag("bulk_download")
+                .build()
+            
+            workManager.enqueue(request)
+        }
+        Toast.makeText(this, "Enfileirados ${videos.size} downloads em: Music/$folderName", Toast.LENGTH_LONG).show()
     }
 
     private fun startDownload(video: VideoMeta) {
@@ -136,11 +163,11 @@ class OnlineSearchActivity : AppCompatActivity() {
             "VIDEO_ID" to video.videoId,
             "FILE_NAME" to "${video.title}.mp3"
         )
-        val downloadRequest = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
+        val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
             .setInputData(workData)
             .build()
 
-        WorkManager.getInstance(this).enqueue(downloadRequest)
+        WorkManager.getInstance(this).enqueue(request)
         Toast.makeText(this, "Download iniciado: ${video.title}", Toast.LENGTH_SHORT).show()
     }
 
@@ -159,25 +186,32 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private fun checkPermissions() {
         val permissions = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }
+        
+        // Android 13+ precisa de permissão para notificações
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        
+        // Android 9 ou inferior precisa de permissão de escrita
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
 
         if (permissions.isNotEmpty()) {
-            requestPermissionLauncher.launch(permissions.toTypedArray())
+            val toRequest = permissions.filter {
+                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+            }
+            if (toRequest.isNotEmpty()) {
+                requestPermissionLauncher.launch(toRequest.toTypedArray())
+            }
         }
     }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        if (permissions.values.all { it }) {
-            // Permissões concedidas
-        } else {
-            Toast.makeText(this, "Permissões necessárias para download e notificações", Toast.LENGTH_LONG).show()
+    ) { results ->
+        if (results[Manifest.permission.POST_NOTIFICATIONS] == false) {
+            Toast.makeText(this, "Sem notificações, você não verá o progresso do download.", Toast.LENGTH_SHORT).show()
         }
     }
 
