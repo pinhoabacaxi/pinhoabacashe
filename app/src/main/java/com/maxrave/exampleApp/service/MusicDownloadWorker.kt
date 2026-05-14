@@ -24,9 +24,11 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         val videoId = inputData.getString("VIDEO_ID") ?: return Result.failure()
         val fileName = inputData.getString("FILE_NAME") ?: "music_${System.currentTimeMillis()}.mp3"
         val playlistName = inputData.getString("PLAYLIST_NAME")
-        
+        // 1. Criar canal e Foreground ANTES de qualquer lógica
         createNotificationChannel()
-        
+        setForeground(createForegroundInfo(fileName))
+        val repo = YouTubeRepository(applicationContext)
+        val song = repo.extractAudioLink(videoId) ?: return Result.failure()
         return try {
             val repo = YouTubeRepository(applicationContext)
             val song = repo.extractAudioLink(videoId) ?: return Result.failure()
