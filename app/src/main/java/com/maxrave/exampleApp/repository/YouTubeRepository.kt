@@ -25,9 +25,9 @@ class YouTubeRepository(private val context: Context) {
     private val TAG = "YouTubeRepo"
     
     // Chaves de API (Omitidas por privacidade)
-    private val youtubeApiKey1 = ""
-    private val youtubeApiKey2 = ""
-
+    private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
+    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
+    private val youtubeApiKey3 = "AIzaSyCDjOZyDrMqesl-guXAqdv1Zbuj6SIR09I"
     // === 1. BUSCA UNIFICADA (VÍDEOS E PLAYLISTS) ===
 
     /**
@@ -140,31 +140,38 @@ class YouTubeRepository(private val context: Context) {
     /**
      * Extrai a URL direta do fluxo de áudio necessária para o player e para o Worker de download.
      */
+    // Modifique a função extractAudioLink e o Contexto associado no YouTubeRepository.kt
+
     suspend fun extractAudioLink(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
         try {
             val conn = createPostConnection("https://youtubei.googleapis.com/youtubei/v1/player")
             val payload = JSONObject().apply {
-                put("context", createInnerTubeContext())
+                // Utilizando contexto Android para contornar bloqueios do cliente Web no player
+                put("context", createAndroidInnerTubeContext())
                 put("videoId", videoId)
             }
             sendPayload(conn, payload)
-            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            
+            val responseText = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(responseText)
             
             val streamingData = json.optJSONObject("streamingData") ?: return@withContext null
+            // Formatos adaptativos costumam conter as faixas de áudio puras
             val formats = streamingData.optJSONArray("adaptiveFormats")
             
-            for (i in 0 until (formats?.length() ?: 0)) {
-                val fmt = formats!!.getJSONObject(i)
-                // Busca especificamente por formatos de áudio (m4a/webm)
-                if (fmt.optString("mimeType").contains("audio")) {
-                    return@withContext OnlineSong(
-                        videoId = videoId, 
-                        title = json.optJSONObject("videoDetails")?.optString("title") ?: "Música",
-                        author = json.optJSONObject("videoDetails")?.optString("author") ?: "",
-                        thumbnailUrl = "", 
-                        url = fmt.optString("url"), 
-                        duration = json.optJSONObject("videoDetails")?.optString("lengthSeconds") ?: ""
-                    )
+            if (formats != null) {
+                for (i in 0 until formats.length()) {
+                    val fmt = formats.getJSONObject(i)
+                    if (fmt.optString("mimeType").contains("audio/mp4")) {
+                        return@withContext OnlineSong(
+                            videoId = videoId, 
+                            title = json.optJSONObject("videoDetails")?.optString("title") ?: "Música",
+                            author = json.optJSONObject("videoDetails")?.optString("author") ?: "",
+                            thumbnailUrl = "", 
+                            url = fmt.optString("url"), 
+                            duration = json.optJSONObject("videoDetails")?.optString("lengthSeconds") ?: ""
+                        )
+                    }
                 }
             }
         } catch (e: Exception) { 
@@ -173,8 +180,16 @@ class YouTubeRepository(private val context: Context) {
         null
     }
 
-    // === 4. AUXILIARES DE PARSING ===
-
+    // Adicione esta função auxiliar abaixo da createInnerTubeContext
+    private fun createAndroidInnerTubeContext() = JSONObject().apply {
+        put("client", JSONObject().apply {
+            put("clientName", "ANDROID")
+            put("clientVersion", "17.31.35")
+            put("androidSdkVersion", 31)
+            put("hl", "pt-BR")
+            put("gl", "BR")
+        })
+    }
     private fun parseVideo(obj: JSONObject): VideoMeta {
         val videoId = obj.optString("videoId")
         val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") 
