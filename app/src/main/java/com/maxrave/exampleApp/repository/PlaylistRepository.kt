@@ -14,7 +14,7 @@ class PlaylistRepository(context: Context) {
     // Adicione no PlaylistRepository.kt
     fun getAllPlaylistsFlow() = dao.getAllPlaylistsFlow()
 
-    fun getSongsFromPlaylist(playlistId: Long) = dao.getSongsFromPlaylistFlow(playlistId)
+    fun getSongsFromPlaylist(playlistId: Long) = dao.getSongsFromPlaylist(playlistId)
     suspend fun createPlaylist(name: String): Long {
         return dao.insertPlaylist(Playlist(name = name))
     }
