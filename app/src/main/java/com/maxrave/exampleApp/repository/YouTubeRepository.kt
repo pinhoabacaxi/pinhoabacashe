@@ -150,12 +150,31 @@ class YouTubeRepository(private val context: Context) {
     }
 
     private fun parsePlaylist(obj: JSONObject): YouTubePlaylist {
+        // Extraímos os valores primeiro para garantir a segurança dos tipos
+        val id = obj.optString("playlistId")
+        val title = obj.optJSONObject("title")?.optString("simpleText") ?: "Sem título"
+        
+        // CORREÇÃO DOS THUMBNAILS: Acessando o índice 0 corretamente como Int e pegando a URL
+        // A estrutura do InnerTube para playlists costuma ser um array de objetos
+        val thumbnailsArray = obj.optJSONArray("thumbnails")
+        val firstThumbnailObj = thumbnailsArray?.optJSONObject(0)
+        val thumbUrl = firstThumbnailObj?.optString("url") ?: ""
+    
+        // Garantimos que o videoCount seja String, independentemente de como venha do JSON
+        val count = obj.optString("videoCount")
+    
+        val author = obj.optJSONObject("shortBylineText")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
+            ?.optString("text") ?: "YouTube"
+    
+        // Retornamos usando argumentos nomeados para evitar erro de "integer literal" por posição
         return YouTubePlaylist(
-            playlistId = obj.optString("playlistId"),
-            title = obj.optJSONObject("title")?.optString("simpleText") ?: "Sem título",
-            thumbnailUrl = obj.optJSONObject("thumbnails")?.optJSONArray(0)?.optJSONObject(0)?.optString("url") ?: "",
-            videoCount = obj.optString("videoCount"),
-            author = obj.optJSONObject("shortBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
+            playlistId = id,
+            title = title,
+            thumbnailUrl = thumbUrl,
+            videoCount = count,
+            author = author
         )
     }
 
