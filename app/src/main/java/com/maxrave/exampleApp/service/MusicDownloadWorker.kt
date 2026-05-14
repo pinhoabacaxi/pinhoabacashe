@@ -107,4 +107,15 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             )
         }
     }
+    private fun updateNotification(fileName: String, progress: Int) {
+        val notification = NotificationCompat.Builder(applicationContext, "download_channel")
+            .setContentTitle("Baixando: $fileName")
+            .setContentText("$progress%")
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setProgress(100, progress, false)
+            .setOngoing(true)
+            .build()
+        
+        notificationManager.notify(101, notification)
+    }
 }
