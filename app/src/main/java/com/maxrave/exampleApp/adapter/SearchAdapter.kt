@@ -1,6 +1,7 @@
 package com.maxrave.exampleApp.adapter
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -33,9 +34,15 @@ class SearchAdapter(
         holder.binding.apply {
             when (item) {
                 is VideoMeta -> {
+                    // Configuração para VÍDEO
                     tvOnlineTitle.text = item.title
                     tvOnlineChannel.text = item.author
+                    
+                    // Ícone de Play para vídeos
                     ivTypeIcon?.setImageResource(android.R.drawable.ic_media_play)
+                    
+                    // Mostra o botão de download para vídeos
+                    btnDownload?.visibility = View.VISIBLE
                     
                     val thumbToLoad = item.thumbnailUrl.ifEmpty { 
                         "https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg" 
@@ -43,21 +50,29 @@ class SearchAdapter(
                     loadImage(holder, thumbToLoad)
                 }
                 is YouTubePlaylist -> {
-                    // Diferenciação para Playlist
+                    // Configuração para PLAYLIST
                     tvOnlineTitle.text = "[PLAYLIST] ${item.title}"
                     tvOnlineChannel.text = "${item.author} • ${item.videoCount} vídeos"
                     
-                    // Ícone de álbum/lista para playlists
+                    // Ícone de Lista para playlists
                     ivTypeIcon?.setImageResource(android.R.drawable.ic_menu_agenda)
+                    
+                    // ESCONDE o botão de download para playlists (evita crash no Worker)
+                    btnDownload?.visibility = View.GONE
 
                     loadImage(holder, item.thumbnailUrl)
                 }
             }
             
+            // Clique no card (abre o vídeo ou abre a playlist)
             root.setOnClickListener { onItemClick(item) }
             
-            // Botão de download só faz sentido para vídeos individuais
-            btnDownload?.setOnClickListener { onDownloadClick(item) }
+            // Clique no download (apenas se for vídeo)
+            btnDownload?.setOnClickListener { 
+                if (item is VideoMeta) {
+                    onDownloadClick(item) 
+                }
+            }
         }
     }
 
@@ -66,6 +81,7 @@ class SearchAdapter(
             .load(url)
             .transition(DrawableTransitionOptions.withCrossFade())
             .placeholder(android.R.drawable.ic_menu_gallery)
+            .error(android.R.drawable.ic_menu_report_image)
             .centerCrop()
             .into(ivThumbnail)
     }
