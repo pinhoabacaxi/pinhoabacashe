@@ -2,76 +2,59 @@
 <com.google.android.material.card.MaterialCardView 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/miniPlayerContainer"
     android:layout_width="match_parent"
-    android:layout_height="70dp"
-    android:layout_marginStart="12dp"
-    android:layout_marginEnd="12dp"
-    android:layout_marginBottom="12dp"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="6dp"
-    app:cardBackgroundColor="#222222">
+    android:layout_height="75dp"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="8dp"
+    app:cardBackgroundColor="#2A2A2A"
+    android:visibility="gone">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <ProgressBar
-            android:id="@+id/pbMiniProgress"
-            style="@android:style/Widget.ProgressBar.Horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="2dp"
-            android:progress="0"
-            android:progressTint="#FFFFFF"
-            android:progressBackgroundTint="#33FFFFFF"
+        <ImageView
+            android:id="@+id/ivMiniArt"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginStart="8dp"
+            android:scaleType="centerCrop"
+            android:src="@android:drawable/ic_media_play"
+            app:layout_constraintBottom_toTopOf="@id/pbMiniProgress"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <com.google.android.material.imageview.ShapeableImageView
-            android:id="@+id/ivMiniArt"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="12dp"
-            android:scaleType="centerCrop"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/pbMiniProgress"
-            app:shapeAppearanceOverlay="@style/ShapeAppearance.MaterialComponents.SmallComponent"
-            tools:src="@android:drawable/ic_media_play" />
-
         <LinearLayout
-            android:id="@+id/miniTextContainer"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_marginEnd="8dp"
             android:orientation="vertical"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/pbMiniProgress"
             app:layout_constraintEnd_toStartOf="@id/btnPrev"
             app:layout_constraintStart_toEndOf="@id/ivMiniArt"
-            app:layout_constraintTop_toBottomOf="@id/pbMiniProgress">
+            app:layout_constraintTop_toTopOf="parent">
 
             <TextView
                 android:id="@+id/tvMiniTitle"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                tools:text="Título da Música" />
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvMiniArtist"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:alpha="0.7"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                tools:text="Artista" />
+                android:textColor="#BBBBBB"
+                android:textSize="12sp" />
         </LinearLayout>
 
         <ImageButton
@@ -80,20 +63,20 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_previous"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/pbMiniProgress"
             app:layout_constraintEnd_toStartOf="@id/btnPlayPause"
-            app:layout_constraintTop_toBottomOf="@id/pbMiniProgress"
+            app:layout_constraintTop_toTopOf="parent"
             app:tint="#FFFFFF" />
 
         <ImageButton
             android:id="@+id/btnPlayPause"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_play"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/pbMiniProgress"
             app:layout_constraintEnd_toStartOf="@id/btnNext"
-            app:layout_constraintTop_toBottomOf="@id/pbMiniProgress"
+            app:layout_constraintTop_toTopOf="parent"
             app:tint="#FFFFFF" />
 
         <ImageButton
@@ -103,10 +86,20 @@
             android:layout_marginEnd="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_next"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/pbMiniProgress"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/pbMiniProgress"
+            app:layout_constraintTop_toTopOf="parent"
             app:tint="#FFFFFF" />
+
+        <ProgressBar
+            android:id="@+id/pbMiniProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:progressDrawable="@drawable/bg_search" 
+            android:progressTint="#E91E63"
+            android:progress="0"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>
