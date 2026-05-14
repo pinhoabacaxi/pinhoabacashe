@@ -21,19 +21,19 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     fun performSearch(query: String) {
         if (query.isBlank()) return
         viewModelScope.launch {
-            _[span_1](start_span)searchState.value = SearchState.Loading[span_1](end_span)
+            searchState.value = SearchState.Loading
             try {
                 val videosDeferred = async { repository.searchVideos(query) }
                 val playlistsDeferred = async { repository.searchPlaylists(query) }
 
                 val videos = videosDeferred.await()
-                [span_2](start_span)val playlists = playlistsDeferred.await()[span_2](end_span)
+                val playlists = playlistsDeferred.await()
 
                 val combinedResults = mutableListOf<Any>()
                 combinedResults.addAll(playlists)
                 combinedResults.addAll(videos)
 
-                _[span_3](start_span)searchState.value = SearchState.Success(combinedResults)[span_3](end_span)
+                searchState.value = SearchState.Success(combinedResults)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Erro na busca: ${e.message}")
                 _searchState.value = SearchState.Error(e.localizedMessage ?: "Erro na conexão")
