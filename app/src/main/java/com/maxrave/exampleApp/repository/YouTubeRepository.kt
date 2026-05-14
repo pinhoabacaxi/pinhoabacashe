@@ -164,4 +164,40 @@ class YouTubeRepository(private val context: Context) {
         } catch (e: Exception) { Log.e(TAG, "Fetch falhou: ${e.message}") }
         return null
     }
+    // Verifique se este método existe no seu YouTubeRepository.kt
+    suspend fun getPlaylistVideos(playlistId: String): List<VideoMeta> = withContext(Dispatchers.IO) {
+        val videoResults = mutableListOf<VideoMeta>()
+        try {
+            val apiUrl = "https://youtubei.googleapis.com/youtubei/v1/browse"
+            val conn = createPostConnection(apiUrl)
+            val payload = JSONObject().apply {
+                put("browseId", "VL$playlistId")
+                put("context", createInnerTubeContext())
+            }
+            sendPayload(conn, payload)
+        
+            val response = if (conn.responseCode == 200) conn.inputStream.bufferedReader().use { it.readText() } else null
+            response?.let {
+                val json = JSONObject(it)
+            // Lógica de navegação no JSON para extrair vídeos da playlist
+                val tabs = json.optJSONArray("contents")?.optJSONObject(0)?.optJSONObject("twoColumnBrowseResultsRenderer")?.optJSONArray("tabs")
+                val section = tabs?.optJSONObject(0)?.optJSONObject("tabRenderer")?.optJSONObject("content")
+                    ?.optJSONObject("sectionListRenderer")?.optJSONArray("contents")?.optJSONObject(0)
+                    ?.optJSONObject("itemSectionRenderer")?.optJSONArray("contents")?.optJSONObject(0)
+                    ?.optJSONObject("playlistVideoListRenderer")?.optJSONArray("contents")
+
+                section?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        arr.optJSONObject(i)?.optJSONObject("playlistVideoRenderer")?.let { video ->
+                            videoResults.add(parseVideoRenderer(video))
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro Playlist Videos: ${e.message}")
+        }
+        return@withContext videoResults
+    }
+
 }
