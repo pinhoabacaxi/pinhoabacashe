@@ -33,6 +33,8 @@ import com.maxrave.exampleApp.viewmodel.SearchViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.content.Intent
+import com.maxrave.exampleApp.FullPlayerActivity
 
 class OnlineSearchActivity : AppCompatActivity() {
 
