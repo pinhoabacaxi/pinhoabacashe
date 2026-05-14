@@ -6,13 +6,13 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.maxrave.exampleApp.adapter.HybridAdapter
 import com.maxrave.exampleApp.databinding.ActivityPlaylistSongsBinding
 import com.maxrave.exampleApp.model.Song
 import com.maxrave.exampleApp.model.OnlineSong
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.PlaylistRepository
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class PlaylistSongsActivity : AppCompatActivity() {
@@ -37,7 +37,7 @@ class PlaylistSongsActivity : AppCompatActivity() {
         
         repository = PlaylistRepository(this)
         setupRecyclerView()
-        loadPlaylistSongs()
+        observePlaylistSongs() // Observação reativa
 
         binding.fabPlayShuffle.setOnClickListener {
             val list = hybridAdapter.getList()
@@ -50,15 +50,14 @@ class PlaylistSongsActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        // CORREÇÃO: Forçando os tipos dos 4 lambdas para evitar erro do compilador
         hybridAdapter = HybridAdapter(
-            onItemClick = { item: Any, position: Int ->
+            onItemClick = { item, position ->
                 LocalPlayerManager.setQueueAndPlay(hybridAdapter.getList(), position, this)
                 startActivity(Intent(this, FullPlayerActivity::class.java))
             },
-            onMoreOptionsClick = { item: Any -> },
-            onFavoriteClick = { item: Any -> },
-            onLongItemClick = { item: Any -> }
+            onMoreOptionsClick = { },
+            onFavoriteClick = { },
+            onLongItemClick = { }
         )
 
         binding.rvPlaylistSongs.apply {
@@ -67,43 +66,26 @@ class PlaylistSongsActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadPlaylistSongs() {
+    private fun observePlaylistSongs() {
         lifecycleScope.launch {
-            val result = repository.getSongsFromPlaylist(playlistId)
-            if (result.isNotEmpty()) {
-                val songsFromDb = result[0].songs
-                
-                binding.tvPlaylistInfo.text = "${songsFromDb.size} músicas"
-                
-                val mappedList = songsFromDb.map { entity ->
-                    if (entity.isOnline) {
-                        OnlineSong(
-                            videoId = entity.id, 
-                            title = entity.title, 
-                            author = entity.artist, 
-                            thumbnailUrl = entity.thumbnailUrl ?: "", 
-                            url = entity.sourcePath,
-                            duration = "0"
-                        )
-                    } else {
-                        // CORREÇÃO: Passando todos os atributos necessários para compilar
-                        Song(
-                            id = entity.id.toLongOrNull() ?: 0L,
-                            title = entity.title, 
-                            artist = entity.artist, 
-                            album = "Playlist",    
-                            duration = 0L,         
-                            path = entity.sourcePath,
-                            albumId = 0L           
-                        )
+            repository.getSongsFromPlaylistFlow(playlistId).collect { result ->
+                if (result.isNotEmpty()) {
+                    val songsFromDb = result[0].songs
+                    binding.tvPlaylistInfo.text = "${songsFromDb.size} músicas"
+                    
+                    val mappedList = songsFromDb.map { entity ->
+                        if (entity.isOnline) {
+                            OnlineSong(entity.id, entity.title, entity.artist, entity.thumbnailUrl ?: "", entity.sourcePath, "0")
+                        } else {
+                            Song(entity.id.toLongOrNull() ?: 0L, entity.title, entity.artist, "Playlist", 0L, entity.sourcePath, 0L)
+                        }
                     }
+                    hybridAdapter.setList(mappedList)
+                    binding.tvEmptyState.visibility = if (mappedList.isEmpty()) View.VISIBLE else View.GONE
+                } else {
+                    binding.tvPlaylistInfo.text = "0 músicas"
+                    binding.tvEmptyState.visibility = View.VISIBLE
                 }
-                hybridAdapter.setList(mappedList)
-                
-                binding.tvEmptyState.visibility = if (mappedList.isEmpty()) View.VISIBLE else View.GONE
-            } else {
-                binding.tvPlaylistInfo.text = "0 músicas"
-                binding.tvEmptyState.visibility = View.VISIBLE
             }
         }
     }
