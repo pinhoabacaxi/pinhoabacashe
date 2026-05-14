@@ -33,52 +33,39 @@ class SearchAdapter(
         
         holder.binding.apply {
             when (item) {
-                // No OnItemClick do SearchAdapter
                 is VideoMeta -> {
-                    lifecycleScope.launch(Dispatchers.Main) {
-                        binding.progressBar.visibility = View.VISIBLE
-                        
-                        // ESSENCIAL: O item da busca não tem a URL de áudio. Temos que extrair agora.
-                        val onlineSong = withContext(Dispatchers.IO) {
-                            youtubeRepository.extractAudioLink(item.videoId)
-                        }
-                        
-                        binding.progressBar.visibility = View.GONE
-                        
-                        if (onlineSong != null && !onlineSong.url.isNullOrEmpty()) {
-                            LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
-                        } else {
-                            Toast.makeText(this@OnlineSearchActivity, "Link de áudio expirado ou indisponível", Toast.LENGTH_SHORT).show()
-                        }
+                    // Configuração visual para VÍDEO
+                    tvOnlineTitle.text = item.title
+                    tvOnlineChannel.text = item.author
+                    ivTypeIcon?.setImageResource(android.R.drawable.ic_media_play)
+                    btnDownload?.visibility = View.VISIBLE
+                    
+                    val thumbToLoad = item.thumbnailUrl.ifEmpty { 
+                        "https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg" 
                     }
+                    loadImage(holder, thumbToLoad)
                 }
                 is YouTubePlaylist -> {
-                    // Configuração para PLAYLIST
+                    // Configuração visual para PLAYLIST
                     tvOnlineTitle.text = "[PLAYLIST] ${item.title}"
                     tvOnlineChannel.text = "${item.author} • ${item.videoCount} vídeos"
-                    
-                    // Ícone de Lista para playlists
                     ivTypeIcon?.setImageResource(android.R.drawable.ic_menu_agenda)
                     
-                    // ESCONDE o botão de download para playlists (evita crash no Worker)
+                    // Esconde download para playlists (evita erros no Worker)
                     btnDownload?.visibility = View.GONE
-
+    
                     loadImage(holder, item.thumbnailUrl)
                 }
             }
             
-            // Clique no card (abre o vídeo ou abre a playlist)
+            // Repassa o clique para a Activity resolver
             root.setOnClickListener { onItemClick(item) }
             
-            // Clique no download (apenas se for vídeo)
             btnDownload?.setOnClickListener { 
-                if (item is VideoMeta) {
-                    onDownloadClick(item) 
-                }
+                if (item is VideoMeta) onDownloadClick(item) 
             }
         }
     }
-
     private fun ItemOnlineSongBinding.loadImage(holder: SearchViewHolder, url: String) {
         Glide.with(holder.itemView.context)
             .load(url)
