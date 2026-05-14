@@ -115,39 +115,31 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
-        lifecycleScope.launch {
+        
+        // No onCreate da OnlineSearchActivity
+        lifecycleScope.launchWhenStarted {
             viewModel.searchState.collect { state ->
                 when (state) {
                     is SearchState.Loading -> {
-                        binding.progressBar.visibility = View.VISIBLE 
-                        binding.emptyStateContainer.visibility = View.GONE 
+                         binding.progressBar.visibility = View.VISIBLE
                     }
                     is SearchState.Success -> {
-                        binding.progressBar.visibility = View.GONE 
-                        
-                        // Garantimos que o resultado seja tratado como uma lista de Any
-                        // para que o SearchAdapter (que aceita List<Any>) receba o tipo correto
-                        val results = state.results as? List<Any> ?: emptyList() 
-                        searchAdapter.submitList(results) 
-                        
-                        binding.emptyStateContainer.visibility = if (results.isEmpty()) View.VISIBLE else View.GONE 
-                        
-                        if (results.isEmpty()) {
-                            binding.tvEmptyMessage.text = "Nenhum resultado encontrado para esta busca." 
-                        }
+                        binding.progressBar.visibility = View.GONE
+                // IMPORTANTE: Use a lista unificada do ViewModel
+                        searchAdapter.submitList(state.results)
+                        binding.rvOnlineResults.visibility = View.VISIBLE
+                        binding.emptyStateContainer.visibility = View.GONE
                     }
                     is SearchState.Error -> {
-                        binding.progressBar.visibility = View.GONE 
-                        binding.emptyStateContainer.visibility = View.VISIBLE 
-                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_LONG).show() 
+                        binding.progressBar.visibility = View.GONE
+                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_SHORT).show()
                     }
                     else -> {
-                        binding.progressBar.visibility = View.GONE 
+                        binding.progressBar.visibility = View.GONE
                     }
                 }
             }
         }
-    }
 
     private fun playVideo(videoMeta: VideoMeta) {
         lifecycleScope.launch {
