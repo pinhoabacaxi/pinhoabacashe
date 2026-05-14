@@ -24,33 +24,64 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         val videoId = inputData.getString("VIDEO_ID") ?: return Result.failure()
         val fileName = inputData.getString("FILE_NAME") ?: "music_${System.currentTimeMillis()}.mp3"
         val playlistName = inputData.getString("PLAYLIST_NAME")
-        // 1. Criar canal e Foreground ANTES de qualquer lógica
+    
+        // 1. Inicializa notificações IMEDIATAMENTE (Essencial para não dar crash no Android 12+)
         createNotificationChannel()
-        setForeground(createForegroundInfo(fileName))
-        val repo = YouTubeRepository(applicationContext)
-        val song = repo.extractAudioLink(videoId) ?: return Result.failure()
+        try {
+            setForeground(createForegroundInfo(fileName))
+        } catch (e: Exception) {
+            Log.e("Worker", "Erro ao iniciar foreground: ${e.message}")
+        }
+    
         return try {
+            // 2. Extração do link (Chamamos apenas UMA vez)
             val repo = YouTubeRepository(applicationContext)
             val song = repo.extractAudioLink(videoId) ?: return Result.failure()
             val url = song.url
-
-            val client = OkHttpClient()
-            val response = client.newCall(Request.Builder().url(url).build()).execute()
-            if (!response.isSuccessful) return Result.failure()
-
-            val body = response.body ?: return Result.failure()
+    
+            // 3. Configuração do OkHttp
+            val client = okhttp3.OkHttpClient()
+            val request = okhttp3.Request.Builder().url(url).build()
+            val response = client.newCall(request).execute()
+    
+            if (!response.isSuccessful || response.body == null) return Result.failure()
+    
+            // 4. Definição do local de salvamento (Pasta de Música Pública)
             val baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
-            val targetDir = if (!playlistName.isNullOrEmpty()) File(baseDir, playlistName).apply { mkdirs() } else baseDir
+            val targetDir = if (!playlistName.isNullOrEmpty()) {
+                File(baseDir, playlistName).apply { mkdirs() }
+            } else {
+                baseDir
+            }
             val file = File(targetDir, fileName)
-
+    
+            // 5. Download com atualização de progresso (Para a notificação não ficar travada)
+            val body = response.body!!
+            val totalBytes = body.contentLength()
+            var bytesBaixados = 0L
+    
             body.byteStream().use { input ->
                 FileOutputStream(file).use { output ->
-                    input.copyTo(output)
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        bytesBaixados += bytesRead
+                        
+                        // Atualiza a notificação a cada 500kb aproximadamente
+                        if (totalBytes > 0) {
+                            val progress = ((bytesBaixados * 100) / totalBytes).toInt()
+                            updateNotification(fileName, progress)
+                        }
+                    }
                 }
             }
+    
+            Log.d("DownloadWorker", "Sucesso: Salvo em ${file.absolutePath}")
             Result.success()
+    
         } catch (e: Exception) {
-            Log.e("DownloadWorker", "Erro: ${e.message}")
+            Log.e("DownloadWorker", "Erro crítico no download: ${e.message}")
             Result.failure()
         }
     }
