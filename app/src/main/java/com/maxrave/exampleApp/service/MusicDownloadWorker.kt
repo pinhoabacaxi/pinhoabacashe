@@ -16,6 +16,7 @@ import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
+import android.media.MediaScannerConnection
 
 class MusicDownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -92,6 +93,13 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             Log.e("DownloadWorker", "Erro no download: ${e.message}")
             Result.failure()
         }
+        MediaScannerConnection.scanFile(
+        applicationContext,
+        arrayOf(file.absolutePath),
+        null
+    ) { path, uri ->
+        Log.d("Worker", "Arquivo escaneado e adicionado ao sistema: $path")
+    }    
     }
 
     private fun createForegroundInfo(fileName: String): ForegroundInfo {
