@@ -21,9 +21,7 @@ data class YouTubePlaylist(
 class YouTubeRepository(private val context: Context) {
     private val TAG = "YouTubeRepo"
     private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
-
-    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU"
-
+    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU" 
     suspend fun extractAudioLink(videoId: String): OnlineSong? = withContext(Dispatchers.IO) {
         return@withContext fetchFromInnerTube(videoId)
     }
@@ -34,29 +32,28 @@ class YouTubeRepository(private val context: Context) {
             val conn = createPostConnection("https://youtubei.googleapis.com/youtubei/v1/search")
             val payload = JSONObject().apply {
                 put("query", query)
-                put("params", "EgIQAQ%3D%3D") // Filtro para vídeos
                 put("context", createInnerTubeContext())
             }
             sendPayload(conn, payload)
-            val response = if (conn.responseCode == 200) conn.inputStream.bufferedReader().use { it.readText() } else null
-            response?.let {
-                val json = JSONObject(it)
-                val contents = json.optJSONObject("contents")
-                    ?.optJSONObject("twoColumnSearchResultsRenderer")
-                    ?.optJSONObject("primaryContents")
-                    ?.optJSONObject("sectionListRenderer")
-                    ?.optJSONArray("contents")?.optJSONObject(0)
-                    ?.optJSONObject("itemSectionRenderer")?.optJSONArray("contents")
-                
-                contents?.let { arr ->
-                    for (i in 0 until arr.length()) {
-                        arr.optJSONObject(i)?.optJSONObject("videoRenderer")?.let { video ->
-                            videoResults.add(parseVideoRenderer(video))
-                        }
-                    }
+            
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(response)
+            val contents = json.optJSONObject("contents")
+                ?.optJSONObject("twoColumnSearchResultsRenderer")
+                ?.optJSONObject("primaryContents")
+                ?.optJSONObject("sectionListRenderer")
+                ?.optJSONArray("contents")
+                ?.optJSONObject(0)
+                ?.optJSONObject("itemSectionRenderer")
+                ?.optJSONArray("contents")
+
+            contents?.let {
+                for (i in 0 until it.length()) {
+                    val videoRenderer = it.optJSONObject(i)?.optJSONObject("videoRenderer")
+                    if (videoRenderer != null) videoResults.add(parseVideoRenderer(videoRenderer))
                 }
             }
-        } catch (e: Exception) { Log.e(TAG, "Erro Vídeos: ${e.message}") }
+        } catch (e: Exception) { Log.e(TAG, "Erro busca vídeos: ${e.message}") }
         return@withContext videoResults
     }
 
@@ -66,106 +63,48 @@ class YouTubeRepository(private val context: Context) {
             val conn = createPostConnection("https://youtubei.googleapis.com/youtubei/v1/search")
             val payload = JSONObject().apply {
                 put("query", query)
-                put("params", "EgIUAQ%3D%3D") // Filtro para playlists
+                put("params", "EgIUAQ%3D%3D") // Filtro de playlist
                 put("context", createInnerTubeContext())
             }
             sendPayload(conn, payload)
-            val response = if (conn.responseCode == 200) conn.inputStream.bufferedReader().use { it.readText() } else null
-            response?.let {
-                val json = JSONObject(it)
-                val contents = json.optJSONObject("contents")
-                    ?.optJSONObject("twoColumnSearchResultsRenderer")
-                    ?.optJSONObject("primaryContents")
-                    ?.optJSONObject("sectionListRenderer")
-                    ?.optJSONArray("contents")?.optJSONObject(0)
-                    ?.optJSONObject("itemSectionRenderer")?.optJSONArray("contents")
 
-                contents?.let { arr ->
-                    for (i in 0 until arr.length()) {
-                        arr.optJSONObject(i)?.optJSONObject("playlistRenderer")?.let { playlist ->
-                            playlistResults.add(parsePlaylistRenderer(playlist))
-                        }
-                    }
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            val contents = JSONObject(response).optJSONObject("contents")
+                ?.optJSONObject("twoColumnSearchResultsRenderer")
+                ?.optJSONObject("primaryContents")
+                ?.optJSONObject("sectionListRenderer")
+                ?.optJSONArray("contents")
+                ?.optJSONObject(0)
+                ?.optJSONObject("itemSectionRenderer")
+                ?.optJSONArray("contents")
+
+            contents?.let {
+                for (i in 0 until it.length()) {
+                    val playlistRenderer = it.optJSONObject(i)?.optJSONObject("playlistRenderer")
+                    if (playlistRenderer != null) playlistResults.add(parsePlaylistRenderer(playlistRenderer))
                 }
             }
-        } catch (e: Exception) { Log.e(TAG, "Erro Playlist: ${e.message}") }
+        } catch (e: Exception) { Log.e(TAG, "Erro busca playlist: ${e.message}") }
         return@withContext playlistResults
     }
 
-    suspend fun getPlaylistVideos(playlistId: String): List<VideoMeta> = withContext(Dispatchers.IO) {
-        val videoResults = mutableListOf<VideoMeta>()
-        try {
-            val conn = createPostConnection("https://youtubei.googleapis.com/youtubei/v1/browse")
-            val payload = JSONObject().apply {
-                put("browseId", "VL$playlistId")
-                put("context", createInnerTubeContext())
-            }
-            sendPayload(conn, payload)
-            val response = if (conn.responseCode == 200) conn.inputStream.bufferedReader().use { it.readText() } else null
-            response?.let {
-                val json = JSONObject(it)
-                val tabs = json.optJSONArray("contents")?.optJSONObject(0)?.optJSONObject("twoColumnBrowseResultsRenderer")?.optJSONArray("tabs")
-                val section = tabs?.optJSONObject(0)?.optJSONObject("tabRenderer")?.optJSONObject("content")
-                    ?.optJSONObject("sectionListRenderer")?.optJSONArray("contents")?.optJSONObject(0)
-                    ?.optJSONObject("itemSectionRenderer")?.optJSONArray("contents")?.optJSONObject(0)
-                    ?.optJSONObject("playlistVideoListRenderer")?.optJSONArray("contents")
-
-                section?.let { arr ->
-                    for (i in 0 until arr.length()) {
-                        arr.optJSONObject(i)?.optJSONObject("playlistVideoRenderer")?.let { video ->
-                            videoResults.add(parseVideoRenderer(video))
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) { Log.e(TAG, "Erro Playlist Videos: ${e.message}") }
-        return@withContext videoResults
-    }
-
     private fun parseVideoRenderer(obj: JSONObject): VideoMeta {
-        val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
-        return VideoMeta(
-            videoId = obj.optString("videoId"),
-            title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "",
-            author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "",
-            thumbnailUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: "",
-            duration = 0L, viewCount = 0L, isLiveStream = false, description = "", channelId = ""
-        )
+        val videoId = obj.optString("videoId")
+        val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
+        val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
+        val thumbs = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+        val thumbUrl = thumbs?.optJSONObject(thumbs.length() - 1)?.optString("url") ?: ""
+        return VideoMeta(videoId, title, author, thumbUrl, 0L, 0L, false, "", "")
     }
 
     private fun parsePlaylistRenderer(obj: JSONObject): YouTubePlaylist {
-        val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
-            ?: obj.optJSONArray("thumbnails")?.optJSONObject(0)?.optJSONArray("thumbnails")
-        return YouTubePlaylist(
-            playlistId = obj.optString("playlistId"),
-            title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: obj.optJSONObject("title")?.optString("simpleText") ?: "",
-            thumbnailUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: "",
-            videoCount = obj.optString("videoCount") ?: "0",
-            author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
-        )
-    }
-
-    private fun createPostConnection(url: String): HttpURLConnection {
-        val conn = URL(url).openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.setRequestProperty("Content-Type", "application/json")
-        conn.setRequestProperty("User-Agent", "com.google.android.youtube/19.05.36 (Linux; U; Android 11)")
-        conn.doOutput = true
-        return conn
-    }
-
-    private fun sendPayload(conn: HttpURLConnection, payload: JSONObject) {
-        // Importante usar UTF_8 para evitar erro em termos com acento
-        conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
-    }
-
-    private fun createInnerTubeContext() = JSONObject().apply {
-        put("client", JSONObject().apply {
-                put("clientName", "WEB")
-            put("clientVersion", "2.20240210.01.00")
-            put("hl", "pt-BR")
-            put("gl", "BR")
-        })
+        val id = obj.optString("playlistId")
+        val title = obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: ""
+        val author = obj.optJSONObject("shortBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
+        val count = obj.optString("videoCount")
+        val thumbs = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+        val thumbUrl = thumbs?.optJSONObject(thumbs.length() - 1)?.optString("url") ?: ""
+        return YouTubePlaylist(id, title, thumbUrl, count, author)
     }
 
     private fun fetchFromInnerTube(videoId: String): OnlineSong? {
@@ -176,21 +115,45 @@ class YouTubeRepository(private val context: Context) {
                 put("context", createInnerTubeContext())
             }
             sendPayload(conn, payload)
-            if (conn.responseCode != 200) return null
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
             val videoDetails = json.optJSONObject("videoDetails") ?: return null
             val streamingData = json.optJSONObject("streamingData") ?: return null
+            
             val formats = streamingData.optJSONArray("adaptiveFormats")
             for (i in 0 until (formats?.length() ?: 0)) {
                 val f = formats!!.getJSONObject(i)
                 if (f.optString("mimeType").contains("audio")) {
                     return OnlineSong(
-                        videoId, videoDetails.optString("title"), videoDetails.optString("author"),
-                        "", f.optString("url"), videoDetails.optString("lengthSeconds")
+                        videoId, videoDetails.optString("title"),
+                        videoDetails.optString("author"), "",
+                        f.optString("url"), videoDetails.optString("lengthSeconds")
                     )
                 }
             }
-        } catch (e: Exception) { Log.e(TAG, "Fetch falhou: ${e.message}") }
+        } catch (e: Exception) { Log.e(TAG, "Erro streaming: ${e.message}") }
         return null
+    }
+
+    private fun createPostConnection(url: String): HttpURLConnection {
+        return (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            setRequestProperty("Content-Type", "application/json")
+            // User-Agent de navegador para aceitar o cliente WEB
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
+            doOutput = true
+        }
+    }
+
+    private fun sendPayload(conn: HttpURLConnection, payload: JSONObject) {
+        conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+    }
+
+    private fun createInnerTubeContext() = JSONObject().apply {
+        put("client", JSONObject().apply {
+            put("clientName", "WEB")
+            put("clientVersion", "2.20240210.01.00")
+            put("hl", "pt-BR")
+            put("gl", "BR")
+        })
     }
 }
