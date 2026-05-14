@@ -29,6 +29,10 @@ interface MusicDao {
     @Query("SELECT * FROM playlists WHERE id = :playlistId")
     fun getSongsFromPlaylist(playlistId: Long): Flow<List<PlaylistWithSongs>> 
     // Removi o sufixo "Flow" do nome para resolver o erro de referência no repositório
+    @Transaction
+    @Query("SELECT * FROM playlists WHERE id = :playlistId")
+    suspend fun getSongsFromPlaylistSync(playlistId: Long): List<PlaylistWithSongs>
+    
     @Query("DELETE FROM playlist_song_cross_ref WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: String)
 
