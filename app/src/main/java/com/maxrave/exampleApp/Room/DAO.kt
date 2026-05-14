@@ -1,12 +1,16 @@
 package com.maxrave.exampleApp.Room
 
 import androidx.room.*
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MusicDao {
     // --- PLAYLISTS ---
     @Insert
     suspend fun insertPlaylist(playlist: Playlist): Long
+
+    @Query("SELECT * FROM playlists ORDER BY createdAt DESC")
+    fun getAllPlaylistsFlow(): Flow<List<Playlist>> // Reativo
 
     @Query("SELECT * FROM playlists")
     suspend fun getAllPlaylists(): List<Playlist>
@@ -23,18 +27,11 @@ interface MusicDao {
 
     @Transaction
     @Query("SELECT * FROM playlists WHERE id = :playlistId")
-    suspend fun getSongsFromPlaylist(playlistId: Long): List<PlaylistWithSongs>
+    fun getSongsFromPlaylistFlow(playlistId: Long): Flow<List<PlaylistWithSongs>> // Reativo
 
     @Query("DELETE FROM playlist_song_cross_ref WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: String)
 
-    // --- FILTROS ---
-    @Query("SELECT DISTINCT artist FROM songs") 
-    suspend fun getUniqueArtists(): List<String>
-    
-    // Nota: Para filtrar por álbum, a SongEntity precisaria do campo album. 
-    // Por enquanto, usaremos a ordenação na lista da MainActivity.
-  
     // --- FAVORITOS ---
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE songId = :id)")
     suspend fun isFavorite(id: String): Boolean
@@ -44,4 +41,7 @@ interface MusicDao {
     
     @Delete
     suspend fun removeFavorite(favorite: FavoriteEntity)
+
+    @Query("SELECT DISTINCT artist FROM songs") 
+    suspend fun getUniqueArtists(): List<String>
 }
