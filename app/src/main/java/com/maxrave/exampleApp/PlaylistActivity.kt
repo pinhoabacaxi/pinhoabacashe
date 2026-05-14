@@ -13,6 +13,7 @@ import com.maxrave.exampleApp.adapter.PlaylistAdapter
 import com.maxrave.exampleApp.databinding.ActivityPlaylistListBinding
 import com.maxrave.exampleApp.repository.PlaylistRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 
 class PlaylistActivity : AppCompatActivity() {
 
@@ -30,7 +31,7 @@ class PlaylistActivity : AppCompatActivity() {
         setupToolbar()
         setupRecyclerView()
         setupListeners()
-        loadPlaylists()
+        observePlaylists() // Inicia a observação reativa
     }
 
     private fun setupToolbar() {
@@ -39,20 +40,27 @@ class PlaylistActivity : AppCompatActivity() {
         binding.toolbar.setNavigationOnClickListener { onBackPressed() }
     }
 
+    private fun observePlaylists() {
+        // O Flow atualizará a lista automaticamente sempre que uma nova playlist for criada (inclusive via Worker)
+        lifecycleScope.launch {
+            repository.getAllPlaylistsFlow().collect { list ->
+                playlistAdapter.updateList(list)
+                binding.emptyStatePlaylists.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
     private fun setupRecyclerView() {
         playlistAdapter = PlaylistAdapter(
             playlists = emptyList(),
             onClick = { playlist ->
-                // Abre a tela de músicas passando os dados da playlist
                 val intent = Intent(this, PlaylistSongsActivity::class.java).apply {
                     putExtra("PLAYLIST_ID", playlist.id)
                     putExtra("PLAYLIST_NAME", playlist.name)
                 }
                 startActivity(intent)
             },
-            onDelete = { playlist ->
-                showDeleteConfirmation(playlist)
-            }
+            onDelete = { playlist -> showDeleteConfirmation(playlist) }
         )
 
         binding.rvPlaylists.apply {
@@ -62,20 +70,7 @@ class PlaylistActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // Botão de adicionar (+) que definimos no XML
-        binding.fabAddPlaylist.setOnClickListener {
-            showCreatePlaylistDialog()
-        }
-    }
-
-    private fun loadPlaylists() {
-        lifecycleScope.launch {
-            val list = repository.getAllPlaylists()
-            playlistAdapter.updateList(list)
-            
-            // Gerencia o estado vazio (Empty State)
-            binding.emptyStatePlaylists.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-        }
+        binding.fabAddPlaylist.setOnClickListener { showCreatePlaylistDialog() }
     }
 
     private fun showCreatePlaylistDialog() {
@@ -88,10 +83,7 @@ class PlaylistActivity : AppCompatActivity() {
             .setPositiveButton("Criar") { _, _ ->
                 val name = input.text.toString().trim()
                 if (name.isNotEmpty()) {
-                    lifecycleScope.launch {
-                        repository.createPlaylist(name)
-                        loadPlaylists()
-                    }
+                    lifecycleScope.launch { repository.createPlaylist(name) }
                 }
             }
             .setNegativeButton("Cancelar", null)
@@ -103,18 +95,9 @@ class PlaylistActivity : AppCompatActivity() {
             .setTitle("Excluir Playlist")
             .setMessage("Tem certeza que deseja excluir '${playlist.name}'?")
             .setPositiveButton("Sim") { _, _ ->
-                lifecycleScope.launch {
-                    repository.deletePlaylist(playlist)
-                    loadPlaylists()
-                }
+                lifecycleScope.launch { repository.deletePlaylist(playlist) }
             }
             .setNegativeButton("Não", null)
             .show()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Recarrega caso o usuário tenha voltado de uma tela onde adicionou algo
-        loadPlaylists()
     }
 }
