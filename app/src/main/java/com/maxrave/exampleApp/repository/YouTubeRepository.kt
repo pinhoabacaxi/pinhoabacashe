@@ -152,22 +152,24 @@ class YouTubeRepository(private val context: Context) {
     private fun parsePlaylist(obj: JSONObject): YouTubePlaylist {
         val id = obj.optString("playlistId")
         
-        // O título pode estar em 'simpleText' ou dentro de um array 'runs'
+        // Título pode vir em dois formatos diferentes no InnerTube WEB
         val title = obj.optJSONObject("title")?.optString("simpleText")
             ?: obj.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
-            ?: "Playlist Sem Título"
+            ?: "Sem Título"
         
-        // Captura segura da contagem de vídeos
+        // Contagem de vídeos
         val count = obj.optString("videoCount") ?: "0"
         
-        val author = obj.optJSONObject("shortBylineText")
-            ?.optJSONArray("runs")?.optJSONObject(0)?.optString("text") ?: "YouTube"
-    
-        // Localização robusta da Thumbnail
-        val thumbArray = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+        // Thumbnail: O caminho mudou para playlists recentemente
+        val thumbnails = obj.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
             ?: obj.optJSONArray("thumbnails")?.optJSONObject(0)?.optJSONArray("thumbnails")
-        
-        val thumbUrl = thumbArray?.optJSONObject(thumbArray.length() - 1)?.optString("url") ?: ""
+            ?: obj.optJSONObject("thumbnails")?.optJSONArray("thumbnails") // Fallback
+    
+        val thumbUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url") ?: ""
+    
+        val author = obj.optJSONObject("longBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
+            ?: obj.optJSONObject("shortBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
+            ?: "YouTube"
     
         return YouTubePlaylist(
             playlistId = id,
