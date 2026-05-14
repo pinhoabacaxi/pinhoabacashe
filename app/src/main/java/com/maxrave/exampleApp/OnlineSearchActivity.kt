@@ -81,7 +81,25 @@ class OnlineSearchActivity : AppCompatActivity() {
         searchAdapter = SearchAdapter(
             onItemClick = { item ->
                 when (item) {
-                    is VideoMeta -> playVideo(item) // Chama a função que já gerencia a coroutine
+                    // No OnItemClick do SearchAdapter
+                    is VideoMeta -> {
+                        lifecycleScope.launch(Dispatchers.Main) {
+                            binding.progressBar.visibility = View.VISIBLE
+                            
+                            // ESSENCIAL: O item da busca não tem a URL de áudio. Temos que extrair agora.
+                            val onlineSong = withContext(Dispatchers.IO) {
+                                youtubeRepository.extractAudioLink(item.videoId)
+                            }
+                            
+                            binding.progressBar.visibility = View.GONE
+        
+                            if (onlineSong != null && !onlineSong.url.isNullOrEmpty()) {
+                                LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
+                            } else {
+                                Toast.makeText(this@OnlineSearchActivity, "Link de áudio expirado ou indisponível", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
                     is YouTubePlaylist -> {
                         Toast.makeText(this, "Abrindo playlist...", Toast.LENGTH_SHORT).show()
                         viewModel.loadPlaylistVideos(item.playlistId)
