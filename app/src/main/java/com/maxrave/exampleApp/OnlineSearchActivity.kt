@@ -196,7 +196,7 @@ class OnlineSearchActivity : AppCompatActivity() {
             binding.progressBar.visibility = View.VISIBLE
             try {
                 val songs = youtubeRepository.getPlaylistVideos(playlistId)
-                if (songs.isNotEmpty())
+                if (songs.isNotEmpty()){
                     val workManager = WorkManager.getInstance(this@OnlineSearchActivity)
                     songs.forEach { song ->
                         val workData = workDataOf(
