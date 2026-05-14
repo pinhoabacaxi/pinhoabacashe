@@ -171,19 +171,23 @@ class OnlineSearchActivity : AppCompatActivity() {
         Toast.makeText(this, "Iniciado download de ${videos.size} músicas em: Music/$folderName", Toast.LENGTH_LONG).show()
     }
 
+        // Dentro de OnlineSearchActivity.kt
     private fun startDownload(video: VideoMeta) {
+        // CORREÇÃO: Limpar o nome do arquivo para evitar que barras '/' criem pastas fantasma
+        val safeTitle = video.title.replace("/", "-").replace("\\", "-")
+        
         val workData = workDataOf(
             "VIDEO_ID" to video.videoId,
-            "FILE_NAME" to "${video.title}.mp3"
+            "FILE_NAME" to "$safeTitle.mp3" 
+            // Não passamos PLAYLIST_NAME, o Worker vai jogar solto na pasta Music
         )
         val request = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
             .setInputData(workData)
             .build()
-
+    
         WorkManager.getInstance(this).enqueue(request)
-        Toast.makeText(this, "Download iniciado: ${video.title}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Baixando: $safeTitle", Toast.LENGTH_SHORT).show()
     }
-
     private fun setupSearchView() {
         binding.searchViewOnline.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
