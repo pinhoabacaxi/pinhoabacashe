@@ -25,6 +25,7 @@ import com.maxrave.exampleApp.databinding.ActivityOnlineSearchBinding
 import com.maxrave.exampleApp.player.LocalPlayerManager
 import com.maxrave.exampleApp.repository.YouTubeRepository
 import com.maxrave.exampleApp.repository.YouTubePlaylist
+import com.maxrave.exampleApp.repository.PlaylistRepository // Importante
 import com.maxrave.exampleApp.service.MusicDownloadWorker
 import com.maxrave.kotlinyoutubeextractor.SearchState
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
@@ -39,6 +40,7 @@ class OnlineSearchActivity : AppCompatActivity() {
     private val viewModel: SearchViewModel by viewModels()
     private lateinit var searchAdapter: SearchAdapter
     private val youtubeRepository by lazy { YouTubeRepository(this) }
+    private val playlistRepository by lazy { PlaylistRepository(this) } // Repositório Room
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,7 +59,6 @@ class OnlineSearchActivity : AppCompatActivity() {
                 when (item) {
                     is VideoMeta -> handleVideoClick(item)
                     is YouTubePlaylist -> {
-                        // Ao clicar na playlist, o ViewModel carrega os vídeos dela
                         viewModel.loadPlaylistVideos(item.playlistId)
                         Toast.makeText(this, "Carregando playlist: ${item.title}", Toast.LENGTH_SHORT).show()
                     }
@@ -102,8 +103,7 @@ class OnlineSearchActivity : AppCompatActivity() {
                         binding.progressBar.visibility = View.GONE
                         searchAdapter.submitList(state.results)
                         
-                        // Verifica se o resultado atual é uma lista de vídeos (Playlist aberta)
-                        // Se houver muitos vídeos, oferece a opção de baixar tudo
+                        // Detecta se estamos visualizando o conteúdo de uma playlist
                         val videosOnly = state.results.filterIsInstance<VideoMeta>()
                         if (videosOnly.isNotEmpty() && state.results.size == videosOnly.size) {
                             showDownloadAllDialog(videosOnly)
@@ -119,24 +119,32 @@ class OnlineSearchActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Exibe um diálogo perguntando se o usuário deseja baixar todos os vídeos da playlist atual.
-     */
     private fun showDownloadAllDialog(videos: List<VideoMeta>) {
         val input = EditText(this).apply {
-            hint = "Nome da pasta (ex: Minha Playlist)"
+            hint = "Nome da pasta no app e no celular"
             setPadding(50, 30, 50, 30)
         }
 
         AlertDialog.Builder(this)
             .setTitle("Download em Massa")
-            .setMessage("Deseja baixar os ${videos.size} vídeos desta lista em uma pasta específica?")
+            .setMessage("Deseja baixar estes ${videos.size} vídeos? Eles serão salvos em uma pasta e adicionados às suas Playlists Locais.")
             .setView(input)
-            .setPositiveButton("Baixar Tudo") { _, _ ->
-                val folderName = input.text.toString().trim().ifEmpty { "Playlist_Download" }
-                startBulkDownload(videos, folderName)
+            .setPositiveButton("Confirmar") { _, _ ->
+                val folderName = input.text.toString().trim().ifEmpty { "Minha Playlist" }
+                
+                // CRUCIAL: Cria a playlist no Room antes de começar o download
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val existingId = playlistRepository.getPlaylistIdByName(folderName)
+                    if (existingId == null) {
+                        playlistRepository.createPlaylist(folderName)
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        startBulkDownload(videos, folderName)
+                    }
+                }
             }
-            .setNegativeButton("Agora não", null)
+            .setNegativeButton("Cancelar", null)
             .show()
     }
 
@@ -155,7 +163,7 @@ class OnlineSearchActivity : AppCompatActivity() {
             
             workManager.enqueue(request)
         }
-        Toast.makeText(this, "Enfileirados ${videos.size} downloads em: Music/$folderName", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Iniciado download de ${videos.size} músicas em: Music/$folderName", Toast.LENGTH_LONG).show()
     }
 
     private fun startDownload(video: VideoMeta) {
@@ -172,7 +180,7 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun setupSearchView() {
-        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+        binding.searchViewOnline.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 query?.let {
                     viewModel.performSearch(it)
@@ -186,13 +194,9 @@ class OnlineSearchActivity : AppCompatActivity() {
 
     private fun checkPermissions() {
         val permissions = mutableListOf<String>()
-        
-        // Android 13+ precisa de permissão para notificações
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        
-        // Android 9 ou inferior precisa de permissão de escrita
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
             permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
@@ -211,7 +215,7 @@ class OnlineSearchActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         if (results[Manifest.permission.POST_NOTIFICATIONS] == false) {
-            Toast.makeText(this, "Sem notificações, você não verá o progresso do download.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Notificações desativadas: o progresso não será exibido.", Toast.LENGTH_SHORT).show()
         }
     }
 
