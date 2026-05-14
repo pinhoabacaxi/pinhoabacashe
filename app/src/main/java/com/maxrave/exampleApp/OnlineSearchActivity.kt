@@ -79,18 +79,22 @@ class OnlineSearchActivity : AppCompatActivity() {
         searchAdapter = SearchAdapter(
             onItemClick = { item ->
                 when (item) {
-                    // No OnItemClick do SearchAdapter dentro da Activity:
+                    // No OnItemClick dentro da Activity
                     is VideoMeta -> {
-                        lifecycleScope.launch {
+                        lifecycleScope.launch(Dispatchers.Main) {
                             binding.progressBar.visibility = View.VISIBLE
-                            // EXTRAIA O LINK ANTES DE DAR O PLAY
-                            val streamableSong = youtubeRepository.extractAudioLink(item.videoId)
+                            
+                            // A extração ocorre em IO dentro do repositório, mas o lançamento é na Main
+                            val streamableSong = withContext(Dispatchers.IO) {
+                                youtubeRepository.extractAudioLink(item.videoId)
+                            }
+                            
                             binding.progressBar.visibility = View.GONE
                             
                             if (streamableSong != null) {
                                 LocalPlayerManager.playOnline(streamableSong, this@OnlineSearchActivity)
                             } else {
-                                Toast.makeText(this@OnlineSearchActivity, "Erro ao gerar link de streaming", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@OnlineSearchActivity, "Erro ao gerar link", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
