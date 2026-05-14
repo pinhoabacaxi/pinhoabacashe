@@ -54,7 +54,21 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             Result.failure()
         }
     }
-
+    private fun createForegroundInfo(fileName: String): ForegroundInfo {
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
+                .setContentTitle("Baixando Música")
+                .setContentText(fileName)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setOngoing(true) // Impede que o usuário feche a notificação durante o download
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+        
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ForegroundInfo(101, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                ForegroundInfo(101, notification)
+            }
+        }
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationManager.createNotificationChannel(
