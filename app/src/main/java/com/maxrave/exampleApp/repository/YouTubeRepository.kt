@@ -25,8 +25,8 @@ class YouTubeRepository(private val context: Context) {
     private val TAG = "YouTubeRepo"
     
     // Chaves de API (Omitidas por privacidade)
-    private val youtubeApiKey1 = ""
-    private val youtubeApiKey2 = ""
+    private val youtubeApiKey1 = "AIzaSyBiMZ0Z7TZ8sDYJEEt3Ao9jVFk7Zn8BJ5k"
+    private val youtubeApiKey2 = "AIzaSyAkFEB8PV60dgxAtl604c7wn41mgiigUMU"
 
     // === 1. BUSCA UNIFICADA (VÍDEOS E PLAYLISTS) ===
 
