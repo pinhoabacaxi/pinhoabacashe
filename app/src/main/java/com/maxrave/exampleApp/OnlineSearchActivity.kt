@@ -29,7 +29,9 @@ import com.maxrave.exampleApp.service.MusicDownloadWorker
 import com.maxrave.kotlinyoutubeextractor.SearchState
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
 import com.maxrave.exampleApp.viewmodel.SearchViewModel
+import kotlinx.coroutines.Dispatchers // IMPORTANTE
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext // IMPORTANTE
 
 class OnlineSearchActivity : AppCompatActivity() {
 
@@ -79,25 +81,7 @@ class OnlineSearchActivity : AppCompatActivity() {
         searchAdapter = SearchAdapter(
             onItemClick = { item ->
                 when (item) {
-                    // No OnItemClick dentro da Activity
-                    is VideoMeta -> {
-                        lifecycleScope.launch(Dispatchers.Main) {
-                            binding.progressBar.visibility = View.VISIBLE
-                            
-                            // A extração ocorre em IO dentro do repositório, mas o lançamento é na Main
-                            val streamableSong = withContext(Dispatchers.IO) {
-                                youtubeRepository.extractAudioLink(item.videoId)
-                            }
-                            
-                            binding.progressBar.visibility = View.GONE
-                            
-                            if (streamableSong != null) {
-                                LocalPlayerManager.playOnline(streamableSong, this@OnlineSearchActivity)
-                            } else {
-                                Toast.makeText(this@OnlineSearchActivity, "Erro ao gerar link", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
+                    is VideoMeta -> playVideo(item) // Chama a função que já gerencia a coroutine
                     is YouTubePlaylist -> {
                         Toast.makeText(this, "Abrindo playlist...", Toast.LENGTH_SHORT).show()
                         viewModel.loadPlaylistVideos(item.playlistId)
@@ -141,13 +125,12 @@ class OnlineSearchActivity : AppCompatActivity() {
                         binding.progressBar.visibility = View.GONE
                         searchAdapter.submitList(state.results)
                         
-                        // CORREÇÃO DE VISIBILIDADE:
                         if (state.results.isEmpty()) {
                             binding.emptyStateContainer.visibility = View.VISIBLE
                             binding.rvOnlineResults.visibility = View.GONE
                         } else {
                             binding.emptyStateContainer.visibility = View.GONE
-                            binding.rvOnlineResults.visibility = View.VISIBLE // Mostra a lista
+                            binding.rvOnlineResults.visibility = View.VISIBLE
                         }
                     }
                     is SearchState.Error -> {
@@ -162,14 +145,18 @@ class OnlineSearchActivity : AppCompatActivity() {
     }
 
     private fun playVideo(videoMeta: VideoMeta) {
-        lifecycleScope.launch {
+        lifecycleScope.launch(Dispatchers.Main) {
             binding.progressBar.visibility = View.VISIBLE
-            val onlineSong = youtubeRepository.extractAudioLink(videoMeta.videoId)
+            
+            // Realiza a extração em Background (IO)
+            val onlineSong = withContext(Dispatchers.IO) {
+                youtubeRepository.extractAudioLink(videoMeta.videoId)
+            }
+            
             binding.progressBar.visibility = View.GONE
             
             if (onlineSong != null) {
                 LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
-                // Opcional: finish() se você quiser fechar a busca ao dar play
             } else {
                 Toast.makeText(this@OnlineSearchActivity, "Erro ao extrair áudio", Toast.LENGTH_SHORT).show()
             }
@@ -214,7 +201,7 @@ class OnlineSearchActivity : AppCompatActivity() {
             binding.progressBar.visibility = View.VISIBLE
             try {
                 val songs = youtubeRepository.getPlaylistVideos(playlistId)
-                if (songs.isNotEmpty()){
+                if (songs.isNotEmpty()) {
                     val workManager = WorkManager.getInstance(this@OnlineSearchActivity)
                     songs.forEach { song ->
                         val workData = workDataOf(
