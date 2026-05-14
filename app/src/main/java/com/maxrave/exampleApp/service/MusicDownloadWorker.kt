@@ -26,12 +26,18 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         val playlistName = inputData.getString("PLAYLIST_NAME")
     
         createNotificationChannel()
+        try {
         setForeground(createForegroundInfo(fileName))
-    
+        } catch (e: Exception) {
+            Log.e("Worker", "Falha ao iniciar Foreground: ${e.message}")
+        }
+       
         val repo = YouTubeRepository(applicationContext)
         // Extrai o link fresco dentro do Worker para evitar URLs expiradas
         val song = repo.extractAudioLink(videoId) ?: return Result.failure()
-    
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .build()
         return try {
             val request = okhttp3.Request.Builder().url(song.url).build()
             val response = okhttp3.OkHttpClient().newCall(request).execute()
