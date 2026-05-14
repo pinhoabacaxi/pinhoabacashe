@@ -57,6 +57,48 @@ class YouTubeRepository(private val context: Context) {
         return@withContext videoResults
     }
 
+    suspend fun getPlaylistVideos(playlistId: String): List<VideoMeta> = withContext(Dispatchers.IO) {
+        val videoResults = mutableListOf<VideoMeta>()
+        try {
+            val conn = createPostConnection("https://youtubei.googleapis.com/youtubei/v1/browse")
+            val payload = JSONObject().apply {
+                put("browseId", if (playlistId.startsWith("VL")) playlistId else "VL$playlistId")
+                put("context", createInnerTubeContext())
+            }
+            sendPayload(conn, payload)
+    
+            val response = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(response)
+            
+            // Navegação no JSON do YouTube para extrair vídeos da playlist
+            val contents = json.optJSONObject("contents")
+                ?.optJSONObject("twoColumnBrowseResultsRenderer")
+                ?.optJSONArray("tabs")
+                ?.optJSONObject(0)
+                ?.optJSONObject("tabRenderer")
+                ?.optJSONObject("content")
+                ?.optJSONObject("sectionListRenderer")
+                ?.optJSONArray("contents")
+                ?.optJSONObject(0)
+                ?.optJSONObject("itemSectionRenderer")
+                ?.optJSONArray("contents")
+                ?.optJSONObject(0)
+                ?.optJSONObject("playlistVideoListRenderer")
+                ?.optJSONArray("contents")
+    
+            contents?.let {
+                for (i in 0 until it.length()) {
+                    val videoRenderer = it.optJSONObject(i)?.optJSONObject("playlistVideoRenderer")
+                    if (videoRenderer != null) {
+                        videoResults.add(parseVideoRenderer(videoRenderer))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao carregar vídeos da playlist: ${e.message}")
+        }
+        return@withContext videoResults
+    }
     suspend fun searchPlaylists(query: String): List<YouTubePlaylist> = withContext(Dispatchers.IO) {
         val playlistResults = mutableListOf<YouTubePlaylist>()
         try {
