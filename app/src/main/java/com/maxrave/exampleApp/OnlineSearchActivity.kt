@@ -29,98 +29,125 @@ import com.maxrave.exampleApp.service.MusicDownloadWorker
 import com.maxrave.kotlinyoutubeextractor.SearchState
 import com.maxrave.kotlinyoutubeextractor.VideoMeta
 import com.maxrave.exampleApp.viewmodel.SearchViewModel
-import kotlinx.coroutines.Dispatchers // IMPORTANTE
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext // IMPORTANTE
+import kotlinx.coroutines.withContext
 
 class OnlineSearchActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityOnlineSearchBinding
     private val viewModel: SearchViewModel by viewModels()
-    private val youtubeRepository by lazy { YouTubeRepository(this) }
     private lateinit var searchAdapter: SearchAdapter
-
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val allGranted = permissions.entries.all { it.value }
-        if (!allGranted) {
-            Toast.makeText(this, "Permissões negadas. O download pode falhar.", Toast.LENGTH_LONG).show()
-        }
-    }
+    private val youtubeRepository by lazy { YouTubeRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityOnlineSearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        checkAndRequestPermissions()
         setupRecyclerView()
         setupSearchView()
         observeViewModel()
-    }
-
-    private fun checkAndRequestPermissions() {
-        val permissions = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            }
-        }
-        if (permissions.isNotEmpty()) {
-            requestPermissionLauncher.launch(permissions.toTypedArray())
-        }
+        checkPermissions()
     }
 
     private fun setupRecyclerView() {
         searchAdapter = SearchAdapter(
             onItemClick = { item ->
                 when (item) {
-                    // No OnItemClick do SearchAdapter
-                    is VideoMeta -> {
-                        lifecycleScope.launch(Dispatchers.Main) {
-                            binding.progressBar.visibility = View.VISIBLE
-                            
-                            // ESSENCIAL: O item da busca não tem a URL de áudio. Temos que extrair agora.
-                            val onlineSong = withContext(Dispatchers.IO) {
-                                youtubeRepository.extractAudioLink(item.videoId)
-                            }
-                            
-                            binding.progressBar.visibility = View.GONE
-        
-                            if (onlineSong != null && !onlineSong.url.isNullOrEmpty()) {
-                                LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
-                            } else {
-                                Toast.makeText(this@OnlineSearchActivity, "Link de áudio expirado ou indisponível", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                    is YouTubePlaylist -> {
-                        Toast.makeText(this, "Abrindo playlist...", Toast.LENGTH_SHORT).show()
-                        viewModel.loadPlaylistVideos(item.playlistId)
-                    }
+                    is VideoMeta -> handleVideoClick(item)
+                    is YouTubePlaylist -> viewModel.loadPlaylistVideos(item.playlistId)
                 }
             },
             onDownloadClick = { item ->
-                when (item) {
-                    is VideoMeta -> startDownload(item)
-                    is YouTubePlaylist -> showSavePlaylistDialog(item.playlistId, item.title)
-                }
+                if (item is VideoMeta) startDownload(item)
             }
         )
-        binding.rvOnlineResults.layoutManager = LinearLayoutManager(this)
-        binding.rvOnlineResults.adapter = searchAdapter
+        binding.rvOnlineResults.apply {
+            layoutManager = LinearLayoutManager(this@OnlineSearchActivity)
+            adapter = searchAdapter
+        }
+    }
+
+    private fun handleVideoClick(video: VideoMeta) {
+        lifecycleScope.launch(Dispatchers.Main) {
+            binding.progressBar.visibility = View.VISIBLE
+            try {
+                val song = withContext(Dispatchers.IO) {
+                    youtubeRepository.extractAudioLink(video.videoId)
+                }
+                if (song != null) {
+                    LocalPlayerManager.playOnline(song, this@OnlineSearchActivity)
+                } else {
+                    Toast.makeText(this@OnlineSearchActivity, "Não foi possível obter o link de áudio", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@OnlineSearchActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.progressBar.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun observeViewModel() {
+        lifecycleScope.launchWhenStarted {
+            viewModel.searchState.collect { state ->
+                when (state) {
+                    is SearchState.Loading -> {
+                        binding.progressBar.visibility = View.VISIBLE
+                        binding.tvMessage.visibility = View.GONE
+                    }
+                    is SearchState.Success -> {
+                        binding.progressBar.visibility = View.GONE
+                        searchAdapter.submitList(state.results)
+                        
+                        // Lógica para download em massa se o resultado for de uma playlist
+                        val firstItem = state.results.firstOrNull()
+                        if (state.results.all { it is VideoMeta } && state.results.size > 5) {
+                            // Opcional: Mostrar um botão flutuante de "Baixar Tudo"
+                            showDownloadAllOption(state.results.filterIsInstance<VideoMeta>())
+                        }
+                    }
+                    is SearchState.Error -> {
+                        binding.progressBar.visibility = View.GONE
+                        binding.tvMessage.apply {
+                            visibility = View.VISIBLE
+                            text = state.message
+                        }
+                    }
+                    is SearchState.Idle -> {
+                        binding.progressBar.visibility = View.GONE
+                        binding.tvMessage.visibility = View.VISIBLE
+                        binding.tvMessage.text = "Pesquise vídeos ou playlists"
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showDownloadAllOption(videos: List<VideoMeta>) {
+        // Aqui você pode implementar um Snackbar ou botão para download em massa
+        // Por agora, vamos apenas logar ou mostrar um Toast
+        Toast.makeText(this, "${videos.size} vídeos carregados. Clique num vídeo para baixar ou ouvir.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun startDownload(video: VideoMeta) {
+        val workData = workDataOf(
+            "VIDEO_ID" to video.videoId,
+            "FILE_NAME" to "${video.title}.mp3"
+        )
+        val downloadRequest = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
+            .setInputData(workData)
+            .build()
+
+        WorkManager.getInstance(this).enqueue(downloadRequest)
+        Toast.makeText(this, "Download iniciado: ${video.title}", Toast.LENGTH_SHORT).show()
     }
 
     private fun setupSearchView() {
-        binding.searchViewOnline.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                query?.let { 
+                query?.let {
                     viewModel.performSearch(it)
                     hideKeyboard()
                 }
@@ -130,117 +157,27 @@ class OnlineSearchActivity : AppCompatActivity() {
         })
     }
 
-    private fun observeViewModel() {
-        lifecycleScope.launch {
-            viewModel.searchState.collect { state ->
-                when (state) {
-                    is SearchState.Loading -> {
-                        binding.progressBar.visibility = View.VISIBLE
-                        binding.emptyStateContainer.visibility = View.GONE
-                        binding.rvOnlineResults.visibility = View.GONE
-                    }
-                    is SearchState.Success -> {
-                        binding.progressBar.visibility = View.GONE
-                        searchAdapter.submitList(state.results)
-                        
-                        if (state.results.isEmpty()) {
-                            binding.emptyStateContainer.visibility = View.VISIBLE
-                            binding.rvOnlineResults.visibility = View.GONE
-                        } else {
-                            binding.emptyStateContainer.visibility = View.GONE
-                            binding.rvOnlineResults.visibility = View.VISIBLE
-                        }
-                    }
-                    is SearchState.Error -> {
-                        binding.progressBar.visibility = View.GONE
-                        binding.rvOnlineResults.visibility = View.GONE
-                        Toast.makeText(this@OnlineSearchActivity, state.message, Toast.LENGTH_SHORT).show()
-                    }
-                    else -> {}
-                }
-            }
+    private fun checkPermissions() {
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        if (permissions.isNotEmpty()) {
+            requestPermissionLauncher.launch(permissions.toTypedArray())
         }
     }
 
-    private fun playVideo(videoMeta: VideoMeta) {
-        lifecycleScope.launch(Dispatchers.Main) {
-            binding.progressBar.visibility = View.VISIBLE
-            
-            // Realiza a extração em Background (IO)
-            val onlineSong = withContext(Dispatchers.IO) {
-                youtubeRepository.extractAudioLink(videoMeta.videoId)
-            }
-            
-            binding.progressBar.visibility = View.GONE
-            
-            if (onlineSong != null) {
-                LocalPlayerManager.playOnline(onlineSong, this@OnlineSearchActivity)
-            } else {
-                Toast.makeText(this@OnlineSearchActivity, "Erro ao extrair áudio", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun startDownload(videoMeta: VideoMeta) {
-        val workData = workDataOf(
-            "VIDEO_ID" to videoMeta.videoId,
-            "FILE_NAME" to "${videoMeta.title}.mp3"
-        )
-        val downloadRequest = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
-            .setInputData(workData)
-            .build()
-        WorkManager.getInstance(this).enqueue(downloadRequest)
-        Toast.makeText(this, "Download iniciado: ${videoMeta.title}", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun showSavePlaylistDialog(playlistId: String, playlistTitle: String) {
-        val editText = EditText(this)
-        editText.setText(playlistTitle)
-        editText.setSelection(editText.text.length)
-
-        AlertDialog.Builder(this)
-            .setTitle("Baixar Playlist")
-            .setMessage("Escolha um nome para a pasta:")
-            .setView(editText)
-            .setPositiveButton("Baixar Tudo") { _, _ ->
-                val customFolderName = editText.text.toString()
-                if (customFolderName.isNotEmpty()) {
-                    downloadFullPlaylist(playlistId, customFolderName)
-                } else {
-                    Toast.makeText(this, "Nome inválido", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
-
-    private fun downloadFullPlaylist(playlistId: String, customName: String) {
-        lifecycleScope.launch {
-            binding.progressBar.visibility = View.VISIBLE
-            try {
-                val songs = youtubeRepository.getPlaylistVideos(playlistId)
-                if (songs.isNotEmpty()) {
-                    val workManager = WorkManager.getInstance(this@OnlineSearchActivity)
-                    songs.forEach { song ->
-                        val workData = workDataOf(
-                            "VIDEO_ID" to song.videoId,
-                            "FILE_NAME" to "${song.title}.mp3",
-                            "PLAYLIST_NAME" to customName
-                        )
-                        val downloadRequest = OneTimeWorkRequestBuilder<MusicDownloadWorker>()
-                            .setInputData(workData)
-                            .build()
-                        workManager.enqueue(downloadRequest)
-                    }
-                    Toast.makeText(this@OnlineSearchActivity, "Baixando ${songs.size} músicas em $customName", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(this@OnlineSearchActivity, "Playlist vazia", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this@OnlineSearchActivity, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
-            } finally {
-                binding.progressBar.visibility = View.GONE
-            }
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.values.all { it }) {
+            // Permissões concedidas
+        } else {
+            Toast.makeText(this, "Permissões necessárias para download e notificações", Toast.LENGTH_LONG).show()
         }
     }
 
