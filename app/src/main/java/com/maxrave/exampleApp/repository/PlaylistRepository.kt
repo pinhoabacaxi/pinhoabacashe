@@ -13,12 +13,17 @@ class PlaylistRepository(context: Context) {
     // --- PLAYLISTS ---
     // Adicione no PlaylistRepository.kt
     fun getAllPlaylistsFlow() = dao.getAllPlaylistsFlow()
-
-    fun getSongsFromPlaylist(playlistId: Long) = dao.getSongsFromPlaylist(playlistId)
+    
     suspend fun createPlaylist(name: String): Long {
         return dao.insertPlaylist(Playlist(name = name))
     }
+    // 1. Esta é a função reativa que a Activity vai usar
+    fun getSongsFromPlaylistFlow(playlistId: Long) = dao.getSongsFromPlaylist(playlistId)
 
+// 2. Renomeie a função antiga (ou remova se não usar) para evitar o erro "Conflicting overloads"
+    suspend fun getSongsFromPlaylistSync(playlistId: Long): List<PlaylistWithSongs> {
+    return dao.getSongsFromPlaylistSync(playlistId)
+    }
     suspend fun getAllPlaylists(): List<Playlist> {
         return dao.getAllPlaylists()
     }
@@ -79,10 +84,6 @@ class PlaylistRepository(context: Context) {
 
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: String) {
         dao.removeSongFromPlaylist(playlistId, songId)
-    }
-
-    suspend fun getSongsFromPlaylist(playlistId: Long): List<PlaylistWithSongs> {
-        return dao.getSongsFromPlaylist(playlistId)
     }
 
     // --- FAVORITOS ---
