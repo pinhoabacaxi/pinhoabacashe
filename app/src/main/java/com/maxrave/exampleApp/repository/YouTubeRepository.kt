@@ -155,13 +155,14 @@ class YouTubeRepository(private val context: Context) {
     }
 
     private fun sendPayload(conn: HttpURLConnection, payload: JSONObject) {
+        // Importante usar UTF_8 para evitar erro em termos com acento
         conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
     }
 
     private fun createInnerTubeContext() = JSONObject().apply {
         put("client", JSONObject().apply {
-            put("clientName", "ANDROID")
-            put("clientVersion", "19.05.36")
+                put("clientName", "WEB")
+            put("clientVersion", "2.20240210.01.00")
             put("hl", "pt-BR")
             put("gl", "BR")
         })
