@@ -20,9 +20,11 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     fun performSearch(query: String) {
         if (query.isBlank()) return
+        
         viewModelScope.launch {
-            searchState.value = SearchState.Loading
+            _searchState.value = SearchState.Loading
             try {
+                // Inicia as buscas em paralelo para otimizar o tempo
                 val videosDeferred = async { repository.searchVideos(query) }
                 val playlistsDeferred = async { repository.searchPlaylists(query) }
 
@@ -33,7 +35,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 combinedResults.addAll(playlists)
                 combinedResults.addAll(videos)
 
-                searchState.value = SearchState.Success(combinedResults)
+                _searchState.value = SearchState.Success(combinedResults)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Erro na busca: ${e.message}")
                 _searchState.value = SearchState.Error(e.localizedMessage ?: "Erro na conexão")
@@ -48,8 +50,13 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 val videos = repository.getPlaylistVideos(playlistId)
                 _searchState.value = SearchState.Success(videos)
             } catch (e: Exception) {
+                Log.e("SearchVM", "Erro ao carregar playlist: ${e.message}")
                 _searchState.value = SearchState.Error("Erro ao carregar vídeos da playlist.")
             }
         }
+    }
+
+    fun resetSearch() {
+        _searchState.value = SearchState.Idle
     }
 }
