@@ -33,6 +33,7 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
     private lateinit var btnRepeat: ImageButton
     private lateinit var btnDownload: ImageButton
     private lateinit var btnShuffle: ImageButton
+    private lateinit var btnBack: ImageButton
 
     private val handler = Handler(Looper.getMainLooper())
     
@@ -70,7 +71,7 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         btnRepeat = findViewById(R.id.btnRepeat)
         btnShuffle = findViewById(R.id.btnShuffle)
         btnDownload = findViewById(R.id.btnDownload)
-
+        btnBack = findViewById(R.id.btnBack)
         // Sincroniza o volume inicial
         seekBarVolume.progress = (LocalPlayerManager.getVolume() * 100).toInt()
     }
@@ -79,7 +80,7 @@ class FullPlayerActivity : AppCompatActivity(), LocalPlayerManager.PlayerListene
         btnPlayPause.setOnClickListener { LocalPlayerManager.togglePlayPause(this) }
         btnNext.setOnClickListener { LocalPlayerManager.next(this) }
         btnPrev.setOnClickListener { LocalPlayerManager.previous(this) }
-        
+        btnBack.setOnClickListener { finish() }
         btnRepeat.setOnClickListener {
             val mode = LocalPlayerManager.toggleRepeatMode()
             updateRepeatButtonUI(mode)
