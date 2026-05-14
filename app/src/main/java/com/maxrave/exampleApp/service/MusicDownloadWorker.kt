@@ -3,6 +3,7 @@ package com.maxrave.exampleApp.service
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.util.Log
@@ -10,13 +11,13 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.maxrave.exampleApp.repository.PlaylistRepository
 import com.maxrave.exampleApp.repository.YouTubeRepository
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
-import android.media.MediaScannerConnection
 
 class MusicDownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -28,7 +29,6 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         val fileName = inputData.getString("FILE_NAME") ?: "music_${System.currentTimeMillis()}.mp3"
         val playlistName = inputData.getString("PLAYLIST_NAME")
     
-        // 1. Inicializa o canal e o serviço em primeiro plano (Obrigatório para downloads longos)
         createNotificationChannel()
         try {
             setForeground(createForegroundInfo(fileName))
@@ -36,12 +36,12 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             Log.e("Worker", "Falha ao iniciar Foreground: ${e.message}")
         }
        
-        val repo = YouTubeRepository(applicationContext)
+        val youtubeRepo = YouTubeRepository(applicationContext)
+        val playlistRepo = PlaylistRepository(applicationContext)
         
-        // 2. Extração do link fresco (Garante que a URL não expire durante o download de playlists longas)
-        val song = repo.extractAudioLink(videoId) ?: return Result.failure()
+        // 1. Extração do link fresco
+        val song = youtubeRepo.extractAudioLink(videoId) ?: return Result.failure()
         
-        // 3. Configuração do cliente HTTP com timeout estendido para arquivos grandes
         val client = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -54,7 +54,7 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             if (!response.isSuccessful || response.body == null) return Result.failure()
             val body = response.body!!
     
-            // 4. LÓGICA DE DIRETÓRIO: Salva em subpasta se fizer parte de uma playlist
+            // 2. Lógica de Diretório
             val baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
             val targetDir = if (!playlistName.isNullOrEmpty()) {
                 File(baseDir, playlistName).apply { if (!exists()) mkdirs() }
@@ -64,7 +64,7 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             
             val file = File(targetDir, fileName)
             
-            // 5. DOWNLOAD COM PROGRESSO: Atualiza a notificação enquanto baixa
+            // 3. Download com progresso
             val totalBytes = body.contentLength()
             var bytesDownloaded = 0L
 
@@ -76,53 +76,59 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
                         output.write(buffer, 0, bytesRead)
                         bytesDownloaded += bytesRead
                         
-                        // Atualiza o progresso apenas em intervalos para não sobrecarregar o sistema
                         if (totalBytes > 0) {
                             val progress = ((bytesDownloaded * 100) / totalBytes).toInt()
-                            if (progress % 5 == 0) { // Atualiza a cada 5%
-                                updateNotification(fileName, progress)
-                            }
+                            if (progress % 5 == 0) updateNotification(fileName, progress)
                         }
                     }
                 }
             }
             
-            Log.d("DownloadWorker", "Sucesso: $fileName salvo em ${file.absolutePath}")
+            // 4. ESCANEAMENTO DE MÍDIA: Notifica o Android sobre o novo arquivo
+            MediaScannerConnection.scanFile(applicationContext, arrayOf(file.absolutePath), null) { path, _ ->
+                Log.d("Worker", "Mídia escaneada: $path")
+            }
+
+            // 5. REGISTRO NO BANCO DE DADOS (ROOM): O segredo para aparecer na aba Local
+            if (!playlistName.isNullOrEmpty()) {
+                val playlistId = playlistRepo.getPlaylistIdByName(playlistName)
+                if (playlistId != null) {
+                    // Adiciona a música ao banco vinculando-a à playlist e marcando o caminho físico
+                    playlistRepo.addSongToPlaylist(
+                        playlistId = playlistId,
+                        item = song, 
+                        localPath = file.absolutePath
+                    )
+                    Log.d("Worker", "Música vinculada à playlist $playlistName no Room")
+                }
+            }
+
             Result.success()
         } catch (e: Exception) {
-            Log.e("DownloadWorker", "Erro no download: ${e.message}")
+            Log.e("DownloadWorker", "Erro: ${e.message}")
             Result.failure()
         }
-        MediaScannerConnection.scanFile(
-        applicationContext,
-        arrayOf(file.absolutePath),
-        null
-    ) { path, uri ->
-        Log.d("Worker", "Arquivo escaneado e adicionado ao sistema: $path")
-    }    
     }
 
     private fun createForegroundInfo(fileName: String): ForegroundInfo {
         val notification = NotificationCompat.Builder(applicationContext, channelId)
-                .setContentTitle("Baixando Música")
-                .setContentText(fileName)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .build()
+            .setContentTitle("Baixando Música")
+            .setContentText(fileName)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
         
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ForegroundInfo(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-            } else {
-                ForegroundInfo(NOTIFICATION_ID, notification)
-            }
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            ForegroundInfo(NOTIFICATION_ID, notification)
         }
+    }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Downloads", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Progresso de download de músicas"
-            }
+            val channel = NotificationChannel(channelId, "Downloads", NotificationManager.IMPORTANCE_LOW)
             notificationManager.createNotificationChannel(channel)
         }
     }
@@ -134,9 +140,8 @@ class MusicDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setProgress(100, progress, false)
             .setOngoing(true)
-            .setSilent(true) // Evita que o celular vibre a cada atualização de 1%
+            .setSilent(true)
             .build()
-        
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 }
